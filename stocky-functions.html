@@ -1,0 +1,1598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Stocky — Full Function Reference</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 12.5px;
+    line-height: 1.65;
+    color: #1a1a2e;
+    background: #fff;
+    max-width: 940px;
+    margin: 0 auto;
+    padding: 36px 48px;
+  }
+
+  /* Cover */
+  .cover {
+    text-align: center;
+    padding: 52px 0 44px;
+    border-bottom: 3px solid #00d48f;
+    margin-bottom: 44px;
+  }
+  .cover .logo { font-size: 38px; font-weight: 800; color: #00d48f; letter-spacing: -1px; }
+  .cover h1 { font-size: 20px; font-weight: 600; color: #444; margin-top: 6px; }
+  .cover .sub { font-size: 13px; color: #888; margin-top: 6px; }
+
+  /* Module headers */
+  .module-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 48px 0 4px;
+    padding-bottom: 10px;
+    border-bottom: 2.5px solid #1a1a2e;
+  }
+  .module-header .icon { font-size: 22px; }
+  .module-header h2 { font-size: 20px; font-weight: 800; }
+  .module-header .desc { font-size: 12px; color: #666; margin-left: auto; font-style: italic; }
+
+  /* Function cards */
+  .fn {
+    border: 1.5px solid #e0e0e0;
+    border-radius: 12px;
+    margin: 18px 0;
+    overflow: hidden;
+  }
+  .fn-header {
+    background: #f8f8f8;
+    padding: 11px 18px;
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    border-bottom: 1px solid #e0e0e0;
+  }
+  .fn-header .fn-name {
+    font-weight: 700;
+    font-size: 14px;
+    color: #1a1a2e;
+  }
+  .fn-header .fn-route {
+    font-family: monospace;
+    font-size: 11px;
+    color: #6366f1;
+    background: #eef2ff;
+    padding: 2px 8px;
+    border-radius: 4px;
+  }
+  .fn-header .fn-badge {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-left: auto;
+  }
+  .badge-get    { background: #dcfce7; color: #166534; }
+  .badge-post   { background: #dbeafe; color: #1e40af; }
+  .badge-put    { background: #fef9c3; color: #854d0e; }
+  .badge-patch  { background: #ffe4e6; color: #9f1239; }
+  .badge-delete { background: #fee2e2; color: #991b1b; }
+  .badge-ui     { background: #f3e8ff; color: #6b21a8; }
+
+  .fn-body { padding: 14px 18px; }
+
+  /* Rows inside function card */
+  .row { display: flex; gap: 16px; margin-bottom: 12px; }
+  .col { flex: 1; }
+  .col-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #999;
+    margin-bottom: 5px;
+  }
+  .col p { font-size: 12px; margin: 0 0 3px; }
+  ul.compact { padding-left: 16px; }
+  ul.compact li { font-size: 12px; margin-bottom: 2px; }
+
+  /* Tags */
+  .tag {
+    display: inline-block;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin: 2px 3px 2px 0;
+    font-weight: 600;
+  }
+  .tag-required { background: #fee2e2; color: #991b1b; }
+  .tag-optional { background: #f1f5f9; color: #475569; }
+  .tag-auto     { background: #dcfce7; color: #166534; }
+  .tag-affect   { background: #fef9c3; color: #854d0e; }
+
+  /* Friction */
+  .friction {
+    background: #fffbeb;
+    border-left: 3px solid #f59e0b;
+    padding: 8px 12px;
+    border-radius: 0 6px 6px 0;
+    font-size: 12px;
+    color: #78350f;
+    margin-top: 10px;
+  }
+  .friction::before { content: "⚠ Friction: "; font-weight: 700; }
+
+  .note {
+    background: #f0fdf9;
+    border-left: 3px solid #00d48f;
+    padding: 8px 12px;
+    border-radius: 0 6px 6px 0;
+    font-size: 12px;
+    color: #064e3b;
+    margin-top: 10px;
+  }
+
+  /* Step list */
+  ol.steps { padding-left: 20px; }
+  ol.steps li { font-size: 12px; margin-bottom: 4px; }
+  ol.steps li strong { color: #1a1a2e; }
+
+  /* DB impact */
+  .db {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-family: monospace;
+    background: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    padding: 2px 8px;
+    margin: 2px 3px 2px 0;
+  }
+  .db.write { background: #fef9c3; border-color: #fcd34d; }
+  .db.read  { background: #f0fdf9; border-color: #6ee7b7; }
+  .db.del   { background: #fee2e2; border-color: #fca5a5; }
+
+  /* Section note */
+  .section-intro {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 14px 18px;
+    font-size: 12px;
+    color: #475569;
+    margin-bottom: 6px;
+  }
+
+  /* TOC */
+  .toc {
+    border: 1.5px solid #e0e0e0;
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 44px;
+    columns: 2;
+    column-gap: 32px;
+  }
+  .toc h3 { font-size: 13px; color: #999; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 10px; column-span: all; }
+  .toc-section { margin-bottom: 12px; break-inside: avoid; }
+  .toc-section .toc-module { font-weight: 700; font-size: 13px; margin-bottom: 3px; }
+  .toc-section ul { list-style: none; padding-left: 10px; }
+  .toc-section ul li { font-size: 11.5px; color: #555; margin-bottom: 1px; }
+  .toc-section ul li::before { content: "→ "; color: #00d48f; }
+
+  @media print {
+    body { padding: 18px 28px; }
+    .fn { page-break-inside: avoid; }
+    .module-header { page-break-before: always; }
+    .module-header:first-of-type { page-break-before: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <div class="logo">Stocky</div>
+  <h1>Full Function Reference Document</h1>
+  <div class="sub">Every function — inputs, process steps, outputs, data impact, and friction points<br/>For workflow analysis and optimization</div>
+</div>
+
+<!-- ─────────────────────────── TOC ─────────────────────────── -->
+<div class="toc">
+  <h3>Contents</h3>
+
+  <div class="toc-section">
+    <div class="toc-module">📦 Products</div>
+    <ul>
+      <li>Create Product</li>
+      <li>Add Variant</li>
+      <li>Edit Variant</li>
+      <li>Delete Variant / Product</li>
+      <li>Create Pack</li>
+      <li>Add Pack Preset</li>
+    </ul>
+  </div>
+
+  <div class="toc-section">
+    <div class="toc-module">🛒 Orders</div>
+    <ul>
+      <li>Upload Pickup PDF</li>
+      <li>Assign Products to Orders</li>
+      <li>Save Orders (bulk create)</li>
+      <li>Create Manual Order</li>
+      <li>Edit Order</li>
+      <li>Change Order Status</li>
+      <li>Bulk Status Update</li>
+      <li>Add / Edit Notes</li>
+      <li>Export Orders CSV</li>
+      <li>Delete Order</li>
+      <li>Search / Filter Orders</li>
+    </ul>
+  </div>
+
+  <div class="toc-section">
+    <div class="toc-module">📬 Returns</div>
+    <ul>
+      <li>Upload Return PDF</li>
+      <li>Process Returns (PDF-matched)</li>
+      <li>Manual Return</li>
+    </ul>
+  </div>
+
+  <div class="toc-section">
+    <div class="toc-module">📊 Stock</div>
+    <ul>
+      <li>Add Stock Arrival</li>
+      <li>Log Broken Stock</li>
+    </ul>
+  </div>
+
+  <div class="toc-section">
+    <div class="toc-module">💸 Expenses</div>
+    <ul>
+      <li>Create / Edit Fixed Expense</li>
+      <li>Toggle Expense Active</li>
+      <li>Delete Fixed Expense</li>
+      <li>Add Ad Platform</li>
+      <li>Add / Edit Ad Campaign</li>
+      <li>Add Withdrawal</li>
+      <li>Export Expenses CSV</li>
+    </ul>
+  </div>
+
+  <div class="toc-section">
+    <div class="toc-module">👥 Team</div>
+    <ul>
+      <li>Create Team Member</li>
+      <li>Create Confirmer Account</li>
+      <li>View Member Stats</li>
+      <li>Suspend / Reactivate Account</li>
+    </ul>
+  </div>
+
+  <div class="toc-section">
+    <div class="toc-module">📈 Reports</div>
+    <ul>
+      <li>Load Report Summary</li>
+      <li>Top Products</li>
+      <li>Top Cities</li>
+      <li>Period Comparison</li>
+      <li>Print Report</li>
+    </ul>
+  </div>
+
+  <div class="toc-section">
+    <div class="toc-module">⚙️ Settings</div>
+    <ul>
+      <li>Update Store Name</li>
+      <li>Set Delivery Fee Fallback</li>
+      <li>City CRUD</li>
+      <li>Import City Fees via PDF</li>
+      <li>Change Password</li>
+      <li>USD Exchange Rate</li>
+    </ul>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     PRODUCTS
+══════════════════════════════════════════════════════════ -->
+<div class="module-header">
+  <span class="icon">📦</span>
+  <h2>Products</h2>
+  <span class="desc">Catalog management — products, variants, and packs</span>
+</div>
+
+<div class="section-intro">
+  Products are the top-level items sold. Each product has one or more <strong>Variants</strong> which represent
+  specific size/color combinations. Stock is tracked at the variant level. Packs are bundles of multiple variants
+  sold as a single unit at a fixed price.
+</div>
+
+<!-- Create Product -->
+<div class="fn">
+  <div class="fn-header">
+    <span class="fn-name">Create Product</span>
+    <span class="fn-route">POST /api/products</span>
+    <span class="fn-badge badge-post">POST</span>
+  </div>
+  <div class="fn-body">
+    <div class="row">
+      <div class="col">
+        <div class="col-label">Inputs</div>
+        <ul class="compact">
+          <li><span class="tag tag-required">required</span> <strong>name</strong> — product name (string)</li>
+          <li><span class="tag tag-optional">optional</span> <strong>category</strong> — default "caps"</li>
+          <li><span class="tag tag-optional">optional</span> <strong>has_sizes</strong> — bool (default true)</li>
+          <li><span class="tag tag-optional">optional</span> <strong>has_colors</strong> — bool (default true)</li>
+          <li><span class="tag tag-optional">optional</span> <strong>under_1kg</strong> — bool (default false). If true, "Sell Bag" is auto-checked on any order containing this product</li>
+        </ul>
+      </div>
+      <div class="col">
+        <div class="col-label">Process</div>
+        <ol class="steps">
+          <li>Validates name is not empty</li>
+          <li>Creates <code>Product</code> record linked to current user's store</li>
+          <li>Returns the new product (no variants yet)</li>
+        </ol>
+        <div class="col-label" style="margin-top:10px">DB Impact</div>
+        <span class="db write">INSERT products</span>
+      </div>
+    </div>
+    <div class="friction">After creating a product, user must immediately add at least one variant before the product can be used in any order. There is no "draft" state — an empty product with no variants is a dead end in the UI.</div>
+  </div>
+</div>
+
+<!-- Add Variant -->
+<div class="fn">
+  <div class="fn-header">
+    <span class="fn-name">Add Variant</span>
+    <span class="fn-route">POST /api/products/{id}/variants</span>
+    <span class="fn-badge badge-post">POST</span>
+  </div>
+  <div class="fn-body">
+    <div class="row">
+      <div class="col">
+        <div class="col-label">Inputs</div>
+        <ul class="compact">
+          <li><span class="tag tag-optional">optional</span> <strong>size</strong> — e.g. "M", "L", "XL"</li>
+          <li><span class="tag tag-optional">optional</span> <strong>color</strong> — e.g. "Black", "Red"</li>
+          <li><span class="tag tag-required">required</span> <strong>buying_price</strong> — cost per unit (MAD)</li>
+          <li><span class="tag tag-optional">optional</span> <strong>selling_price</strong> — default selling price (used for reference; actual price comes from the order's total_amount)</li>
+          <li><span class="tag tag-optional">optional</span> <strong>stock</strong> — initial stock qty (default 0)</li>
+          <li><span class="tag tag-optional">optional</span> <strong>low_stock_threshold</strong> — alert threshold (default 5). Alert shows on Dashboard when stock ≤ this value.</li>
+        </ul>
+      </div>
+      <div class="col">
+        <div class="col-label">Process</div>
+        <ol class="steps">
+          <li>Validates product exists and belongs to current store</li>
+          <li>Creates <code>Variant</code> record linked to product</li>
+          <li>Returns updated product with all variants</li>
+        </ol>
+        <div class="col-label" style="margin-top:10px">DB Impact</div>
+        <span class="db write">INSERT variants</span>
+      </div>
+    </div>
+    <div class="friction">Setting initial stock here is confusing — ideally stock always comes from a StockArrival record (for auditability). Direct stock entry on variant creation bypasses the stock history log.</div>
+  </div>
+</div>
+
+<!-- Edit Variant -->
+<div class="fn">
+  <div class="fn-header">
+    <span class="fn-name">Edit Variant</span>
+    <span class="fn-route">PUT /api/products/variants/{id}</span>
+    <span class="fn-badge badge-put">PUT</span>
+  </div>
+  <div class="fn-body">
+    <div class="row">
+      <div class="col">
+        <div class="col-label">Inputs</div>
+        <ul class="compact">
+          <li>Same fields as Add Variant</li>
+          <li><span class="tag tag-affect">⚠ affects stock</span> If stock value is changed here, it's a direct override with no audit trail</li>
+        </ul>
+      </div>
+      <div class="col">
+        <div class="col-label">Process</div>
+        <ol class="steps">
+          <li>Finds variant by ID</li>
+          <li>Updates all provided fields in-place</li>
+          <li>Returns updated product</li>
+        </ol>
+        <div class="col-label" style="margin-top:10px">DB Impact</div>
+        <span class="db write">UPDATE variants</span>
+      </div>
+    </div>
+    <div class="friction">Changing buying_price on a variant does NOT retroactively update past order items. OrderItem records store a snapshot of unit_cost at creation time — so historical profit calculations remain correct, but the user gets no warning that old orders used a different cost.</div>
+  </div>
+</div>
+
+<!-- Delete -->
+<div class="fn">
+  <div class="fn-header">
+    <span class="fn-name">Delete Variant / Delete Product</span>
+    <span class="fn-route">DELETE /api/products/variants/{id} &nbsp;|&nbsp; DELETE /api/products/{id}</span>
+    <span class="fn-badge badge-delete">DELETE</span>
+  </div>
+  <div class="fn-body">
+    <div class="row">
+      <div class="col">
+        <div class="col-label">What happens</div>
+        <ol class="steps">
+          <li>Deleting a <strong>variant</strong>: removes the variant. If linked to pending orders, those OrderItems lose their variant reference (variant_id becomes null). Past order data (product_name, unit_cost) is preserved as a snapshot.</li>
+          <li>Deleting a <strong>product</strong>: cascades to delete all variants and their relationships.</li>
+        </ol>
+      </div>
+      <div class="col">
+        <div class="col-label">DB Impact</div>
+        <span class="db del">DELETE variants</span>
+        <span class="db del">DELETE products</span>
+        <div class="col-label" style="margin-top:10px">No soft-delete / archive</div>
+        <p style="font-size:12px; color:#555">Products are permanently deleted. There is no way to deactivate a product without deleting it.</p>
+      </div>
+    </div>
+    <div class="friction">No confirmation of how many orders reference the variant before deleting. No archive/hide option — if a product is discontinued, the only option is to delete it, which removes it from the product list in historical order views.</div>
+  </div>
+</div>
+
+<!-- Create Pack -->
+<div class="fn">
+  <div class="fn-header">
+    <span class="fn-name">Create Pack</span>
+    <span class="fn-route">POST /api/packs</span>
+    <span class="fn-badge badge-post">POST</span>
+  </div>
+  <div class="fn-body">
+    <div class="row">
+      <div class="col">
+        <div class="col-label">Inputs</div>
+        <ul class="compact">
+          <li><span class="tag tag-required">required</span> <strong>name</strong> — pack name</li>
+          <li><span class="tag tag-required">required</span> <strong>selling_price</strong> — total selling price of the pack</li>
+          <li><span class="tag tag-required">required</span> <strong>item_count</strong> — how many items are in the pack (drives how many product selectors appear)</li>
+        </ul>
+      </div>
+      <div class="col">
+        <div class="col-label">What it is</div>
+        <p style="font-size:12px">A pack is a bundle sold at a single price. When assigned to an order, the user selects specific variants to fill each slot in the pack. The pack's component variants are each logged as separate OrderItems, so stock is deducted per-variant. Presets are named preset compositions (e.g. "S/M/L assortment") that auto-fill the slots.</p>
+      </div>
+    </div>
+    <div class="note">Packs do NOT have their own stock. Stock is consumed from the component variants when orders are saved.</div>
+  </div>
+</div>
+
+<!-- Add Preset -->
+<div class="fn">
+  <div class="fn-header">
+    <span class="fn-name">Add Pack Preset</span>
+    <span class="fn-route">POST /api/packs/{id}/presets</span>
+    <span class="fn-badge badge-post">POST</span>
+  </div>
+  <div class="fn-body">
+    <div class="row">
+      <div class="col">
+        <div class="col-label">Inputs</div>
+        <ul class="compact">
+          <li><span class="tag tag-required">required</span> <strong>name</strong> — preset name (e.g. "S+M+L mix")</li>
+          <li><span class="tag tag-required">required</span> <strong>items</strong> — array of {variant_id, quantity}</li>
+        </ul>
+      </div>
+      <div class="col">
+        <div class="col-label">Purpose</div>
+        <p style="font-size:12px">Presets save frequently-used pack compositions so the user can one-click fill all variant slots instead of selecting each one manually. When selected, auto-fills the pack's product slots in the order assignment screen.</p>
+      </div>
+    </div>
+    <div class="friction">Presets are pack-level only. If a user always ships the same single-product variant in most orders, there is no "default variant" shortcut for regular (non-pack) products.</div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     ORDERS
+══════════════════════════════════════════════════════════ -->
+<div class="module-header">
+  <span class="icon">🛒</span>
+  <h2>Orders</h2>
+  <span class="desc">The core daily workflow — creating, managing, and exporting orders</span>
+</div>
+
+<div class="section-intro">
+  Orders are created one of two ways: (1) uploading a Pickup PDF from the carrier (most common), or (2) manually
+  entering an order. Every order has a CMD-ID (carrier tracking number), customer info, one or more product items,
+  per-order expenses, and a status (pending / delivered / cancelled).
+</div>
+
+<!-- Upload Pickup PDF -->
+<div class="fn">
+  <div class="fn-header">
+    <span class="fn-name">Upload Pickup PDF</span>
+    <span class="fn-route">POST /api/orders/upload-pickup</span>
+    <span class="fn-badge badge-post">POST</span>
+  </div>
+  <div class="fn-body">
+    <div class="row">
+      <div class="col">
+        <div class="col-label">Input</div>
+        <ul class="compact">
+          <li><span class="tag tag-required">required</span> A PDF file from the carrier (Caleo, Amana, etc.)</li>
+          <li>The PDF contains: CMD-ID, customer name, phone, address, city, total amount (COD)</li>
+          <li>The PDF does NOT contain which product was ordered</li>
+        </ul>
+        <div class="col-label" style="margin-top:10px">What gets parsed</div>
+        <ul class="compact">
+          <li>pdfplumber extracts tables or raw text from each page</li>
+          <li>Regex patterns match CMD-IDs (e.g. "CMD-123456")</li>
+          <li>Customer name, phone, city, address, amount extracted per order row</li>
+        </ul>
+      </div>
+      <div class="col">
+        <div class="col-label">Process steps</div>
+        <ol class="steps">
+          <li>PDF saved to <code>/uploads/</code> directory</li>
+          <li><code>parse_pickup_pdf()</code> runs synchronously (blocking)</li>
+          <li>Returns array of extracted order data (not yet saved to DB)</li>
+          <li>Frontend shows the <strong>"Assign Products" modal</strong></li>
+        </ol>
+        <div class="col-label" style="margin-top:10px">Output</div>
+        <p style="font-size:12px">A preview list of orders extracted from the PDF. Nothing is saved to the database yet — this is just a parse result displayed to the user for review.</p>
+      </div>
+    </div>
+    <div class="friction">
+      <strong>This step is synchronous and can time out on large PDFs.</strong> The parser is also format-sensitive — if the carrier changes their PDF layout, rows may be skipped or misread with no warning. There is no validation step showing the user exactly what was/wasn't parsed before they proceed.
+    </div>
+  </div>
+</div>
+
+<!-- Assign Products to Orders -->
+<div class="fn">
+  <div class="fn-header">
+    <span class="fn-name">Assign Products to Orders</span>
+    <span class="fn-badge badge-ui">UI ONLY</span>
+  </div>
+  <div class="fn-body">
+    <div class="row">
+      <div class="col">
+        <div class="col-label">What happens</div>
+        <p style="font-size:12px">After the Pickup PDF is parsed, the user sees a modal with one card per order. For each order, they must:</p>
+        <ol class="steps">
+          <li>Choose "Product" or "Pack" mode for each line item</li>
+          <li>Select a variant from a dropdown (shows current stock)</li>
+          <li>Set quantity</li>
+          <li>Optionally add more items to the same order (+ Add Item)</li>
+          <li>Set per-order expenses: Sticker (1 MAD), Sell Bag (1 MAD, auto-checked if product is under 1kg), Packaging (MAD, editable)</li>
+        </ol>
+      </div>
+      <div class="col">
+        <div class="col-label">Friction points</div>
+        <ul class="compact">
+          <li>If a PDF has 40 orders and all contain the same product, the user must select that product from the dropdown 40 times</li>
+          <li>No "apply to all" or "same as above" shortcut</li>
+          <li>No stock quantity validation warning until Save is clicked</li>
+          <li>The dropdown shows ALL variants across all products — can be very long with no search/filter</li>
+          <li>Sell Bag auto-checks only works correctly if the product is flagged — often missed at product creation</li>
+          <li>There is no way to skip an order or flag it for later</li>
+        </ul>
+      </div>
+    </div>
+    <div class="friction">
+      This is the <strong>highest-friction step in the entire app</strong>. For a batch of 50 orders,
+      assigning products one by one in a modal with large dropdowns is the main daily bottleneck.
+      The entire modal must stay open until all orders are assigned — there is no partial save.
+    </div>
+  </div>
+</div>
+
+<!-- Save Orders (Bulk Create) -->
+<div class="fn">
+  <div class="fn-header">
+    <span class="fn-name">Save Orders (Bulk Create)</span>
+    <span class="fn-route">POST /api/orders/bulk-create</span>
+    <span class="fn-badge badge-post">POST</span>
+  </div>
+  <div class="fn-body">
+    <div class="row">
+      <div class="col">
+        <div class="col-label">Input</div>
+        <ul class="compact">
+          <li>Array of order objects, each containing: caleo_id, customer info, total_amount, items[], expenses{}</li>
+          <li>Orders with no items assigned are automatically skipped</li>
+        </ul>
+      </div>
+      <div class="col">
+        <div class="col-label">Process (per order)</div>
+        <ol class="steps">
+          <li>Checks if CMD-ID already exists for this store (prevents duplicate imports)</li>
+          <li>Looks up city in City table → gets delivery_fee and return_fee</li>
+          <li>If city not found, uses fallback fees from AppSettings</li>
+          <li>Creates <code>Order</code> record (status = pending)</li>
+          <li>For each item: validates variant exists, checks stock is sufficient, deducts stock, creates <code>OrderItem</code></li>
+          <li>Creates <code>OrderExpense</code> record with sticker, seal_bag, packaging, delivery_fee, return_fee</li>
+        </ol>
+      </div>
+    </div>
+    <div class="row">
+      <div class="col">
+        <div class="col-label">DB Impact</div>
+        <span class="db write">INSERT orders</span>
+        <span class="db write">INSERT order_items</span>
+        <span class="db write">INSERT order_expenses</span>
+        <span class="db write">UPDATE variants.stock (−qty)</span>
+        <span class="db read">SELECT cities</span>
+      </div>
+      <div class="col">
+        <div class="col-label">On failure</div>
+        <p style="font-size:12px">If any variant has insufficient stock, the entire batch rolls back. The user sees an error naming the specific variant and available stock. They must fix the assignment and retry the entire batch.</p>
+      </div>
+    </div>
+    <div class="friction">City name matching is case-insensitive but exact otherwise. "Casablanca" ≠ "Casa" ≠ "CASA" — if the carrier writes the city differently in their PDF, the order gets the fallback fee instead of the correct one, silently affecting profit calculations.</div>
+  </div>
+</div>
+
+<!-- Create Manual Order -->
+<div class="fn">
+  <div class="fn-header">
+    <span class="fn-name">Create Manual Order</span>
+    <span class="fn-route">POST /api/orders/bulk-create (single item)</span>
+    <span class="fn-badge badge-post">POST</span>
+  </div>
+  <div class="fn-body">
+    <div class="row">
+      <div class="col">
+        <div class="col-label">Inputs</div>
+        <ul class="compact">
+          <li><span class="tag tag-required">required</span> CMD ID, Customer Name, Total Amount</li>
+          <li><span class="tag tag-optional">optional</span> Phone, City, Address</li>
+          <li><span class="tag tag-required">required</span> At least one product (variant + qty)</li>
+          <li>Expenses: sticker, seal_bag, packaging</li>
+        </ul>
+      </div>
+      <div class="col">
+        <div class="col-label">Use case</div>
+        <p style="font-size:12px">Used when an order was created outside the normal carrier flow (e.g. Instagram DM, phone sale, or a carrier order that didn't appear in the PDF). Follows the same backend logic as bulk-create but with a single order.</p>
+      </div>
+    </div>
+    <div class="friction">The user must manually type the CMD-ID, which must be unique. If they enter a CMD-ID that already exists in the system, the order is silently skipped (not saved, no error shown — it's treated as "already imported"). This can confuse users who don't realise the silent skip.</div>
+  </div>
+</div>
+
+<!-- Edit Order -->
+<div class="fn">
+  <div class="fn-header">
+    <span class="fn-name">Edit Order</span>
+    <span class="fn-route">PUT /api/orders/{id}</span>
+    <span class="fn-badge badge-put">PUT</span>
+  </div>
+  <div class="fn-body">
+    <div class="row">
+      <div class="col">
+        <div class="col-label">Editable fields</div>
+        <ul class="compact">
+          <li>CMD ID, Customer Name, Phone, City, Address, Total Amount</li>
+          <li>Items (full replacement — old items deleted, new ones added)</li>
+          <li>Expenses (sticker, seal_bag, packaging)</li>
+        </ul>
+      </div>
+      <div class="col">
+        <div class="col-label">Stock rules</div>
+        <ul class="compact">
+          <li><strong>Pending orders:</strong> old items' stock is restored, new items' stock is deducted</li>
+          <li><strong>Delivered orders:</strong> items updated in DB, stock NOT touched (already consumed)</li>
+          <li><strong>Cancelled orders:</strong> items updated in DB, stock NOT touched (already restored)</li>
+        </ul>
+      </div>
+    </div>
+    <div class="row">
+      <div class="col">
+        <div class="col-label">City change</div>
+        <p style="font-size:12px">If city is changed, delivery_fee and return_fee on the OrderExpense record are automatically recalculated from the City table.</p>
+      </div>
+      <div class="col">
+        <div class="col-label">DB Impact</div>
+        <span class="db write">UPDATE orders</span>
+        <span class="db del">DELETE order_items (old)</span>
+        <span class="db write">INSERT order_items (new)</span>
+        <span class="db write">UPDATE variants.stock</span>
+        <span class="db write">UPDATE order_expenses</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Change Status -->
+<div class="fn">
+  <div class="fn-header">
+    <span class="fn-name">Change Order Status (individual)</span>
+    <span class="fn-route">PUT /api/orders/{id}/status?status=...</span>
+    <span class="fn-badge badge-put">PUT</span>
+  </div>
+  <div class="fn-body">
+    <div class="row">
+      <div class="col">
+        <div class="col-label">States</div>
+        <ul class="compact">
+          <li><strong>pending</strong> → waiting for delivery outcome</li>
+          <li><strong>delivered</strong> → revenue counted, stock gone</li>
+          <li><strong>cancelled</strong> → return fee counted, no revenue</li>
+        </ul>
+      </div>
+      <div class="col">
+        <div class="col-label">Important</div>
+        <p style="font-size:12px">Status change via this dropdown does <strong>NOT</strong> restore stock when setting to cancelled, and does <strong>NOT</strong> trigger the broken stock or seal_bag return logic. Only the Return flow (PDF or manual) does that. This dropdown is a simple metadata update.</p>
+      </div>
+    </div>
+    <div class="friction">The distinction between "changing status to cancelled via dropdown" vs "processing a return via the return flow" is unclear to users. The dropdown change is a simple label change; the return flow actually affects stock and profit. Users who cancel orders via the dropdown bypass the full return accounting.</div>
+  </div>
+</div>
+
+<!-- Bulk Status Update -->
+<div class="fn">
+  <div class="fn-header">
+    <span class="fn-name">Bulk Status Update</span>
+    <span class="fn-route">POST /api/orders/bulk-status</span>
+    <span class="fn-badge badge-post">POST</span>
+  </div>
+  <div class="fn-body">
+    <div class="row">
+      <div class="col">
+        <div class="col-label">Inputs</div>
+        <ul class="compact">
+          <li><span class="tag tag-required">required</span> <strong>order_ids</strong> — array of order IDs (from checkboxes)</li>
+          <li><span class="tag tag-required">required</span> <strong>status</strong> — "pending", "delivered", or "cancelled"</li>
+        </ul>
+      </div>
+      <div class="col">
+        <div class="col-label">Process</div>
+        <ol class="steps">
+          <li>Validates status value</li>
+          <li>Updates all matched orders' status in one DB call</li>
+          <li>Returns count of updated orders</li>
+        </ol>
+        <p style="font-size:12px; margin-top:6px; color:#555">Same caveat as individual status change: this is a label update only, no stock or return-fee logic runs.</p>
+      </div>
+    </div>
+    <div class="friction">Bulk marking as "delivered" is useful for confirming many orders at once (e.g. when the carrier sends a delivery confirmation report). However, there is no bulk return processing — bulk-cancelled orders bypass the return accounting (stock restoration, broken stock logging).</div>
+  </div>
+</div>
+
+<!-- Notes -->
+<div class="fn">
+  <div class="fn-header">
+    <span class="fn-name">Add / Edit Order Notes</span>
+    <span class="fn-route">PATCH /api/orders/{id}/notes</span>
+    <span class="fn-badge badge-patch">PATCH</span>
+  </div>
+  <div class="fn-body">
+    <div class="row">
+      <div class="col">
+        <div class="col-label">Input</div>
+        <ul class="compact">
+          <li>Free-text string stored in <code>orders.notes</code> column</li>
+          <li>Replaces previous notes entirely (no append history)</li>
+        </ul>
+      </div>
+      <div class="col">
+        <div class="col-label">Use cases</div>
+        <ul class="compact">
+          <li>Follow-up reminders ("customer said to call again Monday")</li>
+          <li>Special delivery instructions</li>
+          <li>Internal flags ("duplicate CMD, check with carrier")</li>
+        </ul>
+      </div>
+    </div>
+    <div class="friction">Notes are visible only when the ✏ button is clicked — they are not shown inline in the table. A user cannot see at a glance that a note exists without clicking each order. The amber 📝 icon helps, but notes are not searchable.</div>
+  </div>
+</div>
+
+<!-- Export CSV -->
+<div class="fn">
+  <div class="fn-header">
+    <span class="fn-name">Export Orders to CSV</span>
+    <span class="fn-badge badge-ui">UI ONLY (client-side)</span>
+  </div>
+  <div class="fn-body">
+    <div class="row">
+      <div class="col">
+        <div class="col-label">What it exports</div>
+        <p style="font-size:12px">Exports the currently visible (filtered) orders. Columns: CMD-ID, Customer, Phone, City, Address, Amount, Status, Items, Confirmed By, Date, Notes.</p>
+        <p style="font-size:12px; margin-top:6px">The CSV is generated entirely in the browser from the already-loaded <code>orders</code> state — no extra API call. Uses BOM (UTF-8 with \ufeff) for correct display in Excel.</p>
+      </div>
+      <div class="col">
+        <div class="col-label">Respects filters</div>
+        <ul class="compact">
+          <li>Status filter (all / pending / delivered / cancelled)</li>
+          <li>Search text (name, CMD, city, phone)</li>
+          <li>Combined filters</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Order -->
+<div class="fn">
+  <div class="fn-header">
+    <span class="fn-name">Delete Order</span>
+    <span class="fn-route">DELETE /api/orders/{id}</span>
+    <span class="fn-badge badge-delete">DELETE</span>
+  </div>
+  <div class="fn-body">
+    <div class="row">
+      <div class="col">
+        <div class="col-label">Process</div>
+        <ol class="steps">
+          <li>If order is <strong>pending</strong>: restores all item quantities back to variant stock</li>
+          <li>If delivered or cancelled: no stock change</li>
+          <li>Cascades to delete OrderItems and OrderExpenses</li>
+        </ol>
+      </div>
+      <div class="col">
+        <div class="col-label">DB Impact</div>
+        <span class="db del">DELETE orders</span>
+        <span class="db del">DELETE order_items</span>
+        <span class="db del">DELETE order_expenses</span>
+        <span class="db write">UPDATE variants.stock (+qty, if pending)</span>
+      </div>
+    </div>
+    <div class="friction">No soft-delete. Deleted orders disappear from all reports. If an order was delivered and then deleted, that revenue is gone from history with no audit trail.</div>
+  </div>
+</div>
+
+<!-- Search/Filter -->
+<div class="fn">
+  <div class="fn-header">
+    <span class="fn-name">Search &amp; Filter Orders</span>
+    <span class="fn-badge badge-ui">UI ONLY (client-side)</span>
+  </div>
+  <div class="fn-body">
+    <div class="row">
+      <div class="col">
+        <div class="col-label">Filter by status</div>
+        <p style="font-size:12px">Tab buttons: All / Pending / Delivered / Cancelled. Filters in-memory from loaded orders.</p>
+        <div class="col-label" style="margin-top:10px">Search matches</div>
+        <ul class="compact">
+          <li>Customer name (case-insensitive substring)</li>
+          <li>CMD-ID (substring)</li>
+          <li>City (case-insensitive substring)</li>
+          <li>Phone number (substring — useful for customer lookup)</li>
+        </ul>
+      </div>
+      <div class="col">
+        <div class="col-label">Limitation</div>
+        <p style="font-size:12px">All orders for the store are loaded into memory at once on page load. With thousands of orders this becomes slow and the initial load gets heavy. There is no server-side pagination or lazy loading.</p>
+      </div>
+    </div>
+    <div class="friction">No date range filter. No filter by product, city group, or confirmer. No sort controls (orders always show newest first by order_date). As the orders table grows, this page will become harder to use.</div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     RETURNS
+══════════════════════════════════════════════════════════ -->
+<div class="module-header">
+  <span class="icon">📬</span>
+  <h2>Returns</h2>
+  <span class="desc">Processing undelivered parcels returned by the carrier</span>
+</div>
+
+<!-- Upload Return PDF -->
+<div class="fn">
+  <div class="fn-header">
+    <span class="fn-name">Upload Return PDF</span>
+    <span class="fn-route">POST /api/orders/upload-return</span>
+    <span class="fn-badge badge-post">POST</span>
+  </div>
+  <div class="fn-body">
+    <div class="row">
+      <div class="col">
+        <div class="col-label">Input</div>
+        <p style="font-size:12px">A PDF from the carrier listing CMD-IDs of returned (undelivered) parcels.</p>
+        <div class="col-label" style="margin-top:10px">Process</div>
+        <ol class="steps">
+          <li>PDF saved to <code>/uploads/</code></li>
+          <li><code>parse_return_pdf()</code> extracts CMD-IDs from the document</li>
+          <li>Each CMD-ID is looked up in the <code>orders</code> table</li>
+          <li>Returns: <code>matched_orders</code> (found in DB) + <code>unmatched_cmd_ids</code> (not found)</li>
+        </ol>
+      </div>
+      <div class="col">
+        <div class="col-label">Output modal</div>
+        <p style="font-size:12px">User sees a list of matched orders. For each, they set two flags:</p>
+        <ul class="compact">
+          <li><strong>Sell Bag Returned</strong> — carrier returned the packaging bag (adds back 1 MAD cost recovery)</li>
+          <li><strong>Product Broken</strong> — product damaged in transit (stock goes to broken log, not restored)</li>
+        </ul>
+        <p style="font-size:12px; margin-top:6px">Unmatched CMD-IDs are shown as an error — usually means the order wasn't imported yet or was already cancelled.</p>
+      </div>
+    </div>
+    <div class="friction">Unmatched CMD-IDs are displayed but there is no action the user can take from that screen — they must close the modal, find the order (or create it), and then process the return manually. The unmatched list is not saved anywhere.</div>
+  </div>
+</div>
+
+<!-- Process Returns -->
+<div class="fn">
+  <div class="fn-header">
+    <span class="fn-name">Process Returns (confirm)</span>
+    <span class="fn-route">POST /api/orders/process-returns</span>
+    <span class="fn-badge badge-post">POST</span>
+  </div>
+  <div class="fn-body">
+    <div class="row">
+      <div class="col">
+        <div class="col-label">Input</div>
+        <ul class="compact">
+          <li>Array of: order_id, seal_bag_returned (bool), product_broken (bool)</li>
+        </ul>
+        <div class="col-label" style="margin-top:10px">Process (per return)</div>
+        <ol class="steps">
+          <li>Sets order.status = "cancelled"</li>
+          <li>Saves seal_bag_returned and product_broken flags on OrderExpense</li>
+          <li>If <strong>product_broken = true</strong>: creates BrokenStock record; does NOT restore variant stock</li>
+          <li>If <strong>product_broken = false</strong>: restores variant.stock += item.quantity for each item</li>
+        </ol>
+      </div>
+      <div class="col">
+        <div class="col-label">DB Impact</div>
+        <span class="db write">UPDATE orders.status</span>
+        <span class="db write">UPDATE order_expenses</span>
+        <span class="db write">UPDATE variants.stock (+qty, if not broken)</span>
+        <span class="db write">INSERT broken_stock (if broken)</span>
+        <div class="col-label" style="margin-top:10px">Financial impact</div>
+        <p style="font-size:12px">Cancelled orders contribute return_fee (cost) and no revenue to reports. If seal_bag_returned = true, the cost is slightly offset. Broken stock value_lost is logged at buying_price × quantity.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Manual Return -->
+<div class="fn">
+  <div class="fn-header">
+    <span class="fn-name">Manual Return</span>
+    <span class="fn-route">POST /api/orders/process-returns (single item)</span>
+    <span class="fn-badge badge-post">POST</span>
+  </div>
+  <div class="fn-body">
+    <div class="row">
+      <div class="col">
+        <div class="col-label">Use case</div>
+        <p style="font-size:12px">For processing a single return not captured in a PDF (e.g. customer brings back product directly, or a carrier return that wasn't in the batch PDF).</p>
+      </div>
+      <div class="col">
+        <div class="col-label">UI flow</div>
+        <ol class="steps">
+          <li>User searches for the order by CMD-ID or customer name</li>
+          <li>Only <strong>pending</strong> orders are shown (can't return an already-cancelled order)</li>
+          <li>User selects the order, sets the two flags, confirms</li>
+          <li>Same backend logic as PDF-batch returns</li>
+        </ol>
+      </div>
+    </div>
+    <div class="friction">Searching only shows pending orders. If an order was mistakenly marked delivered via status dropdown and then needs to be returned, the user cannot find it in the manual return search — they must first change it back to pending, then process the return.</div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     STOCK
+══════════════════════════════════════════════════════════ -->
+<div class="module-header">
+  <span class="icon">📊</span>
+  <h2>Stock</h2>
+  <span class="desc">Inventory arrivals and broken stock logging</span>
+</div>
+
+<!-- Add Stock Arrival -->
+<div class="fn">
+  <div class="fn-header">
+    <span class="fn-name">Add Stock Arrival</span>
+    <span class="fn-route">POST /api/stock/arrivals (bulk array)</span>
+    <span class="fn-badge badge-post">POST</span>
+  </div>
+  <div class="fn-body">
+    <div class="row">
+      <div class="col">
+        <div class="col-label">Inputs (per line)</div>
+        <ul class="compact">
+          <li><span class="tag tag-required">required</span> <strong>variant_id</strong></li>
+          <li><span class="tag tag-required">required</span> <strong>quantity</strong></li>
+          <li><span class="tag tag-required">required</span> <strong>total_cost</strong> — total paid for this batch (MAD)</li>
+          <li><span class="tag tag-optional">optional</span> <strong>additional_fees</strong> — import/shipping fees on top</li>
+          <li><span class="tag tag-optional">optional</span> <strong>description</strong> — supplier notes</li>
+          <li><span class="tag tag-required">required</span> <strong>date</strong></li>
+        </ul>
+      </div>
+      <div class="col">
+        <div class="col-label">Process</div>
+        <ol class="steps">
+          <li>Creates <code>StockArrival</code> record for audit history</li>
+          <li>Adds quantity to <code>variants.stock</code></li>
+          <li>Creates a <code>Withdrawal</code> record of type "stock_purchase" for the total cost paid (so stock purchases appear in the capital/cash flow)</li>
+        </ol>
+        <div class="col-label" style="margin-top:10px">DB Impact</div>
+        <span class="db write">INSERT stock_arrivals</span>
+        <span class="db write">UPDATE variants.stock (+qty)</span>
+        <span class="db write">INSERT withdrawals (type=stock_purchase)</span>
+      </div>
+    </div>
+    <div class="friction">Buying price on the Variant record is set once at creation and not updated when new stock arrives at a different cost. If the supplier raises prices, the user must manually edit the variant's buying_price separately — the arrival cost doesn't feed back into the variant's unit cost used in profit calculations.</div>
+  </div>
+</div>
+
+<!-- Broken Stock -->
+<div class="fn">
+  <div class="fn-header">
+    <span class="fn-name">Log Broken Stock (manual)</span>
+    <span class="fn-route">POST /api/stock/broken</span>
+    <span class="fn-badge badge-post">POST</span>
+  </div>
+  <div class="fn-body">
+    <div class="row">
+      <div class="col">
+        <div class="col-label">Inputs</div>
+        <ul class="compact">
+          <li><span class="tag tag-required">required</span> variant_id, quantity, date</li>
+          <li><span class="tag tag-optional">optional</span> returnable_to_supplier (bool)</li>
+          <li>source is always "storage" for manual entries (vs "return" for return-flow)</li>
+          <li>value_lost is calculated as variant.buying_price × quantity</li>
+        </ul>
+      </div>
+      <div class="col">
+        <div class="col-label">Process</div>
+        <ol class="steps">
+          <li>Creates <code>BrokenStock</code> record</li>
+          <li>Does NOT automatically deduct from variant.stock — this is a known gap. The stock count on the variant does not reflect broken units unless the user also manually adjusts the variant's stock number.</li>
+        </ol>
+      </div>
+    </div>
+    <div class="friction">
+      <strong>Broken stock from returns does deduct from stock (it was never restored). But manual broken stock logging does NOT deduct from stock.</strong> This means variant.stock can show 10 units even if 2 are logged as broken in storage — the broken stock log and the variant stock counter can be out of sync.
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     EXPENSES
+══════════════════════════════════════════════════════════ -->
+<div class="module-header">
+  <span class="icon">💸</span>
+  <h2>Expenses</h2>
+  <span class="desc">Fixed costs, ad spend, team costs, and cash withdrawals</span>
+</div>
+
+<!-- Fixed Expense CRUD -->
+<div class="fn">
+  <div class="fn-header">
+    <span class="fn-name">Create / Edit Fixed Expense</span>
+    <span class="fn-route">POST /api/expenses/fixed &nbsp;|&nbsp; PUT /api/expenses/fixed/{id}</span>
+    <span class="fn-badge badge-post">POST/PUT</span>
+  </div>
+  <div class="fn-body">
+    <div class="row">
+      <div class="col">
+        <div class="col-label">Inputs</div>
+        <ul class="compact">
+          <li><span class="tag tag-required">required</span> <strong>name</strong>, <strong>type</strong>, <strong>amount</strong></li>
+          <li><strong>type options:</strong> monthly, annual, per_order, one_time</li>
+          <li><strong>category:</strong> operations, packaging, platform, software, equipment, legal, marketing, other</li>
+          <li><span class="tag tag-optional">optional</span> description, start_date</li>
+        </ul>
+      </div>
+      <div class="col">
+        <div class="col-label">How each type affects reports</div>
+        <ul class="compact">
+          <li><strong>monthly</strong> — full amount deducted each month in report period</li>
+          <li><strong>annual</strong> — amount ÷ 12 deducted per month</li>
+          <li><strong>per_order</strong> — amount × delivered_orders_count deducted</li>
+          <li><strong>one_time</strong> — counted in all-time totals, not prorated by period</li>
+        </ul>
+      </div>
+    </div>
+    <div class="friction">Monthly and annual expenses are not prorated within a partial month. If a report covers "this week", the full monthly amount is still deducted — this over-represents costs for short periods and makes weekly profit look worse than it is.</div>
+  </div>
+</div>
+
+<!-- Toggle -->
+<div class="fn">
+  <div class="fn-header">
+    <span class="fn-name">Toggle Fixed Expense Active/Paused</span>
+    <span class="fn-route">PATCH /api/expenses/fixed/{id}/toggle</span>
+    <span class="fn-badge badge-patch">PATCH</span>
+  </div>
+  <div class="fn-body">
+    <div class="row">
+      <div class="col">
+        <div class="col-label">What it does</div>
+        <p style="font-size:12px">Flips <code>is_active</code> boolean. Inactive expenses are excluded from monthly burn rate and profit calculations. Useful for seasonal expenses or temporarily suspended services.</p>
+      </div>
+      <div class="col">
+        <div class="col-label">UI display</div>
+        <p style="font-size:12px">Inactive expenses are shown at 45% opacity in the Fixed Expenses tab. They remain visible and can be reactivated.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Ad Platform + Campaign -->
+<div class="fn">
+  <div class="fn-header">
+    <span class="fn-name">Ad Platform + Ad Campaign</span>
+    <span class="fn-route">POST /api/expenses/platforms &nbsp;|&nbsp; POST /api/expenses/campaigns</span>
+    <span class="fn-badge badge-post">POST</span>
+  </div>
+  <div class="fn-body">
+    <div class="row">
+      <div class="col">
+        <div class="col-label">Platform inputs</div>
+        <ul class="compact">
+          <li>name (slug), label (display name), color</li>
+          <li>Examples: Facebook/Meta, TikTok Ads, Google Ads</li>
+        </ul>
+        <div class="col-label" style="margin-top:10px">Campaign inputs</div>
+        <ul class="compact">
+          <li><strong>daily_rate_usd</strong> — daily budget in USD</li>
+          <li><strong>start_date</strong> — when campaign started</li>
+          <li><strong>end_date</strong> — leave blank for currently running campaign</li>
+        </ul>
+      </div>
+      <div class="col">
+        <div class="col-label">How costs are calculated</div>
+        <ol class="steps">
+          <li>For each campaign, count the number of days that overlap with the report period</li>
+          <li>Multiply: days × daily_rate_usd × usd_exchange_rate</li>
+          <li>Sum across all campaigns on all platforms</li>
+        </ol>
+        <div class="col-label" style="margin-top:10px">USD rate</div>
+        <p style="font-size:12px">Stored in AppSettings as "usd_rate" (default 10 MAD). Set in Settings page. Applied globally to all campaign cost calculations.</p>
+      </div>
+    </div>
+    <div class="friction">Daily rate is a flat estimate — it doesn't reflect actual spend which varies day to day. There is no way to import actual spend from Facebook/TikTok dashboards. If a campaign's actual daily spend was different from the set rate, reports are inaccurate. No monthly budget caps or alerts.</div>
+  </div>
+</div>
+
+<!-- Withdrawals -->
+<div class="fn">
+  <div class="fn-header">
+    <span class="fn-name">Add Withdrawal</span>
+    <span class="fn-route">POST /api/expenses/withdrawals</span>
+    <span class="fn-badge badge-post">POST</span>
+  </div>
+  <div class="fn-body">
+    <div class="row">
+      <div class="col">
+        <div class="col-label">Types</div>
+        <ul class="compact">
+          <li><strong>manual</strong> — owner takes cash out. Created here by the user.</li>
+          <li><strong>stock_purchase</strong> — automatically created when a Stock Arrival is logged. Cannot be created manually.</li>
+        </ul>
+      </div>
+      <div class="col">
+        <div class="col-label">Capital impact</div>
+        <p style="font-size:12px">Withdrawals reduce the Cash Balance in the capital calculation: <br/><code>cash = revenue_collected − expenses − withdrawals</code><br/> They represent money that has physically left the business.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     TEAM
+══════════════════════════════════════════════════════════ -->
+<div class="module-header">
+  <span class="icon">👥</span>
+  <h2>Team</h2>
+  <span class="desc">Staff management, confirmer accounts, and performance stats</span>
+</div>
+
+<!-- Create Team Member -->
+<div class="fn">
+  <div class="fn-header">
+    <span class="fn-name">Create Team Member</span>
+    <span class="fn-route">POST /api/team</span>
+    <span class="fn-badge badge-post">POST</span>
+  </div>
+  <div class="fn-body">
+    <div class="row">
+      <div class="col">
+        <div class="col-label">Inputs</div>
+        <ul class="compact">
+          <li><span class="tag tag-required">required</span> <strong>name</strong></li>
+          <li><span class="tag tag-optional">optional</span> <strong>role</strong> — job title</li>
+          <li><span class="tag tag-required">required</span> <strong>payment_type</strong> — "monthly", "per_order", or "both"</li>
+          <li><span class="tag tag-optional">optional</span> <strong>fixed_monthly</strong> — MAD/month salary</li>
+          <li><span class="tag tag-optional">optional</span> <strong>per_order_rate</strong> — MAD/delivered order commission</li>
+          <li><span class="tag tag-optional">optional</span> start_date, end_date</li>
+        </ul>
+      </div>
+      <div class="col">
+        <div class="col-label">How it affects reports</div>
+        <ul class="compact">
+          <li><strong>monthly salary</strong> is added to monthly burn rate regardless of period</li>
+          <li><strong>per_order_rate</strong> × delivered orders in period is deducted from profit</li>
+          <li>A member with payment_type "both" contributes both costs</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Create Confirmer -->
+<div class="fn">
+  <div class="fn-header">
+    <span class="fn-name">Create Confirmer Account</span>
+    <span class="fn-route">POST /api/team/{member_id}/create-account</span>
+    <span class="fn-badge badge-post">POST</span>
+  </div>
+  <div class="fn-body">
+    <div class="row">
+      <div class="col">
+        <div class="col-label">Inputs</div>
+        <ul class="compact">
+          <li>username, password</li>
+          <li>The team member must exist first</li>
+        </ul>
+        <div class="col-label" style="margin-top:10px">What gets created</div>
+        <ol class="steps">
+          <li>Creates a <code>User</code> record with role="confirmer"</li>
+          <li>Links it to the admin's store via store_id</li>
+          <li>Links it to the TeamMember record via team_member_id</li>
+          <li>Orders uploaded by this confirmer are tagged with their user_id</li>
+        </ol>
+      </div>
+      <div class="col">
+        <div class="col-label">What confirmers can do</div>
+        <ul class="compact">
+          <li>Upload Pickup PDFs → create orders (tagged as their own)</li>
+          <li>Process returns on their own orders</li>
+          <li>View only their own uploaded orders</li>
+          <li>See their own stats (orders confirmed, earnings, delivery rate)</li>
+        </ul>
+        <div class="col-label" style="margin-top:10px">What they cannot do</div>
+        <ul class="compact">
+          <li>View full order list, finances, reports, expenses, settings</li>
+          <li>Edit products, stock, packs, cities</li>
+          <li>See other confirmers' orders</li>
+        </ul>
+      </div>
+    </div>
+    <div class="friction">A confirmer can only be linked to one team member record. If the same person works multiple roles, they need separate accounts. There is no way to give a confirmer read-only access to the full order list (e.g. a manager who needs to monitor all orders but not edit anything).</div>
+  </div>
+</div>
+
+<!-- Stats -->
+<div class="fn">
+  <div class="fn-header">
+    <span class="fn-name">View Member Stats</span>
+    <span class="fn-route">GET /api/team/{member_id}/stats?period=...</span>
+    <span class="fn-badge badge-get">GET</span>
+  </div>
+  <div class="fn-body">
+    <div class="row">
+      <div class="col">
+        <div class="col-label">Returns</div>
+        <ul class="compact">
+          <li>Total orders confirmed by this member</li>
+          <li>Delivered / Pending / Cancelled breakdown</li>
+          <li>Delivery rate %</li>
+          <li>Earnings = delivered_orders × per_order_rate</li>
+        </ul>
+      </div>
+      <div class="col">
+        <div class="col-label">Period options</div>
+        <p style="font-size:12px">Same period options as the Dashboard: today, yesterday, this_week, last_7_days, this_month, all.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Suspend -->
+<div class="fn">
+  <div class="fn-header">
+    <span class="fn-name">Suspend / Reactivate Confirmer Account</span>
+    <span class="fn-route">POST /api/team/{member_id}/toggle-account</span>
+    <span class="fn-badge badge-post">POST</span>
+  </div>
+  <div class="fn-body">
+    <div class="row">
+      <div class="col">
+        <div class="col-label">What it does</div>
+        <p style="font-size:12px">Toggles <code>users.is_approved</code> on the linked User record. When false, the confirmer's login is rejected at the JWT auth step. All their data (orders, history) is preserved and remains visible to the admin.</p>
+      </div>
+      <div class="col">
+        <div class="col-label">Use case</div>
+        <p style="font-size:12px">Used when a team member leaves or is temporarily suspended. A clean way to revoke access without deleting the account or losing historical data.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     REPORTS
+══════════════════════════════════════════════════════════ -->
+<div class="module-header">
+  <span class="icon">📈</span>
+  <h2>Reports</h2>
+  <span class="desc">Financial summary, performance metrics, period comparison</span>
+</div>
+
+<!-- Report Summary -->
+<div class="fn">
+  <div class="fn-header">
+    <span class="fn-name">Load Report Summary</span>
+    <span class="fn-route">GET /api/reports/summary?period=...&amp;start=...&amp;end=...</span>
+    <span class="fn-badge badge-get">GET</span>
+  </div>
+  <div class="fn-body">
+    <div class="row">
+      <div class="col">
+        <div class="col-label">Period options</div>
+        <ul class="compact">
+          <li>today, yesterday, this_week, last_7_days, this_month</li>
+          <li>empty = all time</li>
+          <li>start + end = custom date range (ISO dates)</li>
+        </ul>
+        <div class="col-label" style="margin-top:10px">Returns</div>
+        <p style="font-size:12px"><strong>financials:</strong> revenue, gross_profit, clean_profit, team_costs, fixed_costs, ads_costs</p>
+        <p style="font-size:12px; margin-top:4px"><strong>capital:</strong> total_capital, cash_balance, stock_value</p>
+        <p style="font-size:12px; margin-top:4px"><strong>orders:</strong> total, delivered, pending, cancelled, delivery_rate, return_rate, avg_order_value</p>
+      </div>
+      <div class="col">
+        <div class="col-label">How profit is calculated</div>
+        <ol class="steps">
+          <li><strong>Revenue</strong> = sum of total_amount on <em>delivered</em> orders in period</li>
+          <li><strong>COGS</strong> = sum of (unit_cost × quantity) on items of delivered orders</li>
+          <li><strong>Per-order costs</strong> = delivery_fee + packaging + sticker + seal_bag (minus seal_bag_returned) on delivered orders</li>
+          <li><strong>Return costs</strong> = return_fee on cancelled orders in period</li>
+          <li><strong>Gross profit</strong> = Revenue − COGS − per-order costs − return costs</li>
+          <li><strong>Team costs</strong> = monthly salaries + (per_order_rate × delivered orders)</li>
+          <li><strong>Fixed costs</strong> = active monthly expenses + annual÷12 + per_order×delivered + one_time</li>
+          <li><strong>Ad costs</strong> = days_in_period × daily_rate_usd × usd_rate (per active campaign)</li>
+          <li><strong>Clean profit</strong> = Gross − team − fixed − ads</li>
+        </ol>
+      </div>
+    </div>
+    <div class="friction">Capital (total_capital, cash_balance, stock_value) is always current — it ignores the selected period. Choosing "This Month" shows this month's revenue but the current real-time capital, not the capital at the end of that period. This makes historical period comparisons of capital meaningless.</div>
+  </div>
+</div>
+
+<!-- Period Comparison -->
+<div class="fn">
+  <div class="fn-header">
+    <span class="fn-name">Period Comparison</span>
+    <span class="fn-badge badge-ui">UI ONLY (second API call)</span>
+  </div>
+  <div class="fn-body">
+    <div class="row">
+      <div class="col">
+        <div class="col-label">How it works</div>
+        <ol class="steps">
+          <li>User clicks "⇄ Compare" toggle</li>
+          <li>Frontend computes previous period start/end dates (e.g. "this month" → last month's dates)</li>
+          <li>Makes a second call to <code>GET /api/reports/summary</code> with those custom dates</li>
+          <li>Shows ▲/▼ delta next to Revenue, Gross Profit, Clean Profit stat cards</li>
+        </ol>
+      </div>
+      <div class="col">
+        <div class="col-label">Previous period mapping</div>
+        <ul class="compact">
+          <li>today → yesterday</li>
+          <li>yesterday → 2 days ago</li>
+          <li>last_7_days → 7–14 days ago</li>
+          <li>this_week → previous calendar week</li>
+          <li>this_month → previous calendar month</li>
+          <li>all / custom → comparison not available</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Print -->
+<div class="fn">
+  <div class="fn-header">
+    <span class="fn-name">Print Report</span>
+    <span class="fn-badge badge-ui">UI ONLY</span>
+  </div>
+  <div class="fn-body">
+    <div class="row">
+      <div class="col">
+        <div class="col-label">What it does</div>
+        <p style="font-size:12px">Calls <code>window.print()</code>. The browser's native print dialog opens. The user can save as PDF or send to a printer. The full page including sidebar and navigation will print unless the browser or user adjusts the settings.</p>
+      </div>
+      <div class="col">
+        <div class="col-label">Limitation</div>
+        <p style="font-size:12px">No print-specific CSS is applied. The dark sidebar, navigation, and filter controls all print alongside the report data. A proper implementation would need <code>@media print</code> CSS to hide non-report elements.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     SETTINGS
+══════════════════════════════════════════════════════════ -->
+<div class="module-header">
+  <span class="icon">⚙️</span>
+  <h2>Settings</h2>
+  <span class="desc">Store configuration, delivery fees, city management</span>
+</div>
+
+<!-- Store Name -->
+<div class="fn">
+  <div class="fn-header">
+    <span class="fn-name">Update Store Name</span>
+    <span class="fn-route">PATCH /api/auth/update-store</span>
+    <span class="fn-badge badge-patch">PATCH</span>
+  </div>
+  <div class="fn-body">
+    <div class="row">
+      <div class="col"><p style="font-size:12px">Updates the store_name field on the admin User record. The store name is displayed in the sidebar header.</p></div>
+      <div class="col"><span class="db write">UPDATE users.store_name</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- Delivery Fee Fallback -->
+<div class="fn">
+  <div class="fn-header">
+    <span class="fn-name">Set Delivery Fee Fallback</span>
+    <span class="fn-route">POST /api/settings/default_delivery_fee &nbsp;&amp;&nbsp; /api/settings/default_return_fee</span>
+    <span class="fn-badge badge-post">POST</span>
+  </div>
+  <div class="fn-body">
+    <div class="row">
+      <div class="col">
+        <div class="col-label">What it does</div>
+        <p style="font-size:12px">Stores two key-value pairs in AppSettings. These are used as fallback delivery_fee and return_fee when an order's city is not found in the City table.</p>
+      </div>
+      <div class="col">
+        <div class="col-label">UI behaviour</div>
+        <p style="font-size:12px">This section is visually greyed out (opacity 0.45, pointer-events none) when a city list is uploaded, showing an "OVERRIDDEN BY CITY LIST" badge. However, it still activates as a fallback for cities not in the list.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- City CRUD -->
+<div class="fn">
+  <div class="fn-header">
+    <span class="fn-name">City CRUD (add / edit / delete)</span>
+    <span class="fn-route">POST/PUT/DELETE /api/cities/{id}</span>
+    <span class="fn-badge badge-post">POST/PUT/DELETE</span>
+  </div>
+  <div class="fn-body">
+    <div class="row">
+      <div class="col">
+        <div class="col-label">Fields per city</div>
+        <ul class="compact">
+          <li><strong>name</strong> — must be unique (case-sensitive)</li>
+          <li><strong>delivery_fee</strong> — MAD charged by carrier on delivery</li>
+          <li><strong>return_fee</strong> — MAD charged by carrier on return</li>
+          <li><strong>is_casa</strong> — flag for same-city (Casablanca metro) orders. Currently stored but not used differently in calculations.</li>
+        </ul>
+      </div>
+      <div class="col">
+        <div class="col-label">How it's used</div>
+        <p style="font-size:12px">When an order is created, the system looks up <code>orders.city</code> in the City table using a case-insensitive match. If found, the city's delivery_fee and return_fee are stored on the OrderExpense record. These fees directly affect profit calculation.</p>
+        <div class="col-label" style="margin-top:10px">Changing a city's fee</div>
+        <p style="font-size:12px">Editing a city record does NOT retroactively update existing orders. Past OrderExpense records retain the fee values that were set at order creation time.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- City PDF Import -->
+<div class="fn">
+  <div class="fn-header">
+    <span class="fn-name">Import City Fees via PDF</span>
+    <span class="fn-route">POST /api/cities/upload-pdf → GET /api/cities/pdf-job/{id}</span>
+    <span class="fn-badge badge-post">POST</span>
+  </div>
+  <div class="fn-body">
+    <div class="row">
+      <div class="col">
+        <div class="col-label">Process</div>
+        <ol class="steps">
+          <li>PDF uploaded, returns <code>job_id</code> immediately (non-blocking)</li>
+          <li>Background thread runs <code>pdfplumber</code> on the PDF (up to 150 pages)</li>
+          <li>Extracts city name + delivery fee + return fee using table detection or text regex</li>
+          <li>Frontend polls <code>/cities/pdf-job/{id}</code> every 1.5s for progress</li>
+          <li>Shows "Reading page X of Y…" progress bar</li>
+          <li>On completion: upserts cities (update if exists, insert if new)</li>
+        </ol>
+      </div>
+      <div class="col">
+        <div class="col-label">Column detection</div>
+        <p style="font-size:12px">Searches table headers for keywords: ville/city/destination/nom → city column; livraison/delivery/tarif → fee column; retour/return → return fee column. Falls back to regex pattern matching on raw text if no table found.</p>
+        <div class="col-label" style="margin-top:10px">Upsert logic</div>
+        <p style="font-size:12px">City names are title-cased. If a city with that name already exists, its fees are updated. If it's new, it's inserted. is_casa defaults to false for all imported cities.</p>
+      </div>
+    </div>
+    <div class="friction">City name normalisation is basic (title-case only). If the PDF has "CASABLANCA" and the DB already has "Casablanca" they will be treated as a match (SQLAlchemy exact string match on the title-cased name), but if there are spelling variants like "Casa Blanca" vs "Casablanca" these will be inserted as two separate cities.</div>
+  </div>
+</div>
+
+
+<!-- ─────────────────────────────────────
+     SUMMARY: BIGGEST FRICTION POINTS
+──────────────────────────────────────── -->
+<div class="module-header" style="border-color:#f59e0b;">
+  <span class="icon">⚠️</span>
+  <h2 style="color:#92400e;">Friction Summary — Highest Priority</h2>
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th>#</th>
+      <th>Friction Point</th>
+      <th>Module</th>
+      <th>Impact</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>1</td>
+      <td><strong>Manual product assignment per order after PDF upload.</strong> No "apply to all", no default, no quick-fill. For 50 orders this is 50 separate dropdown selections minimum.</td>
+      <td>Orders</td>
+      <td>Daily — blocks every pickup batch</td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td><strong>PDF parsing has no validation preview.</strong> If the parser misreads a row (wrong name, wrong amount, missing city), the user only finds out after saving — or never.</td>
+      <td>Orders</td>
+      <td>Daily — data quality risk</td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td><strong>Status dropdown and Return flow are separate.</strong> Marking "cancelled" via dropdown bypasses stock restoration and return-fee accounting. Users may not know which to use.</td>
+      <td>Orders / Returns</td>
+      <td>Daily — profit accuracy risk</td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td><strong>No date-range filter or pagination on Orders page.</strong> All orders load at once. Over time this page will be slow and hard to navigate.</td>
+      <td>Orders</td>
+      <td>Long-term scalability</td>
+    </tr>
+    <tr>
+      <td>5</td>
+      <td><strong>Expenses not prorated for short periods.</strong> Full monthly costs shown even for "today" or "this week" reports, making short-period profit look incorrectly negative.</td>
+      <td>Reports</td>
+      <td>Weekly — misleading reports</td>
+    </tr>
+    <tr>
+      <td>6</td>
+      <td><strong>Manual broken stock does not deduct from variant stock.</strong> The stock counter and the broken stock log can be out of sync.</td>
+      <td>Stock</td>
+      <td>Inventory accuracy</td>
+    </tr>
+    <tr>
+      <td>7</td>
+      <td><strong>Buying price on variant is static.</strong> Changing it doesn't update historical orders. New stock arrivals at a different cost don't update the unit cost used in profit calculations.</td>
+      <td>Products / Stock</td>
+      <td>Profit accuracy over time</td>
+    </tr>
+    <tr>
+      <td>8</td>
+      <td><strong>City name matching is exact (after title-case).</strong> Spelling variations in carrier PDFs will silently use the fallback fee instead of the correct city fee.</td>
+      <td>Settings / Orders</td>
+      <td>Daily — silent profit errors</td>
+    </tr>
+  </tbody>
+</table>
+
+<div style="margin-top:48px; padding-top:16px; border-top:1px solid #e0e0e0; font-size:11px; color:#aaa; text-align:center;">
+  Stocky — Function Reference Document · February 2026
+</div>
+
+</body>
+</html>

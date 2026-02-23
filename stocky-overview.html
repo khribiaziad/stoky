@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Stocky — Product Overview & UX Flow</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    font-size: 13px;
+    line-height: 1.6;
+    color: #1a1a2e;
+    background: #fff;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 40px 48px;
+  }
+
+  /* ── Cover ── */
+  .cover {
+    text-align: center;
+    padding: 60px 0 50px;
+    border-bottom: 3px solid #00d48f;
+    margin-bottom: 48px;
+  }
+  .cover .logo {
+    font-size: 42px;
+    font-weight: 800;
+    color: #00d48f;
+    letter-spacing: -1px;
+  }
+  .cover .tagline {
+    font-size: 16px;
+    color: #555;
+    margin-top: 8px;
+    margin-bottom: 24px;
+  }
+  .cover .meta {
+    display: inline-flex;
+    gap: 24px;
+    font-size: 12px;
+    color: #888;
+    background: #f7f7f7;
+    border-radius: 8px;
+    padding: 10px 20px;
+  }
+  .cover .meta span strong { color: #333; }
+
+  /* ── Section titles ── */
+  h2 {
+    font-size: 19px;
+    font-weight: 700;
+    color: #1a1a2e;
+    margin: 40px 0 16px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #e8e8e8;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  h2 .num {
+    background: #00d48f;
+    color: #fff;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 2px 8px;
+  }
+  h3 {
+    font-size: 14px;
+    font-weight: 700;
+    color: #1a1a2e;
+    margin: 20px 0 8px;
+  }
+
+  /* ── Body text ── */
+  p { margin-bottom: 10px; color: #333; }
+  ul { padding-left: 20px; margin-bottom: 10px; }
+  li { margin-bottom: 4px; color: #333; }
+
+  /* ── Flow diagram ── */
+  .flow {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    margin: 24px 0;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .flow-step {
+    background: #f0fdf9;
+    border: 1.5px solid #00d48f55;
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #1a1a2e;
+    text-align: center;
+    min-width: 100px;
+  }
+  .flow-step .sub {
+    font-weight: 400;
+    color: #666;
+    font-size: 10px;
+    margin-top: 2px;
+  }
+  .flow-arrow {
+    color: #00d48f;
+    font-size: 18px;
+    font-weight: 700;
+    padding: 0 4px;
+    flex-shrink: 0;
+  }
+  .flow-step.red { background: #fff5f5; border-color: #f8717155; }
+  .flow-step.blue { background: #eff6ff; border-color: #60a5fa55; }
+  .flow-step.purple { background: #f5f3ff; border-color: #a78bfa55; }
+
+  /* ── Module cards ── */
+  .modules {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin: 20px 0;
+  }
+  .module-card {
+    border: 1.5px solid #e8e8e8;
+    border-radius: 12px;
+    padding: 16px 18px;
+  }
+  .module-card .module-title {
+    font-weight: 700;
+    font-size: 13px;
+    color: #1a1a2e;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .module-card .module-title .icon {
+    font-size: 16px;
+  }
+  .module-card ul { margin: 0; }
+  .module-card li { font-size: 12px; color: #555; }
+
+  /* ── Role table ── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 12px;
+  }
+  th {
+    background: #f7f7f7;
+    padding: 8px 12px;
+    text-align: left;
+    font-weight: 700;
+    border: 1px solid #e0e0e0;
+  }
+  td {
+    padding: 7px 12px;
+    border: 1px solid #e0e0e0;
+    vertical-align: top;
+  }
+  td.yes { color: #059669; font-weight: 600; }
+  td.no  { color: #dc2626; }
+  td.lim { color: #d97706; }
+
+  /* ── Concept pills ── */
+  .concepts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 16px 0;
+  }
+  .concept {
+    border: 1.5px solid #e0e0e0;
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 12px;
+    min-width: 180px;
+    flex: 1;
+  }
+  .concept strong { display: block; color: #1a1a2e; margin-bottom: 3px; font-size: 13px; }
+  .concept span { color: #666; }
+
+  /* ── UX notes ── */
+  .ux-note {
+    background: #fffbeb;
+    border-left: 3px solid #f59e0b;
+    padding: 10px 14px;
+    border-radius: 0 8px 8px 0;
+    margin: 10px 0;
+    font-size: 12px;
+    color: #78350f;
+  }
+  .ux-note strong { color: #92400e; }
+
+  .info-box {
+    background: #f0fdf9;
+    border-left: 3px solid #00d48f;
+    padding: 10px 14px;
+    border-radius: 0 8px 8px 0;
+    margin: 10px 0;
+    font-size: 12px;
+    color: #064e3b;
+  }
+
+  /* ── Print ── */
+  @media print {
+    body { padding: 20px 30px; }
+    h2 { page-break-before: auto; }
+    .modules { page-break-inside: avoid; }
+    .flow { page-break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════
+     COVER
+════════════════════════════════════════════════ -->
+<div class="cover">
+  <div class="logo">Stocky</div>
+  <div class="tagline">Stock, Order & Finance Management for Moroccan E-Commerce</div>
+  <div class="meta">
+    <span><strong>Type:</strong> Internal Operations Tool</span>
+    <span><strong>Market:</strong> Morocco (MAD, Arabic carrier PDFs)</span>
+    <span><strong>Stack:</strong> React + FastAPI + SQLite</span>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     1. WHAT IS STOCKY?
+════════════════════════════════════════════════ -->
+<h2><span class="num">1</span> What is Stocky?</h2>
+
+<p>
+  Stocky is an <strong>all-in-one back-office tool</strong> for small Moroccan e-commerce businesses
+  that sell physical products through shipping carriers (primarily <strong>Caleo / Amana / similar</strong>).
+  It replaces scattered spreadsheets by centralising stock, orders, team management and financial
+  reporting into one dark-themed web app.
+</p>
+
+<div class="info-box">
+  <strong>Core problem it solves:</strong> Merchants receive PDF manifests from carriers (pickup &amp; return lists).
+  Manually cross-referencing these against stock, calculating profit per order, and tracking delivery rates
+  is time-consuming and error-prone. Stocky automates the entire loop.
+</div>
+
+<h3>Who uses it?</h3>
+<ul>
+  <li><strong>Admin (store owner)</strong> — full access, sees all finances and reports</li>
+  <li><strong>Confirmer (team member)</strong> — uploads pickup PDFs, processes returns; cannot see finances or modify products/stock</li>
+</ul>
+
+
+<!-- ═══════════════════════════════════════════════
+     2. CORE WORKFLOW
+════════════════════════════════════════════════ -->
+<h2><span class="num">2</span> Core Workflow</h2>
+
+<h3>A. Pickup flow (new orders)</h3>
+<div class="flow">
+  <div class="flow-step">Carrier sends<br/>Pickup PDF<div class="sub">list of parcels to ship</div></div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-step blue">Upload PDF<br/>to Stocky<div class="sub">auto-parsed</div></div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-step">Assign products<br/>to each order<div class="sub">variant + qty + pack</div></div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-step">Orders created<div class="sub">stock deducted</div></div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-step purple">Status: Pending</div>
+</div>
+
+<h3>B. Return flow (returned orders)</h3>
+<div class="flow">
+  <div class="flow-step">Carrier sends<br/>Return PDF<div class="sub">undelivered parcels</div></div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-step blue">Upload Return PDF<div class="sub">auto-matched by CMD-ID</div></div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-step">Mark each return:<br/>product OK or broken?<div class="sub">seal bag returned?</div></div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-step red">Status: Cancelled<div class="sub">stock restored or broken</div></div>
+</div>
+
+<h3>C. Financial loop</h3>
+<div class="flow">
+  <div class="flow-step">Delivered orders<div class="sub">revenue counted</div></div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-step">Buying cost<br/>per item deducted</div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-step">Delivery fee<br/>+ packaging costs</div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-step">Fixed expenses<br/>+ ads + team</div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-step purple">Clean Profit<div class="sub">auto-calculated</div></div>
+</div>
+
+<div class="ux-note">
+  <strong>Important UX constraint:</strong> Product assignment happens <em>after</em> the PDF is uploaded —
+  the carrier PDF only contains customer/parcel info, not which product was sold. The user must manually
+  link each order to a product variant (or pack). This is the main data-entry step in the daily workflow.
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     3. MODULES
+════════════════════════════════════════════════ -->
+<h2><span class="num">3</span> Modules</h2>
+
+<div class="modules">
+
+  <div class="module-card">
+    <div class="module-title"><span class="icon">📦</span> Products</div>
+    <ul>
+      <li>Catalog with variants (size + color combinations)</li>
+      <li>Buying price &amp; selling price per variant</li>
+      <li>Current stock level per variant</li>
+      <li>Low-stock threshold alerts on Dashboard</li>
+      <li>Under-1kg flag → auto-checks "Sell Bag" on orders</li>
+      <li>Packs: bundles of multiple items sold as one SKU</li>
+    </ul>
+  </div>
+
+  <div class="module-card">
+    <div class="module-title"><span class="icon">🛒</span> Orders</div>
+    <ul>
+      <li>Create via Pickup PDF upload or manual form</li>
+      <li>Assign products, packs, quantities per order</li>
+      <li>Per-order expenses: sticker, seal bag, packaging</li>
+      <li>Status management: Pending / Delivered / Cancelled</li>
+      <li>Bulk status update (select many → update all)</li>
+      <li>Edit any order (customer info, products, amounts)</li>
+      <li>Internal notes per order</li>
+      <li>WhatsApp shortcut from phone number</li>
+      <li>CSV export of filtered orders</li>
+    </ul>
+  </div>
+
+  <div class="module-card">
+    <div class="module-title"><span class="icon">📬</span> Returns</div>
+    <ul>
+      <li>Upload Return PDF → auto-match CMD-IDs</li>
+      <li>Manual return: search by CMD or customer name</li>
+      <li>Per return: mark product as OK (stock restored) or broken (→ broken stock log)</li>
+      <li>Seal bag returned flag (adds back cost recovery)</li>
+    </ul>
+  </div>
+
+  <div class="module-card">
+    <div class="module-title"><span class="icon">📊</span> Stock</div>
+    <ul>
+      <li>Stock arrivals log (add new inventory)</li>
+      <li>Broken stock log (from returns or storage damage)</li>
+      <li>Each arrival records cost, fees, description</li>
+      <li>Capital automatically includes stock value at cost</li>
+    </ul>
+  </div>
+
+  <div class="module-card">
+    <div class="module-title"><span class="icon">💸</span> Expenses</div>
+    <ul>
+      <li>Fixed expenses: monthly / annual / per-order / one-time</li>
+      <li>Categories: operations, packaging, platform, software, equipment, legal, marketing</li>
+      <li>Ad spend: platforms (Facebook, TikTok…) with daily USD rate campaigns</li>
+      <li>Team costs: monthly salaries + per-order commissions</li>
+      <li>Withdrawals: cash taken out (manual) + auto-logged stock purchases</li>
+      <li>CSV export of expense list</li>
+    </ul>
+  </div>
+
+  <div class="module-card">
+    <div class="module-title"><span class="icon">👥</span> Team</div>
+    <ul>
+      <li>Team members with roles and payment types</li>
+      <li>Create confirmer sub-accounts (limited access)</li>
+      <li>Suspend / reactivate accounts (data preserved)</li>
+      <li>Per-member stats: orders confirmed, earnings, delivery rate</li>
+    </ul>
+  </div>
+
+  <div class="module-card">
+    <div class="module-title"><span class="icon">📈</span> Reports</div>
+    <ul>
+      <li>Period selector: today / yesterday / this week / last 7 days / this month / custom range</li>
+      <li>Capital snapshot: total capital, cash balance, stock value</li>
+      <li>Financials: revenue, gross profit, clean profit</li>
+      <li>Top products by units sold</li>
+      <li>Top cities by order count &amp; revenue</li>
+      <li>Period comparison (vs previous period)</li>
+      <li>Print / Save as PDF</li>
+    </ul>
+  </div>
+
+  <div class="module-card">
+    <div class="module-title"><span class="icon">⚙️</span> Settings</div>
+    <ul>
+      <li>Store name</li>
+      <li>Delivery fee fallback (default when city not in list)</li>
+      <li>City list: per-city delivery + return fees</li>
+      <li>Import city fees via carrier PDF (background job with progress bar)</li>
+      <li>USD exchange rate (for ad costs)</li>
+      <li>Password &amp; account management</li>
+    </ul>
+  </div>
+
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     4. KEY CONCEPTS
+════════════════════════════════════════════════ -->
+<h2><span class="num">4</span> Key Concepts &amp; Terminology</h2>
+
+<div class="concepts">
+  <div class="concept">
+    <strong>CMD-ID (Caleo ID)</strong>
+    <span>The unique parcel tracking number printed on the carrier pickup PDF. Used to match returns automatically.</span>
+  </div>
+  <div class="concept">
+    <strong>Variant</strong>
+    <span>A specific size + color combination of a product. Stock and pricing are tracked at the variant level.</span>
+  </div>
+  <div class="concept">
+    <strong>Pack</strong>
+    <span>A bundle product sold as a unit (e.g. "3-cap pack"). Composed of multiple variants with optional preset combinations.</span>
+  </div>
+  <div class="concept">
+    <strong>Sell Bag</strong>
+    <span>Per-order packaging expense (1 MAD). Auto-checked if any product in the order is flagged as under 1kg.</span>
+  </div>
+  <div class="concept">
+    <strong>Delivery Fee</strong>
+    <span>Per-city fee paid to the carrier on delivery. Looked up from the city list, falls back to a configurable default.</span>
+  </div>
+  <div class="concept">
+    <strong>Return Fee</strong>
+    <span>Fee charged by the carrier when a parcel is returned. Deducted from profit on cancelled orders.</span>
+  </div>
+  <div class="concept">
+    <strong>Clean Profit</strong>
+    <span>Revenue − COGS − delivery fees − packaging − team costs − fixed expenses − ad spend. The bottom-line number.</span>
+  </div>
+  <div class="concept">
+    <strong>Capital</strong>
+    <span>Cash balance + stock value at cost. Gives the owner a real-time net worth of the business.</span>
+  </div>
+  <div class="concept">
+    <strong>Confirmer</strong>
+    <span>A team member role with a limited sub-account. Can upload pickup/return PDFs and view their own stats only.</span>
+  </div>
+  <div class="concept">
+    <strong>Broken Stock</strong>
+    <span>Units damaged in returns or storage. Logged separately; value lost is tracked for accurate profit calculation.</span>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     5. USER ROLES
+════════════════════════════════════════════════ -->
+<h2><span class="num">5</span> User Roles &amp; Permissions</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Feature</th>
+      <th>Admin</th>
+      <th>Confirmer</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td>Upload Pickup PDF / Create orders</td><td class="yes">✓ Full</td><td class="yes">✓ Own uploads only</td></tr>
+    <tr><td>Process returns</td><td class="yes">✓ Full</td><td class="yes">✓ Own orders only</td></tr>
+    <tr><td>View orders</td><td class="yes">✓ All orders</td><td class="lim">Own uploads only</td></tr>
+    <tr><td>Edit orders</td><td class="yes">✓</td><td class="no">✗</td></tr>
+    <tr><td>View products &amp; stock</td><td class="yes">✓</td><td class="yes">✓ Read-only</td></tr>
+    <tr><td>Manage products / stock</td><td class="yes">✓</td><td class="no">✗</td></tr>
+    <tr><td>View reports &amp; financials</td><td class="yes">✓ Full</td><td class="lim">Own stats only</td></tr>
+    <tr><td>Manage expenses &amp; withdrawals</td><td class="yes">✓</td><td class="no">✗</td></tr>
+    <tr><td>Manage team</td><td class="yes">✓</td><td class="no">✗</td></tr>
+    <tr><td>Settings &amp; city fees</td><td class="yes">✓</td><td class="no">✗</td></tr>
+  </tbody>
+</table>
+
+
+<!-- ═══════════════════════════════════════════════
+     6. UX NOTES & KNOWN FRICTION POINTS
+════════════════════════════════════════════════ -->
+<h2><span class="num">6</span> Current UX Notes &amp; Friction Points</h2>
+
+<div class="ux-note">
+  <strong>Manual product assignment after PDF upload</strong> — The biggest daily friction point.
+  After uploading a pickup PDF with 30+ orders, the user must assign a product variant to each order one by one.
+  A smart default (e.g. "last used product" or quick-assign all to one product) would help.
+</div>
+
+<div class="ux-note">
+  <strong>City name matching is fuzzy but not perfect</strong> — Delivery fees are looked up by city name.
+  If the carrier writes "Casablanca" differently across PDFs (e.g. "Casa", "CASABLANCA"), it may fall back
+  to the default fee. The is_casa flag helps for same-city orders but city name normalisation is manual.
+</div>
+
+<div class="ux-note">
+  <strong>No mobile-native experience</strong> — The app is responsive (bottom nav on mobile) but the order
+  assignment modal with large dropdowns is difficult on small screens. Confirmers who use phones in the field
+  would benefit from a simplified mobile view.
+</div>
+
+<div class="ux-note">
+  <strong>PDF parsing reliability</strong> — Pickup and return PDF parsing depends on pdfplumber table extraction.
+  If a carrier changes their PDF format, parsing fails silently or produces wrong data. A preview/validation
+  step before orders are created would reduce errors.
+</div>
+
+<div class="info-box">
+  <strong>Strengths:</strong> The financial model is solid and fully automatic once orders are tagged.
+  The city fee system (with PDF import for carrier price lists) is a real time-saver.
+  The confirmer sub-account model cleanly separates responsibilities without requiring a separate app.
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     7. DATA FLOW DIAGRAM
+════════════════════════════════════════════════ -->
+<h2><span class="num">7</span> High-Level Data Flow</h2>
+
+<pre style="background:#f7f7f7; border:1.5px solid #e0e0e0; border-radius:10px; padding:20px; font-size:11px; line-height:1.8; overflow:auto;">
+  CARRIER PDF (pickup)
+        │
+        ▼
+  [Orders Router]  ←── parse_pickup_pdf()  ←── pdfplumber
+        │
+        ├─ creates Order records (status = pending)
+        ├─ creates OrderItem records
+        ├─ deducts Variant.stock
+        └─ creates OrderExpense (delivery_fee from City table)
+                                │
+                                │  city not found?
+                                └──→ fallback fee from AppSettings
+
+  CARRIER PDF (returns)
+        │
+        ▼
+  [Orders Router]  ←── parse_return_pdf()
+        │
+        ├─ matches CMD-IDs → existing Orders
+        ├─ sets status = cancelled
+        ├─ restores Variant.stock  (if not broken)
+        └─ creates BrokenStock record (if broken)
+
+  REPORTS
+        │
+        ├─ reads Orders (delivered only for revenue)
+        ├─ reads OrderExpenses (delivery + return fees)
+        ├─ reads OrderItems × buying_price (COGS)
+        ├─ reads FixedExpenses (prorated by period)
+        ├─ reads FacebookAds (daily_rate × days × usd_rate)
+        ├─ reads TeamMember (monthly salary + per_order × delivered)
+        └─ outputs: revenue, gross_profit, clean_profit, capital
+</pre>
+
+
+<!-- ═══════════════════════════════════════════════
+     FOOTER
+════════════════════════════════════════════════ -->
+<div style="margin-top:48px; padding-top:16px; border-top:1px solid #e0e0e0; font-size:11px; color:#aaa; text-align:center;">
+  Stocky — Internal Document · February 2026
+</div>
+
+</body>
+</html>
