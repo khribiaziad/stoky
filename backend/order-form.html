@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Order Now</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #0f0f17;
+      color: #e8e8f0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .card {
+      background: #1a1a26;
+      border: 1px solid #2a2a3a;
+      border-radius: 16px;
+      padding: 36px 32px;
+      width: 100%;
+      max-width: 480px;
+      box-shadow: 0 24px 60px rgba(0,0,0,.5);
+    }
+
+    .logo {
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: .12em;
+      color: #00d48f;
+      margin-bottom: 6px;
+    }
+
+    .subtitle {
+      font-size: 14px;
+      color: #6b7280;
+      margin-bottom: 32px;
+    }
+
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: #9ca3af;
+      margin-bottom: 6px;
+    }
+
+    input, textarea {
+      width: 100%;
+      background: #0f0f17;
+      border: 1px solid #2a2a3a;
+      border-radius: 8px;
+      padding: 11px 14px;
+      font-size: 14px;
+      color: #e8e8f0;
+      outline: none;
+      transition: border-color .15s;
+      font-family: inherit;
+    }
+
+    input:focus, textarea:focus { border-color: #00d48f; }
+
+    .field { margin-bottom: 18px; }
+    .row { display: flex; gap: 12px; }
+    .row .field { flex: 1; }
+
+    .items-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .items-header label { margin-bottom: 0; }
+
+    .add-btn {
+      background: none;
+      border: 1px dashed #2a2a3a;
+      border-radius: 6px;
+      color: #00d48f;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 4px 10px;
+      cursor: pointer;
+      transition: all .15s;
+    }
+    .add-btn:hover { background: #00d48f18; border-color: #00d48f; }
+
+    .item-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+      align-items: center;
+    }
+    .item-row input { flex: 1; }
+    .item-row input[type=number] { width: 70px; flex: 0 0 70px; text-align: center; }
+
+    .remove-btn {
+      background: none;
+      border: none;
+      color: #6b7280;
+      cursor: pointer;
+      font-size: 18px;
+      line-height: 1;
+      padding: 4px;
+      flex-shrink: 0;
+      transition: color .15s;
+    }
+    .remove-btn:hover { color: #ef4444; }
+
+    .hp { display: none !important; }
+
+    .submit-btn {
+      width: 100%;
+      background: #00d48f;
+      color: #000;
+      border: none;
+      border-radius: 8px;
+      padding: 14px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: opacity .15s, transform .1s;
+    }
+    .submit-btn:hover { opacity: .9; }
+    .submit-btn:active { transform: scale(.98); }
+    .submit-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+    .result {
+      display: none;
+      margin-top: 20px;
+      padding: 14px 16px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      text-align: center;
+    }
+    .result.success {
+      display: block;
+      background: #00d48f18;
+      border: 1px solid #00d48f44;
+      color: #00d48f;
+    }
+    .result.error {
+      display: block;
+      background: #ef444418;
+      border: 1px solid #ef444444;
+      color: #ef4444;
+    }
+
+    .wa-note {
+      margin-top: 16px;
+      font-size: 12px;
+      color: #4b5563;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="logo" id="store-name">STORE</div>
+  <div class="subtitle">Fill in your details — we'll confirm your order via WhatsApp.</div>
+
+  <form id="order-form" novalidate>
+
+    <div class="hp">
+      <input type="text" id="hp-website" tabindex="-1" autocomplete="off" />
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label>Full Name *</label>
+        <input type="text" id="f-name" placeholder="Ahmed Benali" required />
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label>WhatsApp Number *</label>
+        <input type="tel" id="f-phone" placeholder="+212600000000" required />
+      </div>
+      <div class="field">
+        <label>City</label>
+        <input type="text" id="f-city" placeholder="Casablanca" />
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Delivery Address</label>
+      <input type="text" id="f-address" placeholder="123 Rue Hassan II" />
+    </div>
+
+    <div class="field">
+      <div class="items-header">
+        <label>Products *</label>
+        <button type="button" class="add-btn" onclick="addItem()">+ Add product</button>
+      </div>
+      <div id="items-list"></div>
+    </div>
+
+    <div class="field">
+      <label>Notes</label>
+      <textarea id="f-notes" rows="2" placeholder="Any special requests…"></textarea>
+    </div>
+
+    <button type="submit" class="submit-btn" id="submit-btn">Place Order</button>
+
+    <div class="result" id="result"></div>
+    <div class="wa-note">You will receive a WhatsApp confirmation message shortly after submitting.</div>
+  </form>
+</div>
+
+<script>
+  // Read api_key from URL: /order-form?api_key=XXX&store=MyStore
+  const params   = new URLSearchParams(window.location.search);
+  const API_KEY  = params.get('api_key') || '';
+  const storeName = params.get('store') || 'STORE';
+  document.getElementById('store-name').textContent = storeName.toUpperCase();
+
+  // Base URL = same origin as this page
+  const BASE_URL = window.location.origin;
+
+  // ── Items ──────────────────────────────────────────────────
+  let itemCount = 0;
+
+  function addItem(name = '', qty = 1) {
+    itemCount++;
+    const id = itemCount;
+    const div = document.createElement('div');
+    div.className = 'item-row';
+    div.id = `item-${id}`;
+    div.innerHTML = `
+      <input type="text" placeholder="Product name" value="${name}" id="item-name-${id}" />
+      <input type="number" placeholder="Qty" min="1" value="${qty}" id="item-qty-${id}" />
+      <button type="button" class="remove-btn" onclick="removeItem(${id})">×</button>
+    `;
+    document.getElementById('items-list').appendChild(div);
+  }
+
+  function removeItem(id) {
+    document.getElementById(`item-${id}`)?.remove();
+  }
+
+  function getItems() {
+    return [...document.querySelectorAll('#items-list .item-row')]
+      .map(row => {
+        const id   = row.id.split('-')[1];
+        const name = document.getElementById(`item-name-${id}`)?.value.trim();
+        const qty  = parseInt(document.getElementById(`item-qty-${id}`)?.value) || 1;
+        return name ? { product_name: name, quantity: qty } : null;
+      })
+      .filter(Boolean);
+  }
+
+  addItem();
+
+  // ── Submit ─────────────────────────────────────────────────
+  document.getElementById('order-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    if (!API_KEY) {
+      showResult('error', 'Missing API key in URL. Contact the store owner.');
+      return;
+    }
+
+    const name  = document.getElementById('f-name').value.trim();
+    const phone = document.getElementById('f-phone').value.trim();
+    const items = getItems();
+
+    if (!name)         { showResult('error', 'Full name is required.'); return; }
+    if (!phone)        { showResult('error', 'WhatsApp number is required.'); return; }
+    if (!items.length) { showResult('error', 'Add at least one product.'); return; }
+
+    const payload = {
+      customer_name:    name,
+      customer_phone:   phone,
+      customer_city:    document.getElementById('f-city').value.trim()    || undefined,
+      customer_address: document.getElementById('f-address').value.trim() || undefined,
+      notes:            document.getElementById('f-notes').value.trim()   || undefined,
+      items,
+      website: document.getElementById('hp-website').value,
+    };
+
+    const btn = document.getElementById('submit-btn');
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
+
+    try {
+      const res  = await fetch(`${BASE_URL}/api/leads/inbound?api_key=${encodeURIComponent(API_KEY)}`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(payload),
+      });
+      const data = await res.json();
+
+      if (data.id > 0) {
+        showResult('success', '✅ Order received! You will get a WhatsApp confirmation shortly.');
+        document.getElementById('order-form').reset();
+        document.getElementById('items-list').innerHTML = '';
+        addItem();
+      } else {
+        showResult('error', data.detail || 'Something went wrong. Please try again.');
+      }
+    } catch (err) {
+      showResult('error', 'Connection error. Please try again.');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Place Order';
+    }
+  });
+
+  function showResult(type, msg) {
+    const el = document.getElementById('result');
+    el.className = `result ${type}`;
+    el.textContent = msg;
+  }
+</script>
+</body>
+</html>
