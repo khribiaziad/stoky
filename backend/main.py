@@ -38,6 +38,26 @@ with engine.connect() as conn:
 # Seed cities on startup
 seed()
 
+# ── Ensure default admin exists (uses ADMIN_USERNAME / ADMIN_PASSWORD env vars) ──
+_admin_user = os.environ.get("ADMIN_USERNAME", "")
+_admin_pass = os.environ.get("ADMIN_PASSWORD", "")
+_admin_store = os.environ.get("ADMIN_STORE", "My Store")
+if _admin_user and _admin_pass:
+    from auth import hash_password
+    with next(get_db()) as _db:
+        _existing = _db.query(models.User).filter(models.User.username == _admin_user).first()
+        if _existing:
+            _existing.password_hash = hash_password(_admin_pass)
+        else:
+            _db.add(models.User(
+                username=_admin_user,
+                password_hash=hash_password(_admin_pass),
+                store_name=_admin_store,
+                role="admin",
+                is_approved=True,
+            ))
+        _db.commit()
+
 app = FastAPI(title="Stocky API", version="1.0.0")
 
 # ── APScheduler: follow-up job for leads ──────────────────────────────────────
