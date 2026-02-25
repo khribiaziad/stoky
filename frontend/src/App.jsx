@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   LayoutDashboard, Package, Tag, Gift, Warehouse,
-  Users, BarChart2, Megaphone, Receipt, LogOut, Menu, X, Settings as SettingsIcon,
+  Users, BarChart2, Megaphone, Receipt, LogOut, Menu, X, Settings as SettingsIcon, UserCheck,
 } from 'lucide-react';
 import Dashboard from './pages/Dashboard';
 import Products from './pages/Products';
@@ -13,7 +13,9 @@ import Reports from './pages/Reports';
 import Ads from './pages/Ads';
 import Expenses from './pages/Expenses';
 import Settings from './pages/Settings';
+import Leads from './pages/Leads';
 import Login from './pages/Login';
+import PlatformLayout from './pages/platform/PlatformLayout';
 
 // ── Nav label translations ───────────────────────────────────
 const T = {
@@ -21,25 +23,26 @@ const T = {
     dashboard: 'Dashboard', orders: 'Orders',    products: 'Products',
     packs: 'Packs',         stock: 'Stock',       team: 'Team',
     expenses: 'Expenses',   ads: 'Ads',           reports: 'Reports',
-    settings: 'Settings',
+    settings: 'Settings',   leads: 'Leads',
   },
   fr: {
     dashboard: 'Tableau de bord', orders: 'Commandes', products: 'Produits',
     packs: 'Packs',               stock: 'Stock',      team: 'Équipe',
     expenses: 'Dépenses',         ads: 'Publicités',   reports: 'Rapports',
-    settings: 'Paramètres',
+    settings: 'Paramètres',       leads: 'Prospects',
   },
   ar: {
     dashboard: 'لوحة التحكم', orders: 'الطلبات',    products: 'المنتجات',
     packs: 'الحزم',           stock: 'المخزون',      team: 'الفريق',
     expenses: 'المصاريف',     ads: 'الإعلانات',      reports: 'التقارير',
-    settings: 'الإعدادات',
+    settings: 'الإعدادات',    leads: 'العملاء',
   },
 };
 
 const ADMIN_NAV = [
   { id: 'dashboard', Icon: LayoutDashboard },
   { id: 'orders',    Icon: Package },
+  { id: 'leads',     Icon: UserCheck },
   { id: 'products',  Icon: Tag },
   { id: 'packs',     Icon: Gift },
   { id: 'stock',     Icon: Warehouse },
@@ -110,6 +113,11 @@ export default function App() {
 
   if (!user) return <Login onAuth={handleAuth} />;
 
+  // Super admin gets their own platform view
+  if (user.role === 'super_admin') {
+    return <PlatformLayout user={user} onLogout={handleLogout} />;
+  }
+
   const isConfirmer = user.role === 'confirmer';
   const nav = isConfirmer ? CONFIRMER_NAV : ADMIN_NAV;
   const currentPage = isConfirmer && !nav.find(n => n.id === page) ? 'dashboard' : page;
@@ -130,6 +138,7 @@ export default function App() {
   const pages = {
     dashboard: <Dashboard onNavigate={navigate} user={user} />,
     orders:    <Orders user={user} />,
+    leads:     <Leads />,
     products:  <Products readOnly={isConfirmer} />,
     packs:     <Packs readOnly={isConfirmer} />,
     stock:     <Stock readOnly={isConfirmer} />,

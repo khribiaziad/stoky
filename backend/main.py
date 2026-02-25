@@ -8,7 +8,7 @@ from database import engine, get_db
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 import models
-from routers import products, stock, orders, team, expenses, reports, packs, auth as auth_router, cities as cities_router
+from routers import products, stock, orders, team, expenses, reports, packs, auth as auth_router, cities as cities_router, platform as platform_router, leads as leads_router
 from auth import get_current_user
 from seed_cities import seed
 
@@ -22,6 +22,12 @@ with engine.connect() as conn:
         "ALTER TABLE facebook_ads ADD COLUMN platform_id INTEGER REFERENCES ad_platforms(id)",
         "ALTER TABLE fixed_expenses ADD COLUMN category VARCHAR DEFAULT 'other'",
         "ALTER TABLE orders ADD COLUMN notes TEXT",
+        "ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'admin'",
+        "ALTER TABLE subscriptions ADD COLUMN notes TEXT",
+        "ALTER TABLE subscriptions ADD COLUMN needs_renewal BOOLEAN DEFAULT 0",
+        "CREATE TABLE IF NOT EXISTS platform_expenses (id INTEGER PRIMARY KEY, name VARCHAR NOT NULL, category VARCHAR DEFAULT 'other', amount FLOAT NOT NULL, currency VARCHAR DEFAULT 'MAD', type VARCHAR DEFAULT 'monthly', date DATETIME NOT NULL, note TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)",
+        "CREATE TABLE IF NOT EXISTS store_api_keys (id INTEGER PRIMARY KEY, store_id INTEGER NOT NULL UNIQUE REFERENCES users(id), key VARCHAR NOT NULL UNIQUE, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)",
+        "CREATE TABLE IF NOT EXISTS leads (id INTEGER PRIMARY KEY, store_id INTEGER NOT NULL REFERENCES users(id), customer_name VARCHAR NOT NULL, customer_phone VARCHAR NOT NULL, customer_email VARCHAR, customer_city VARCHAR, customer_address VARCHAR, raw_items JSON, matched_items JSON, total_amount FLOAT, notes TEXT, status VARCHAR DEFAULT 'pending', order_id INTEGER REFERENCES orders(id), message_count INTEGER DEFAULT 0, last_message_at DATETIME, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)",
     ]:
         try:
             conn.execute(text(stmt))
@@ -33,6 +39,25 @@ with engine.connect() as conn:
 seed()
 
 app = FastAPI(title="Stocky API", version="1.0.0")
+
+# ── APScheduler: follow-up job for leads ──────────────────────────────────────
+try:
+    from apscheduler.schedulers.background import BackgroundScheduler
+    from routers.leads import run_follow_up_job
+
+    _scheduler = BackgroundScheduler()
+
+    def _follow_up_task():
+        db = next(get_db())
+        try:
+            run_follow_up_job(db)
+        finally:
+            db.close()
+
+    _scheduler.add_job(_follow_up_task, "interval", minutes=30)
+    _scheduler.start()
+except ImportError:
+    pass  # apscheduler not installed yet
 
 # CORS — allow React frontend to call the API
 app.add_middleware(
@@ -53,6 +78,8 @@ app.include_router(reports.router, prefix="/api")
 app.include_router(packs.router, prefix="/api")
 app.include_router(auth_router.router, prefix="/api")
 app.include_router(cities_router.router, prefix="/api")
+app.include_router(platform_router.router, prefix="/api")
+app.include_router(leads_router.router, prefix="/api")
 
 
 @app.get("/api/health")

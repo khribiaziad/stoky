@@ -2,9 +2,9 @@ import { useState, useEffect, useRef } from 'react';
 import {
   Sun, Moon, Globe, Lock, User, Store, ShieldCheck,
   Upload, Package, DollarSign, Truck, AlertTriangle, Edit2, Check,
-  MapPin, Plus, Trash2, Search, X,
+  MapPin, Plus, Trash2, Search, X, Link, RotateCcw, Copy,
 } from 'lucide-react';
-import { changePassword, updateStoreName, getSetting, setSetting, getCityList, createCity, updateCity, deleteCity, uploadCityPDF, getCityPdfJob } from '../api';
+import { changePassword, updateStoreName, getSetting, setSetting, getCityList, createCity, updateCity, deleteCity, uploadCityPDF, getCityPdfJob, getApiKey, rotateApiKey } from '../api';
 
 const LANGUAGES = [
   { code: 'en', label: 'English',  flag: '🇬🇧' },
@@ -166,6 +166,36 @@ export default function Settings({ user, theme, setTheme, lang, setLang, accent,
     default_return_fee: '7',
   });
   const [savingKey, setSavingKey] = useState(null);
+
+  // ── Webhook / API Key ──
+  const [apiKey, setApiKey]           = useState('');
+  const [rotatingKey, setRotatingKey] = useState(false);
+  const [copied, setCopied]           = useState(false);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    getApiKey().then(r => setApiKey(r.data.key)).catch(() => {});
+  }, [isAdmin]);
+
+  const handleRotateKey = async () => {
+    if (!window.confirm('Rotating the key will invalidate the old one. Continue?')) return;
+    setRotatingKey(true);
+    try {
+      const r = await rotateApiKey();
+      setApiKey(r.data.key);
+    } finally { setRotatingKey(false); }
+  };
+
+  const handleCopy = (text) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    });
+  };
+
+  const webhookUrl = apiKey
+    ? `${window.location.origin}/api/leads/inbound?api_key=${apiKey}`
+    : '';
 
   // ── Cities ──
   const [cities, setCities] = useState([]);
@@ -689,6 +719,71 @@ export default function Settings({ user, theme, setTheme, lang, setLang, accent,
                   {savingKey === key && <span style={{ fontSize: 12, color: 'var(--accent)' }}>Saved ✓</span>}
                 </div>
               ))}
+            </div>
+          </div>
+
+          {/* Website Integration */}
+          <div className="card">
+            <SectionHeader Icon={Link} title="Website Integration" />
+            <p style={{ fontSize: 13, color: 'var(--t2)', marginBottom: 18 }}>
+              Connect your website's order form to Stocky. When a customer submits an order, a WhatsApp confirmation is sent automatically.
+            </p>
+
+            <SubLabel text="Webhook URL" />
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 18 }}>
+              <div style={{
+                flex: 1, padding: '9px 12px', background: 'var(--card-2)', borderRadius: 'var(--r-sm)',
+                border: '1px solid var(--border)', fontFamily: 'monospace', fontSize: 12,
+                color: 'var(--t1)', wordBreak: 'break-all', lineHeight: 1.5,
+              }}>
+                {webhookUrl || 'Loading…'}
+              </div>
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={() => handleCopy(webhookUrl)}
+                disabled={!webhookUrl}
+                style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}
+                title="Copy URL"
+              >
+                <Copy size={13} strokeWidth={2} />
+                {copied ? 'Copied!' : 'Copy'}
+              </button>
+            </div>
+
+            <SubLabel text="Expected JSON format" />
+            <pre style={{
+              background: 'var(--card-2)', border: '1px solid var(--border)',
+              borderRadius: 'var(--r-sm)', padding: '12px 14px',
+              fontSize: 12, color: 'var(--t2)', overflowX: 'auto',
+              marginBottom: 18, lineHeight: 1.6,
+            }}>{`POST ${window.location.origin}/api/leads/inbound?api_key=YOUR_KEY
+Content-Type: application/json
+
+{
+  "customer_name": "Ahmed Benali",
+  "customer_phone": "+212600000000",
+  "customer_city": "Casablanca",
+  "customer_address": "123 Rue Hassan II",
+  "customer_email": "ahmed@example.com",
+  "notes": "Fragile item",
+  "items": [
+    { "product_name": "Cap Classic", "quantity": 2 }
+  ]
+}`}</pre>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={handleRotateKey}
+                disabled={rotatingKey}
+                style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+              >
+                <RotateCcw size={13} strokeWidth={2} />
+                {rotatingKey ? 'Rotating…' : 'Rotate Key'}
+              </button>
+              <span style={{ fontSize: 12, color: 'var(--t3)' }}>
+                Rotating the key invalidates the old one — update your website's config.
+              </span>
             </div>
           </div>
 

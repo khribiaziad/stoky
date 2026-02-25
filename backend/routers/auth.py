@@ -43,6 +43,11 @@ def register(data: RegisterInput, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(user)
 
+    # Auto-create a free subscription for the new store
+    subscription = models.Subscription(store_id=user.id, plan="free", status="active")
+    db.add(subscription)
+    db.commit()
+
     token = create_token(user.id)
     return {
         "token": token,

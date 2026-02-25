@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, Integer, String, Float, DateTime, ForeignKey, Text, Enum
+from sqlalchemy import Boolean, Column, Integer, String, Float, DateTime, ForeignKey, Text, Enum, JSON
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from database import Base
@@ -289,3 +289,81 @@ class AppSettings(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     key = Column(String, nullable=False)
     value = Column(String, nullable=True)
+
+
+class Subscription(Base):
+    __tablename__ = "subscriptions"
+
+    id            = Column(Integer, primary_key=True, index=True)
+    store_id      = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False)
+    plan          = Column(String, default="free")    # "free", "monthly", "annual"
+    status        = Column(String, default="active")  # "active", "inactive", "expired"
+    start_date    = Column(DateTime, nullable=True)
+    end_date      = Column(DateTime, nullable=True)
+    notes         = Column(Text, nullable=True)
+    needs_renewal = Column(Boolean, default=False)
+    created_at    = Column(DateTime, server_default=func.now())
+
+
+class Payment(Base):
+    __tablename__ = "payments"
+
+    id         = Column(Integer, primary_key=True, index=True)
+    store_id   = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    amount     = Column(Float, nullable=False)
+    plan       = Column(String, nullable=True)
+    note       = Column(Text, nullable=True)
+    date       = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+
+
+class PlatformSettings(Base):
+    __tablename__ = "platform_settings"
+
+    id    = Column(Integer, primary_key=True, index=True)
+    key   = Column(String, unique=True, nullable=False)
+    value = Column(String, nullable=True)
+
+
+class PlatformExpense(Base):
+    __tablename__ = "platform_expenses"
+
+    id         = Column(Integer, primary_key=True, index=True)
+    name       = Column(String, nullable=False)
+    category   = Column(String, default="other")   # hosting, domain, software, marketing, other
+    amount     = Column(Float, nullable=False)
+    currency   = Column(String, default="MAD")
+    type       = Column(String, default="monthly")  # monthly, annual, one_time
+    date       = Column(DateTime, nullable=False)
+    note       = Column(Text, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+
+class StoreApiKey(Base):
+    __tablename__ = "store_api_keys"
+
+    id         = Column(Integer, primary_key=True)
+    store_id   = Column(Integer, ForeignKey("users.id"), nullable=False, unique=True)
+    key        = Column(String, unique=True, nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+
+
+class Lead(Base):
+    __tablename__ = "leads"
+
+    id               = Column(Integer, primary_key=True)
+    store_id         = Column(Integer, ForeignKey("users.id"), nullable=False)
+    customer_name    = Column(String, nullable=False)
+    customer_phone   = Column(String, nullable=False)
+    customer_email   = Column(String, nullable=True)
+    customer_city    = Column(String, nullable=True)
+    customer_address = Column(String, nullable=True)
+    raw_items        = Column(JSON)          # [{"product_name": "...", "quantity": 1}]
+    matched_items    = Column(JSON, nullable=True)  # [{variant_id, name, qty, price}]
+    total_amount     = Column(Float, nullable=True)
+    notes            = Column(Text, nullable=True)
+    status           = Column(String, default="pending")  # pending|confirmed|cancelled|unresponsive
+    order_id         = Column(Integer, ForeignKey("orders.id"), nullable=True)
+    message_count    = Column(Integer, default=0)
+    last_message_at  = Column(DateTime, nullable=True)
+    created_at       = Column(DateTime, server_default=func.now())

@@ -130,3 +130,29 @@ export const uploadCityPDF = (file) => {
   return api.post('/cities/upload-pdf', form, { headers: { 'Content-Type': 'multipart/form-data' } });
 };
 export const getCityPdfJob = (jobId) => api.get(`/cities/pdf-job/${jobId}`);
+
+// Leads
+export const getLeads    = ()    => api.get('/leads');
+export const deleteLead  = (id)  => api.delete(`/leads/${id}`);
+export const getApiKey   = ()    => api.get('/leads/api-key');
+export const rotateApiKey = ()   => api.post('/leads/api-key/rotate');
+
+// Platform (super admin)
+export const getPlatformStats        = () => api.get('/platform/stats');
+export const getPlatformGrowth       = () => api.get('/platform/growth');
+export const getPlatformStores       = () => api.get('/platform/stores');
+export const createPlatformStore     = (data) => api.post('/platform/stores', data);
+export const updateStoreStatus       = (storeId, isApproved) => api.patch(`/platform/stores/${storeId}/status`, { is_approved: isApproved });
+export const updateStoreSubscription = (storeId, data) => api.patch(`/platform/stores/${storeId}/subscription`, data);
+export const updateStoreNotes        = (storeId, data) => api.patch(`/platform/stores/${storeId}/notes`, data);
+export const resetStorePassword      = (storeId, newPassword) => api.post(`/platform/stores/${storeId}/reset-password`, { new_password: newPassword });
+export const getStorePayments        = (storeId) => api.get(`/platform/stores/${storeId}/payments`);
+export const addStorePayment         = (storeId, data) => api.post(`/platform/stores/${storeId}/payments`, data);
+export const deletePayment           = (paymentId) => api.delete(`/platform/payments/${paymentId}`);
+export const getPlatformSettings     = () => api.get('/platform/settings');
+export const savePlatformSetting     = (key, value) => api.post('/platform/settings', { key, value });
+export const getStoreStorage         = (storeId) => api.get(`/platform/stores/${storeId}/storage`);
+export const getPlatformExpenses     = (month) => api.get('/platform/expenses', { params: month ? { month } : {} });
+export const createPlatformExpense   = (data) => api.post('/platform/expenses', data);
+export const updatePlatformExpense   = (id, data) => api.patch(`/platform/expenses/${id}`, data);
+export const deletePlatformExpense   = (id) => api.delete(`/platform/expenses/${id}`);

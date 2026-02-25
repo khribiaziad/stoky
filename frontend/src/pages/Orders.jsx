@@ -60,6 +60,14 @@ export default function Orders() {
   const [editItems, setEditItems] = useState([]);
   const [editExpenses, setEditExpenses] = useState({ sticker: 0, seal_bag: 0, packaging: 1 });
 
+  // Exchange flow
+  const [exchangeOrder, setExchangeOrder] = useState(null);
+  const [exchangeStep, setExchangeStep] = useState(1); // 1 = return, 2 = new order
+  const [exchangeReturnChoice, setExchangeReturnChoice] = useState({ seal_bag_returned: false, product_broken: false });
+  const [exchangeItems, setExchangeItems] = useState([{ variant_id: '', quantity: 1 }]);
+  const [exchangeExpenses, setExchangeExpenses] = useState({ sticker: 0, seal_bag: 0, packaging: 1 });
+  const [exchangeTotal, setExchangeTotal] = useState('');
+
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -358,6 +366,47 @@ export default function Orders() {
     }
   };
 
+  // ── Exchange ──────────────────────────────────────────────────────────────────
+  const openExchange = (order) => {
+    setExchangeOrder(order);
+    setExchangeStep(1);
+    setExchangeReturnChoice({ seal_bag_returned: false, product_broken: false });
+    setExchangeItems([{ variant_id: '', quantity: 1 }]);
+    setExchangeExpenses({ sticker: 0, seal_bag: 0, packaging: 1 });
+    // Pre-fill total with the delivery fee from the original order
+    setExchangeTotal(order.expenses?.delivery_fee || 35);
+    setError('');
+  };
+
+  const handleExchange = async () => {
+    setError('');
+    const flatItems = exchangeItems
+      .filter(i => i.variant_id)
+      .map(i => ({ variant_id: parseInt(i.variant_id), quantity: parseInt(i.quantity) || 1 }));
+    if (flatItems.length === 0) { setError('Add at least one replacement product'); return; }
+    if (!exchangeTotal) { setError('Total amount is required'); return; }
+    try {
+      // Step 1: process the return
+      await processReturns([{ order_id: exchangeOrder.id, ...exchangeReturnChoice }]);
+      // Step 2: create the exchange order
+      await bulkCreateOrders([{
+        caleo_id: `EXCH-${exchangeOrder.caleo_id}`,
+        customer_name: exchangeOrder.customer_name,
+        customer_phone: exchangeOrder.customer_phone || '',
+        customer_address: exchangeOrder.customer_address || '',
+        city: exchangeOrder.city || '',
+        total_amount: parseFloat(exchangeTotal),
+        items: flatItems,
+        expenses: exchangeExpenses,
+      }]);
+      setSuccess(`Exchange created for ${exchangeOrder.customer_name} — delivery fee only: ${exchangeTotal} MAD`);
+      setExchangeOrder(null);
+      load();
+    } catch (e) {
+      setError(e.response?.data?.detail || 'Error processing exchange');
+    }
+  };
+
   const filtered = orders
     .filter(o => filter === 'all' || o.status === filter)
     .filter(o => !search ||
@@ -487,6 +536,13 @@ export default function Orders() {
                           title="Edit order"
                           onClick={() => openEdit(o)}>
                           ✏
+                        </button>
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          title="Exchange — return & send replacement"
+                          style={{ color: '#a78bfa' }}
+                          onClick={() => openExchange(o)}>
+                          ↔
                         </button>
                         <button
                           className="btn btn-secondary btn-sm"
@@ -1037,6 +1093,148 @@ export default function Orders() {
             <div className="modal-footer">
               <button className="btn btn-secondary" onClick={() => { setShowManualReturn(false); setError(''); setSelectedReturn(null); setReturnSearch(''); }}>Cancel</button>
               <button className="btn btn-danger" onClick={handleManualReturn} disabled={!selectedReturn}>Confirm Return</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Exchange Modal */}
+      {exchangeOrder && (
+        <div className="modal-overlay">
+          <div className="modal modal-lg">
+            <div className="modal-header">
+              <h2>↔ Exchange — {exchangeOrder.caleo_id}</h2>
+              <button className="btn-icon" onClick={() => { setExchangeOrder(null); setError(''); }}>✕</button>
+            </div>
+            <div className="modal-body">
+              {error && <div className="alert alert-error">{error}</div>}
+
+              {/* Original order info */}
+              <div style={{ padding: '10px 14px', background: '#0f1117', borderRadius: 8, marginBottom: 16, fontSize: 13 }}>
+                <div style={{ fontWeight: 600, marginBottom: 4 }}>{exchangeOrder.customer_name}</div>
+                <div style={{ color: '#8892b0' }}>
+                  {exchangeOrder.city} · {exchangeOrder.customer_phone} · {exchangeOrder.total_amount} MAD
+                </div>
+                <div style={{ marginTop: 6, color: '#8892b0' }}>
+                  Original items: {exchangeOrder.items?.map(i => `${i.product_name} ${i.size || ''} ${i.color || ''} x${i.quantity}`).join(', ') || '—'}
+                </div>
+              </div>
+
+              {/* Step tabs */}
+              <div style={{ display: 'flex', gap: 0, marginBottom: 20, borderBottom: '1px solid #2d3248' }}>
+                {[{ n: 1, label: '① Return original' }, { n: 2, label: '② Replacement order' }].map(({ n, label }) => (
+                  <button key={n} onClick={() => setExchangeStep(n)} style={{
+                    background: 'none', border: 'none', padding: '8px 16px', cursor: 'pointer',
+                    fontSize: 13, fontWeight: 600,
+                    color: exchangeStep === n ? 'var(--accent, #00d48f)' : '#8892b0',
+                    borderBottom: `2px solid ${exchangeStep === n ? 'var(--accent, #00d48f)' : 'transparent'}`,
+                  }}>{label}</button>
+                ))}
+              </div>
+
+              {/* Step 1: Return */}
+              {exchangeStep === 1 && (
+                <div>
+                  <div style={{ marginBottom: 12, fontSize: 13, color: '#8892b0' }}>
+                    The original order will be marked as <strong style={{ color: '#f87171' }}>cancelled</strong> and stock will be restored.
+                  </div>
+                  <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
+                    <label className="checkbox-label">
+                      <input type="checkbox" checked={exchangeReturnChoice.seal_bag_returned}
+                        onChange={e => setExchangeReturnChoice({ ...exchangeReturnChoice, seal_bag_returned: e.target.checked })} />
+                      Sell Bag Returned (+1 MAD)
+                    </label>
+                    <label className="checkbox-label">
+                      <input type="checkbox" checked={exchangeReturnChoice.product_broken}
+                        onChange={e => setExchangeReturnChoice({ ...exchangeReturnChoice, product_broken: e.target.checked })} />
+                      Product Broken (goes to broken stock)
+                    </label>
+                  </div>
+                  <div style={{ marginTop: 20, display: 'flex', justifyContent: 'flex-end' }}>
+                    <button className="btn btn-primary" onClick={() => setExchangeStep(2)}>Next →</button>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 2: New exchange order */}
+              {exchangeStep === 2 && (
+                <div>
+                  <div style={{ marginBottom: 14, fontSize: 13, color: '#8892b0' }}>
+                    A new order will be created for the same customer. The client only pays the <strong style={{ color: '#00d48f' }}>delivery fee</strong>.
+                  </div>
+
+                  <div style={{ marginBottom: 14 }}>
+                    <label className="form-label">Total Amount — delivery fee only (MAD) *</label>
+                    <input className="form-input" type="number" min="0" style={{ maxWidth: 180 }}
+                      value={exchangeTotal}
+                      onChange={e => setExchangeTotal(e.target.value)} />
+                  </div>
+
+                  <div style={{ marginBottom: 14 }}>
+                    <label className="form-label">Replacement Product(s)</label>
+                    {exchangeItems.map((item, j) => (
+                      <div key={j} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                        <select className="form-input" style={{ flex: 1 }} value={item.variant_id}
+                          onChange={e => {
+                            const updated = [...exchangeItems];
+                            updated[j] = { ...updated[j], variant_id: e.target.value };
+                            setExchangeItems(updated);
+                            setExchangeExpenses(prev => ({ ...prev, seal_bag: autoSealBag(updated) }));
+                          }}>
+                          <option value="">Select product...</option>
+                          {allVariants.map(v => (
+                            <option key={v.id} value={v.id}>{v.label} (stock: {v.stock})</option>
+                          ))}
+                        </select>
+                        <input className="form-input" type="number" min="1" placeholder="Qty" style={{ width: 80 }}
+                          value={item.quantity}
+                          onChange={e => {
+                            const updated = [...exchangeItems];
+                            updated[j] = { ...updated[j], quantity: e.target.value };
+                            setExchangeItems(updated);
+                          }} />
+                        {exchangeItems.length > 1 && (
+                          <button className="btn btn-danger btn-sm" onClick={() => {
+                            const updated = exchangeItems.filter((_, idx) => idx !== j);
+                            setExchangeItems(updated);
+                          }}>✕</button>
+                        )}
+                      </div>
+                    ))}
+                    <button className="btn btn-secondary btn-sm"
+                      onClick={() => setExchangeItems([...exchangeItems, { variant_id: '', quantity: 1 }])}>
+                      + Add Product
+                    </button>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: 16, padding: 12, background: '#0f1117', borderRadius: 8, flexWrap: 'wrap' }}>
+                    <label className="checkbox-label">
+                      <input type="checkbox" checked={exchangeExpenses.sticker === 1}
+                        onChange={e => setExchangeExpenses({ ...exchangeExpenses, sticker: e.target.checked ? 1 : 0 })} />
+                      Sticker (1 MAD)
+                    </label>
+                    <label className="checkbox-label">
+                      <input type="checkbox" checked={exchangeExpenses.seal_bag === 1}
+                        onChange={e => setExchangeExpenses({ ...exchangeExpenses, seal_bag: e.target.checked ? 1 : 0 })} />
+                      Sell Bag (1 MAD)
+                    </label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ color: '#8892b0', fontSize: 13 }}>Packaging:</span>
+                      <input className="form-input" type="number" min="0" style={{ width: 60, padding: '4px 8px' }}
+                        value={exchangeExpenses.packaging}
+                        onChange={e => setExchangeExpenses({ ...exchangeExpenses, packaging: parseFloat(e.target.value) || 0 })} />
+                      <span style={{ color: '#8892b0', fontSize: 13 }}>MAD</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => { setExchangeOrder(null); setError(''); }}>Cancel</button>
+              {exchangeStep === 1
+                ? <button className="btn btn-primary" onClick={() => setExchangeStep(2)}>Next →</button>
+                : <button className="btn btn-primary" onClick={handleExchange}>↔ Confirm Exchange</button>
+              }
             </div>
           </div>
         </div>
