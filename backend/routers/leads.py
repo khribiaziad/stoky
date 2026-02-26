@@ -348,6 +348,27 @@ def _twiml(message: str) -> str:
     return f'<?xml version="1.0" encoding="UTF-8"?><Response><Message>{safe}</Message></Response>'
 
 
+# ── Twilio test endpoint ──────────────────────────────────────────────────────
+
+@router.post("/test-whatsapp")
+def test_whatsapp(
+    phone: str,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(get_current_user),
+):
+    """Send a test WhatsApp message to verify Twilio credentials."""
+    import os
+    sid   = os.environ.get("TWILIO_ACCOUNT_SID", "NOT SET")
+    token = os.environ.get("TWILIO_AUTH_TOKEN", "NOT SET")
+    frm   = os.environ.get("TWILIO_WHATSAPP_FROM", "NOT SET")
+
+    if "NOT SET" in (sid, token, frm):
+        return {"ok": False, "error": f"Missing env vars — SID:{sid[:6]}... TOKEN:{'set' if token != 'NOT SET' else 'NOT SET'} FROM:{frm}"}
+
+    ok = _send_whatsapp(phone, "Test message from Stocky ✅ — WhatsApp is connected!")
+    return {"ok": ok, "from": frm, "to": phone}
+
+
 # ── Authenticated endpoints ───────────────────────────────────────────────────
 
 @router.get("")
