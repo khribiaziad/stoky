@@ -181,35 +181,36 @@ class InboundLeadInput(BaseModel):
 _SILENT_OK = {"status": "lead_created", "id": 0}  # fake success for bots
 
 def _phone_digits(phone: str) -> str:
-    """Strip everything except digits from a phone number."""
     return "".join(c for c in phone if c.isdigit())
 
-def _is_rate_limited(phone: str, store_id: int, db: Session) -> bool:
+def _check_rate_limit(phone: str, store_id: int, db: Session) -> Optional[str]:
     """
-    Block if:
-    - Same phone already has a pending/unresponsive lead for this store, OR
-    - Same phone submitted more than 3 leads in the last 24 hours
+    Returns an error message string if blocked, None if allowed.
+    - pending/unresponsive lead exists → tell customer to finalize it
+    - 3+ submissions in 24h → too many attempts
     """
     digits = _phone_digits(phone)
     cutoff = datetime.utcnow() - timedelta(hours=24)
 
     existing_active = db.query(models.Lead).filter(
         models.Lead.store_id == store_id,
-        models.Lead.customer_phone.contains(digits[-9:]),  # last 9 digits
+        models.Lead.customer_phone.contains(digits[-9:]),
         models.Lead.status.in_(["pending", "unresponsive"]),
     ).first()
     if existing_active:
-        return True
+        return "You already have a pending order. Please check your WhatsApp and reply YES or NO to confirm or cancel it before placing a new one."
 
     recent_count = db.query(models.Lead).filter(
         models.Lead.store_id == store_id,
         models.Lead.customer_phone.contains(digits[-9:]),
         models.Lead.created_at >= cutoff,
     ).count()
-    return recent_count >= 3
+    if recent_count >= 3:
+        return "Too many orders submitted from this number today. Please try again tomorrow."
+
+    return None
 
 def _is_store_flooded(store_id: int, db: Session) -> bool:
-    """Block if more than 30 leads created for this store in the last hour."""
     cutoff = datetime.utcnow() - timedelta(hours=1)
     count = db.query(models.Lead).filter(
         models.Lead.store_id == store_id,
@@ -239,8 +240,9 @@ def inbound_lead(
     store_id = api_key_record.store_id
 
     # 2. Phone rate limit — same number already active or submitted 3+ times today
-    if _is_rate_limited(data.customer_phone, store_id, db):
-        return _SILENT_OK
+    rate_error = _check_rate_limit(data.customer_phone, store_id, db)
+    if rate_error:
+        raise HTTPException(status_code=429, detail=rate_error)
 
     # 3. Store flood protection — max 30 leads/hour per store
     if _is_store_flooded(store_id, db):

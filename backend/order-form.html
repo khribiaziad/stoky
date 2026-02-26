@@ -300,7 +300,9 @@
       });
       const data = await res.json();
 
-      if (data.id > 0) {
+      if (res.status === 429) {
+        showResult('error', data.detail);
+      } else if (data.id > 0) {
         showResult('success', '✅ Order received! You will get a WhatsApp confirmation shortly.');
         document.getElementById('order-form').reset();
         document.getElementById('items-list').innerHTML = '';
