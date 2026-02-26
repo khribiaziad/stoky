@@ -75,6 +75,7 @@ body {
   font-size: 14px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
 }
 
 /* ══════════════════════════════════════
@@ -596,4 +597,14 @@ select.form-input { cursor: pointer; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: var(--card-3); border-radius: 3px; }
   ::-webkit-scrollbar-thumb:hover { background: var(--border-2); }
+}
+
+/* ══════════════════════════════════════
+   MOBILE — prevent iOS auto-zoom on input focus
+   iOS Safari zooms in when input font-size < 16px
+══════════════════════════════════════ */
+@media (max-width: 1024px) {
+  input, textarea, select, .form-input {
+    font-size: 16px;
+  }
 }
