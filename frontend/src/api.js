@@ -32,6 +32,11 @@ export const updateStoreName = (data) => api.patch('/auth/update-store', data);
 export const getProducts = () => api.get('/products');
 export const createProduct = (data) => api.post('/products', data);
 export const updateProduct = (id, data) => api.put(`/products/${id}`, data);
+export const uploadProductImage = (file) => {
+  const form = new FormData();
+  form.append('file', file);
+  return api.post('/products/upload-image', form, { headers: { 'Content-Type': 'multipart/form-data' } });
+};
 export const deleteProduct = (id) => api.delete(`/products/${id}`);
 export const addVariant = (productId, data) => api.post(`/products/${productId}/variants`, data);
 export const updateVariant = (variantId, data) => api.put(`/products/variants/${variantId}`, data);
@@ -50,6 +55,10 @@ export const getStockArrivals = () => api.get('/stock/arrivals');
 export const addBulkStockArrival = (data) => api.post('/stock/arrivals', data);
 export const getBrokenStock = () => api.get('/stock/broken');
 export const addBrokenStock = (data) => api.post('/stock/broken', data);
+export const updateBrokenStock = (id, data) => api.put(`/stock/broken/${id}`, data);
+export const deleteBrokenStock = (id) => api.delete(`/stock/broken/${id}`);
+export const deleteArrival = (id) => api.delete(`/stock/arrivals/${id}`);
+export const adjustStock = (variantId, stock) => api.put(`/stock/variants/${variantId}/stock`, { stock });
 
 // Orders
 export const getOrders = (status) => api.get('/orders', { params: status ? { status } : {} });
@@ -130,6 +139,15 @@ export const uploadCityPDF = (file) => {
   return api.post('/cities/upload-pdf', form, { headers: { 'Content-Type': 'multipart/form-data' } });
 };
 export const getCityPdfJob = (jobId) => api.get(`/cities/pdf-job/${jobId}`);
+
+// Suppliers
+export const getSuppliers       = () => api.get('/suppliers');
+export const createSupplier     = (data) => api.post('/suppliers', data);
+export const updateSupplier     = (id, data) => api.put(`/suppliers/${id}`, data);
+export const deleteSupplier     = (id) => api.delete(`/suppliers/${id}`);
+export const getSupplierDetail  = (id) => api.get(`/suppliers/${id}/detail`);
+export const addSupplierPayment = (id, data) => api.post(`/suppliers/${id}/payments`, data);
+export const deleteSupplierPayment = (id) => api.delete(`/suppliers/payments/${id}`);
 
 // Leads
 export const getLeads    = ()    => api.get('/leads');

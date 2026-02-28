@@ -8,7 +8,7 @@ from database import engine, get_db
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 import models
-from routers import products, stock, orders, team, expenses, reports, packs, auth as auth_router, cities as cities_router, platform as platform_router, leads as leads_router
+from routers import products, stock, orders, team, expenses, reports, packs, auth as auth_router, cities as cities_router, platform as platform_router, leads as leads_router, suppliers as suppliers_router
 from auth import get_current_user
 from seed_cities import seed
 
@@ -29,6 +29,12 @@ with engine.connect() as conn:
         "CREATE TABLE IF NOT EXISTS store_api_keys (id INTEGER PRIMARY KEY, store_id INTEGER NOT NULL UNIQUE REFERENCES users(id), key VARCHAR NOT NULL UNIQUE, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)",
         "CREATE TABLE IF NOT EXISTS leads (id INTEGER PRIMARY KEY, store_id INTEGER NOT NULL REFERENCES users(id), customer_name VARCHAR NOT NULL, customer_phone VARCHAR NOT NULL, customer_email VARCHAR, customer_city VARCHAR, customer_address VARCHAR, raw_items JSON, matched_items JSON, total_amount FLOAT, notes TEXT, status VARCHAR DEFAULT 'pending', order_id INTEGER REFERENCES orders(id), message_count INTEGER DEFAULT 0, last_message_at DATETIME, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)",
         "ALTER TABLE broken_stock ADD COLUMN user_id INTEGER REFERENCES users(id)",
+        "ALTER TABLE products ADD COLUMN supplier VARCHAR",
+        "ALTER TABLE products ADD COLUMN image_url VARCHAR",
+        "ALTER TABLE variants ADD COLUMN sku VARCHAR",
+        "CREATE TABLE IF NOT EXISTS suppliers (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id), name VARCHAR NOT NULL, phone VARCHAR, platform VARCHAR, notes TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)",
+        "CREATE TABLE IF NOT EXISTS supplier_payments (id INTEGER PRIMARY KEY, supplier_id INTEGER NOT NULL REFERENCES suppliers(id), amount FLOAT NOT NULL, date DATETIME NOT NULL, note TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)",
+        "ALTER TABLE products ADD COLUMN supplier_id INTEGER REFERENCES suppliers(id)",
     ]:
         try:
             conn.execute(text(stmt))
@@ -101,6 +107,7 @@ app.include_router(auth_router.router, prefix="/api")
 app.include_router(cities_router.router, prefix="/api")
 app.include_router(platform_router.router, prefix="/api")
 app.include_router(leads_router.router, prefix="/api")
+app.include_router(suppliers_router.router, prefix="/api")
 
 
 @app.get("/api/health")
@@ -139,6 +146,11 @@ def set_setting(key: str, value: str, db: Session = Depends(get_db), user: model
     db.commit()
     return {"success": True}
 
+
+# Serve uploaded files (product images, etc.)
+_uploads = os.path.join(os.path.dirname(__file__), "uploads")
+os.makedirs(_uploads, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=_uploads), name="uploads")
 
 # Serve React frontend (production build)
 _dist = os.path.join(os.path.dirname(__file__), "dist")

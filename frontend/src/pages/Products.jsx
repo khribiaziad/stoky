@@ -1,23 +1,96 @@
-import { useState, useEffect } from 'react';
-import { getProducts, createProduct, updateProduct, deleteProduct, addVariant, updateVariant, deleteVariant } from '../api';
+import { useState, useEffect, useRef } from 'react';
+import { getProducts, createProduct, updateProduct, deleteProduct, addVariant, updateVariant, deleteVariant, uploadProductImage, getSuppliers } from '../api';
 
 export default function Products({ readOnly = false }) {
   const [products, setProducts] = useState([]);
+  const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddProduct, setShowAddProduct] = useState(false);
   const [showAddVariant, setShowAddVariant] = useState(null);
+  const [showBulkVariant, setShowBulkVariant] = useState(null); // product id
   const [editingVariant, setEditingVariant] = useState(null); // { variant, product }
   const [expandedProduct, setExpandedProduct] = useState(null);
   const [search, setSearch] = useState('');
 
-  const [newProduct, setNewProduct] = useState({ name: '', category: 'caps', has_sizes: true, has_colors: true, under_1kg: false });
-  const [newVariant, setNewVariant] = useState({ size: '', color: '', buying_price: '', selling_price: '', stock: 0, low_stock_threshold: 5 });
+  const CATEGORIES = ['caps', 'clothing', 'shoes', 'bags', 'accessories', 'electronics', 'beauty', 'home', 'other'];
+
+  const [newProduct, setNewProduct] = useState({ name: '', category: 'caps', has_sizes: true, has_colors: true, under_1kg: false, supplier_id: '', image_url: '' });
+  const [newVariant, setNewVariant] = useState({ sku: '', size: '', color: '', buying_price: '', selling_price: '', stock: 0, low_stock_threshold: 5 });
   const [editForm, setEditForm] = useState({});
   const [editingProduct, setEditingProduct] = useState(null);
   const [error, setError] = useState('');
+  const [imageUploading, setImageUploading] = useState(false);
+  const fileInputRef = useRef(null);
+
+  const handleImageFile = async (file, setter) => {
+    if (!file) return;
+    setImageUploading(true);
+    try {
+      const res = await uploadProductImage(file);
+      setter(res.data.url);
+    } catch (e) {
+      setError('Image upload failed');
+    } finally {
+      setImageUploading(false);
+    }
+  };
+
+  // Bulk variant state
+  const [bulkSizes, setBulkSizes] = useState('');
+  const [bulkColors, setBulkColors] = useState('');
+  const [bulkBuyPrice, setBulkBuyPrice] = useState('');
+  const [bulkSellPrice, setBulkSellPrice] = useState('');
+  const [bulkStock, setBulkStock] = useState(0);
+  const [bulkThreshold, setBulkThreshold] = useState(5);
+  const [bulkLoading, setBulkLoading] = useState(false);
+
+  const getBulkCombinations = (product) => {
+    if (!product) return [];
+    const sizes = product.has_sizes ? bulkSizes.split(',').map(s => s.trim()).filter(Boolean) : [''];
+    const colors = product.has_colors ? bulkColors.split(',').map(c => c.trim()).filter(Boolean) : [''];
+    if (sizes.length === 0 && colors.length === 0) return [];
+    const effectiveSizes = sizes.length > 0 ? sizes : [''];
+    const effectiveColors = colors.length > 0 ? colors : [''];
+    const combos = [];
+    for (const size of effectiveSizes) {
+      for (const color of effectiveColors) {
+        combos.push({ size: product.has_sizes ? size : null, color: product.has_colors ? color : null });
+      }
+    }
+    return combos;
+  };
+
+  const handleBulkAddVariants = async () => {
+    const product = products.find(p => p.id === showBulkVariant);
+    if (!bulkBuyPrice) { setError('Buying price is required'); return; }
+    const combos = getBulkCombinations(product);
+    if (combos.length === 0) { setError('Enter at least one size or color'); return; }
+    setBulkLoading(true);
+    setError('');
+    try {
+      for (const combo of combos) {
+        await addVariant(showBulkVariant, {
+          size: combo.size || '',
+          color: combo.color || '',
+          buying_price: parseFloat(bulkBuyPrice),
+          selling_price: parseFloat(bulkSellPrice) || null,
+          stock: parseInt(bulkStock) || 0,
+          low_stock_threshold: parseInt(bulkThreshold) || 5,
+        });
+      }
+      setShowBulkVariant(null);
+      setBulkSizes(''); setBulkColors(''); setBulkBuyPrice(''); setBulkSellPrice(''); setBulkStock(0); setBulkThreshold(5);
+      load();
+    } catch (e) {
+      setError(e.response?.data?.detail || 'Error adding variants');
+    } finally {
+      setBulkLoading(false);
+    }
+  };
 
   const load = () => {
     getProducts().then(r => setProducts(r.data)).finally(() => setLoading(false));
+    getSuppliers().then(r => setSuppliers(r.data));
   };
 
   useEffect(() => { load(); }, []);
@@ -25,9 +98,9 @@ export default function Products({ readOnly = false }) {
   const handleCreateProduct = async () => {
     if (!newProduct.name.trim()) { setError('Product name is required'); return; }
     try {
-      await createProduct({ ...newProduct, is_pack: false });
+      await createProduct({ ...newProduct, is_pack: false, supplier_id: newProduct.supplier_id ? parseInt(newProduct.supplier_id) : null });
       setShowAddProduct(false);
-      setNewProduct({ name: '', category: 'caps', has_sizes: true, has_colors: true, under_1kg: false });
+      setNewProduct({ name: '', category: 'caps', has_sizes: true, has_colors: true, under_1kg: false, supplier_id: '', image_url: '' });
       setError('');
       load();
     } catch (e) { setError(e.response?.data?.detail || 'Error creating product'); }
@@ -42,7 +115,7 @@ export default function Products({ readOnly = false }) {
         selling_price: parseFloat(newVariant.selling_price) || null,
       });
       setShowAddVariant(null);
-      setNewVariant({ size: '', color: '', buying_price: '', selling_price: '', stock: 0, low_stock_threshold: 5 });
+      setNewVariant({ sku: '', size: '', color: '', buying_price: '', selling_price: '', stock: 0, low_stock_threshold: 5 });
       setError('');
       load();
     } catch (e) { setError(e.response?.data?.detail || 'Error adding variant'); }
@@ -50,6 +123,7 @@ export default function Products({ readOnly = false }) {
 
   const openEditVariant = (variant, product) => {
     setEditForm({
+      sku: variant.sku || '',
       size: variant.size || '',
       color: variant.color || '',
       buying_price: variant.buying_price,
@@ -77,7 +151,7 @@ export default function Products({ readOnly = false }) {
 
   const openEditProduct = (e, product) => {
     e.stopPropagation();
-    setEditingProduct({ ...product });
+    setEditingProduct({ ...product, supplier_id: product.supplier_id || '', image_url: product.image_url || '' });
     setError('');
   };
 
@@ -90,6 +164,8 @@ export default function Products({ readOnly = false }) {
         has_sizes: editingProduct.has_sizes,
         has_colors: editingProduct.has_colors,
         under_1kg: editingProduct.under_1kg,
+        supplier_id: editingProduct.supplier_id ? parseInt(editingProduct.supplier_id) : null,
+        image_url: editingProduct.image_url || null,
         variants: [],
       });
       setEditingProduct(null);
@@ -150,11 +226,20 @@ export default function Products({ readOnly = false }) {
                 <span style={{ color: '#8892b0', fontSize: 12 }}>
                   {expandedProduct === product.id ? '▼' : '▶'}
                 </span>
+                {product.image_url && (
+                  <img
+                    src={product.image_url}
+                    alt={product.name}
+                    style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--border)', flexShrink: 0 }}
+                    onError={e => { e.target.style.display = 'none'; }}
+                  />
+                )}
                 <div>
                   <div style={{ fontWeight: 600, fontSize: 16 }}>{product.name}</div>
                   <div style={{ color: '#8892b0', fontSize: 12, marginTop: 2 }}>
-                    {product.category} ·{' '}
-                    {product.variants.length} variant{product.variants.length !== 1 ? 's' : ''} ·{' '}
+                    {product.category}
+                    {product.supplier_id && (() => { const s = suppliers.find(s => s.id === product.supplier_id); return s ? <span> · <span style={{ color: 'var(--accent)' }}>{s.name}</span></span> : null; })()}
+                    {' · '}{product.variants.length} variant{product.variants.length !== 1 ? 's' : ''} ·{' '}
                     <span style={{ color: '#4ade80' }}>
                       {product.variants.reduce((s, v) => s + v.stock, 0)} available
                     </span>
@@ -171,6 +256,7 @@ export default function Products({ readOnly = false }) {
                 <div style={{ display: 'flex', gap: 8 }} onClick={e => e.stopPropagation()}>
                   <button className="btn btn-secondary btn-sm" onClick={e => openEditProduct(e, product)}>Edit</button>
                   <button className="btn btn-secondary btn-sm" onClick={() => { setError(''); setShowAddVariant(product.id); }}>+ Variant</button>
+                  <button className="btn btn-secondary btn-sm" style={{ color: 'var(--accent)', borderColor: 'var(--accent)' }} onClick={() => { setError(''); setBulkSizes(''); setBulkColors(''); setBulkBuyPrice(''); setBulkSellPrice(''); setBulkStock(0); setBulkThreshold(5); setShowBulkVariant(product.id); }}>+ Bulk</button>
                   <button className="btn btn-danger btn-sm" onClick={e => handleDeleteProduct(e, product.id)}>Delete</button>
                 </div>
               )}
@@ -183,6 +269,7 @@ export default function Products({ readOnly = false }) {
                     <tr>
                       {product.has_sizes && <th>Size</th>}
                       {product.has_colors && <th>Color</th>}
+                      <th>SKU</th>
                       <th>Buy Price</th>
                       <th>Sell Price</th>
                       <th>Stock</th>
@@ -196,6 +283,7 @@ export default function Products({ readOnly = false }) {
                       <tr key={v.id}>
                         {product.has_sizes && <td>{v.size || '—'}</td>}
                         {product.has_colors && <td>{v.color || '—'}</td>}
+                        <td style={{ color: '#8892b0', fontSize: 12, fontFamily: 'monospace' }}>{v.sku || '—'}</td>
                         <td>{v.buying_price} MAD</td>
                         <td>{v.selling_price ? `${v.selling_price} MAD` : '—'}</td>
                         <td style={{ fontWeight: 600, color: v.stock === 0 ? '#f87171' : v.stock <= v.low_stock_threshold ? '#fbbf24' : '#4ade80' }}>
@@ -240,13 +328,37 @@ export default function Products({ readOnly = false }) {
             </div>
             <div className="modal-body">
               {error && <div className="alert alert-error">{error}</div>}
-              <div className="form-group">
-                <label className="form-label">Product Name</label>
-                <input className="form-input" value={editingProduct.name} onChange={e => setEditingProduct({...editingProduct, name: e.target.value})} />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Category</label>
-                <input className="form-input" value={editingProduct.category} onChange={e => setEditingProduct({...editingProduct, category: e.target.value})} />
+              <div className="form-grid-2">
+                <div className="form-group">
+                  <label className="form-label">Product Name</label>
+                  <input className="form-input" value={editingProduct.name} onChange={e => setEditingProduct({...editingProduct, name: e.target.value})} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Category</label>
+                  <select className="form-input" value={editingProduct.category} onChange={e => setEditingProduct({...editingProduct, category: e.target.value})}>
+                    {CATEGORIES.map(c => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Supplier</label>
+                  <select className="form-input" value={editingProduct.supplier_id || ''} onChange={e => setEditingProduct({...editingProduct, supplier_id: e.target.value})}>
+                    <option value="">— None —</option>
+                    {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Product Image</label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    {editingProduct.image_url && (
+                      <img src={editingProduct.image_url} alt="preview" style={{ height: 48, width: 48, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--border)', flexShrink: 0 }} onError={e => e.target.style.display='none'} />
+                    )}
+                    <label className="btn btn-secondary" style={{ cursor: 'pointer', margin: 0 }}>
+                      {imageUploading ? 'Uploading...' : editingProduct.image_url ? 'Change' : 'Choose Image'}
+                      <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => handleImageFile(e.target.files[0], url => setEditingProduct(p => ({...p, image_url: url})))} />
+                    </label>
+                    {editingProduct.image_url && <button className="btn btn-secondary btn-sm" onClick={() => setEditingProduct(p => ({...p, image_url: ''}))}>Remove</button>}
+                  </div>
+                </div>
               </div>
               <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
                 <label className="checkbox-label">
@@ -281,13 +393,37 @@ export default function Products({ readOnly = false }) {
             </div>
             <div className="modal-body">
               {error && <div className="alert alert-error">{error}</div>}
-              <div className="form-group">
-                <label className="form-label">Product Name</label>
-                <input className="form-input" placeholder="e.g. NY Cap" value={newProduct.name} onChange={e => setNewProduct({...newProduct, name: e.target.value})} />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Category</label>
-                <input className="form-input" value={newProduct.category} onChange={e => setNewProduct({...newProduct, category: e.target.value})} />
+              <div className="form-grid-2">
+                <div className="form-group">
+                  <label className="form-label">Product Name</label>
+                  <input className="form-input" placeholder="e.g. NY Cap" value={newProduct.name} onChange={e => setNewProduct({...newProduct, name: e.target.value})} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Category</label>
+                  <select className="form-input" value={newProduct.category} onChange={e => setNewProduct({...newProduct, category: e.target.value})}>
+                    {CATEGORIES.map(c => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Supplier</label>
+                  <select className="form-input" value={newProduct.supplier_id} onChange={e => setNewProduct({...newProduct, supplier_id: e.target.value})}>
+                    <option value="">— None —</option>
+                    {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Product Image</label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    {newProduct.image_url && (
+                      <img src={newProduct.image_url} alt="preview" style={{ height: 48, width: 48, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--border)', flexShrink: 0 }} onError={e => e.target.style.display='none'} />
+                    )}
+                    <label className="btn btn-secondary" style={{ cursor: 'pointer', margin: 0 }}>
+                      {imageUploading ? 'Uploading...' : newProduct.image_url ? 'Change' : 'Choose Image'}
+                      <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => handleImageFile(e.target.files[0], url => setNewProduct(p => ({...p, image_url: url})))} />
+                    </label>
+                    {newProduct.image_url && <button className="btn btn-secondary btn-sm" onClick={() => setNewProduct(p => ({...p, image_url: ''}))}>Remove</button>}
+                  </div>
+                </div>
               </div>
               <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
                 <label className="checkbox-label">
@@ -338,6 +474,10 @@ export default function Products({ readOnly = false }) {
                     </div>
                   )}
                   <div className="form-group">
+                    <label className="form-label">SKU <span style={{ color: '#8892b0', fontWeight: 400 }}>(optional)</span></label>
+                    <input className="form-input" placeholder="e.g. CAP-BLK-M" value={newVariant.sku} onChange={e => setNewVariant({...newVariant, sku: e.target.value})} />
+                  </div>
+                  <div className="form-group">
                     <label className="form-label">Buying Price (MAD) *</label>
                     <input className="form-input" type="number" value={newVariant.buying_price} onChange={e => setNewVariant({...newVariant, buying_price: e.target.value})} />
                   </div>
@@ -358,6 +498,86 @@ export default function Products({ readOnly = false }) {
               <div className="modal-footer">
                 <button className="btn btn-secondary" onClick={() => setShowAddVariant(null)}>Cancel</button>
                 <button className="btn btn-primary" onClick={handleAddVariant}>Add Variant</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Bulk Add Variants Modal */}
+      {showBulkVariant && (() => {
+        const product = products.find(p => p.id === showBulkVariant);
+        const combos = getBulkCombinations(product);
+        return (
+          <div className="modal-overlay" onClick={() => setShowBulkVariant(null)}>
+            <div className="modal" style={{ maxWidth: 520 }} onClick={e => e.stopPropagation()}>
+              <div className="modal-header">
+                <h2>Bulk Add Variants — {product?.name}</h2>
+                <button className="btn-icon" onClick={() => setShowBulkVariant(null)}>✕</button>
+              </div>
+              <div className="modal-body">
+                {error && <div className="alert alert-error">{error}</div>}
+
+                {/* Sizes / Colors inputs */}
+                <div className="form-grid-2">
+                  {product?.has_sizes && (
+                    <div className="form-group">
+                      <label className="form-label">Sizes <span style={{ color: '#8892b0', fontWeight: 400 }}>(comma-separated)</span></label>
+                      <input className="form-input" placeholder="S, M, L, XL" value={bulkSizes} onChange={e => setBulkSizes(e.target.value)} />
+                    </div>
+                  )}
+                  {product?.has_colors && (
+                    <div className="form-group">
+                      <label className="form-label">Colors <span style={{ color: '#8892b0', fontWeight: 400 }}>(comma-separated)</span></label>
+                      <input className="form-input" placeholder="Black, White, Blue" value={bulkColors} onChange={e => setBulkColors(e.target.value)} />
+                    </div>
+                  )}
+                  <div className="form-group">
+                    <label className="form-label">Buying Price (MAD) *</label>
+                    <input className="form-input" type="number" placeholder="0" value={bulkBuyPrice} onChange={e => setBulkBuyPrice(e.target.value)} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Selling Price (MAD)</label>
+                    <input className="form-input" type="number" placeholder="0" value={bulkSellPrice} onChange={e => setBulkSellPrice(e.target.value)} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Initial Stock (each)</label>
+                    <input className="form-input" type="number" value={bulkStock} onChange={e => setBulkStock(e.target.value)} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Low Stock Alert</label>
+                    <input className="form-input" type="number" value={bulkThreshold} onChange={e => setBulkThreshold(e.target.value)} />
+                  </div>
+                </div>
+
+                {/* Preview combinations */}
+                {combos.length > 0 && (
+                  <div style={{ marginTop: 12 }}>
+                    <div style={{ fontSize: 12, color: '#8892b0', marginBottom: 8 }}>
+                      {combos.length} variant{combos.length !== 1 ? 's' : ''} will be created:
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      {combos.map((c, i) => (
+                        <span key={i} style={{
+                          background: 'var(--bg)',
+                          border: '1px solid var(--border)',
+                          borderRadius: 6,
+                          padding: '3px 10px',
+                          fontSize: 13,
+                          color: 'var(--text)',
+                        }}>
+                          {[c.size, c.color].filter(Boolean).join(' / ') || '(no size/color)'}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="modal-footer">
+                <button className="btn btn-secondary" onClick={() => setShowBulkVariant(null)}>Cancel</button>
+                <button className="btn btn-primary" onClick={handleBulkAddVariants} disabled={bulkLoading}>
+                  {bulkLoading ? 'Creating...' : `Create ${combos.length} Variant${combos.length !== 1 ? 's' : ''}`}
+                </button>
               </div>
             </div>
           </div>
@@ -387,6 +607,10 @@ export default function Products({ readOnly = false }) {
                     <input className="form-input" value={editForm.color} onChange={e => setEditForm({...editForm, color: e.target.value})} />
                   </div>
                 )}
+                <div className="form-group">
+                  <label className="form-label">SKU <span style={{ color: '#8892b0', fontWeight: 400 }}>(optional)</span></label>
+                  <input className="form-input" placeholder="e.g. CAP-BLK-M" value={editForm.sku || ''} onChange={e => setEditForm({...editForm, sku: e.target.value})} />
+                </div>
                 <div className="form-group">
                   <label className="form-label">Buying Price (MAD) *</label>
                   <input className="form-input" type="number" value={editForm.buying_price} onChange={e => setEditForm({...editForm, buying_price: e.target.value})} />

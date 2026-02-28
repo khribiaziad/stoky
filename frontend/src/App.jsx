@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   LayoutDashboard, Package, Tag, Gift, Warehouse,
-  Users, BarChart2, Megaphone, Receipt, LogOut, Menu, X, Settings as SettingsIcon, UserCheck,
+  Users, BarChart2, Megaphone, Receipt, LogOut, Menu, X, Settings as SettingsIcon, UserCheck, Truck,
 } from 'lucide-react';
 import Dashboard from './pages/Dashboard';
 import Products from './pages/Products';
@@ -14,6 +14,7 @@ import Ads from './pages/Ads';
 import Expenses from './pages/Expenses';
 import Settings from './pages/Settings';
 import Leads from './pages/Leads';
+import Suppliers from './pages/Suppliers';
 import Login from './pages/Login';
 import PlatformLayout from './pages/platform/PlatformLayout';
 
@@ -23,19 +24,19 @@ const T = {
     dashboard: 'Dashboard', orders: 'Orders',    products: 'Products',
     packs: 'Packs',         stock: 'Stock',       team: 'Team',
     expenses: 'Expenses',   ads: 'Ads',           reports: 'Reports',
-    settings: 'Settings',   leads: 'Leads',
+    settings: 'Settings',   leads: 'Leads',       suppliers: 'Suppliers',
   },
   fr: {
     dashboard: 'Tableau de bord', orders: 'Commandes', products: 'Produits',
     packs: 'Packs',               stock: 'Stock',      team: 'Équipe',
     expenses: 'Dépenses',         ads: 'Publicités',   reports: 'Rapports',
-    settings: 'Paramètres',       leads: 'Prospects',
+    settings: 'Paramètres',       leads: 'Prospects',  suppliers: 'Fournisseurs',
   },
   ar: {
     dashboard: 'لوحة التحكم', orders: 'الطلبات',    products: 'المنتجات',
     packs: 'الحزم',           stock: 'المخزون',      team: 'الفريق',
     expenses: 'المصاريف',     ads: 'الإعلانات',      reports: 'التقارير',
-    settings: 'الإعدادات',    leads: 'العملاء',
+    settings: 'الإعدادات',    leads: 'العملاء',      suppliers: 'الموردون',
   },
 };
 
@@ -44,6 +45,7 @@ const ADMIN_NAV = [
   { id: 'orders',    Icon: Package },
   { id: 'leads',     Icon: UserCheck },
   { id: 'products',  Icon: Tag },
+  { id: 'suppliers', Icon: Truck },
   { id: 'packs',     Icon: Gift },
   { id: 'stock',     Icon: Warehouse },
   { id: 'team',      Icon: Users },
@@ -139,6 +141,7 @@ export default function App() {
     dashboard: <Dashboard onNavigate={navigate} user={user} />,
     orders:    <Orders user={user} />,
     leads:     <Leads />,
+    suppliers: <Suppliers />,
     products:  <Products readOnly={isConfirmer} />,
     packs:     <Packs readOnly={isConfirmer} />,
     stock:     <Stock readOnly={isConfirmer} />,

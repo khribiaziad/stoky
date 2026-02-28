@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getProducts, getStockArrivals, addBulkStockArrival, getBrokenStock, addBrokenStock } from '../api';
+import { getProducts, getStockArrivals, addBulkStockArrival, getBrokenStock, addBrokenStock, updateBrokenStock, deleteBrokenStock, deleteArrival, adjustStock } from '../api';
 
 const emptyItem = () => ({ product_id: '', variant_id: '', quantity: 1 });
 
@@ -10,6 +10,10 @@ export default function Stock({ readOnly = false }) {
   const [broken, setBroken] = useState([]);
   const [showAdd, setShowAdd] = useState(false);
   const [showAddBroken, setShowAddBroken] = useState(false);
+  const [editBroken, setEditBroken] = useState(null);
+  const [editBrokenForm, setEditBrokenForm] = useState({ quantity: 1, returnable_to_supplier: false });
+  const [adjustVariant, setAdjustVariant] = useState(null);
+  const [adjustValue, setAdjustValue] = useState(0);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -89,6 +93,42 @@ export default function Stock({ readOnly = false }) {
     }
   };
 
+  const handleEditBroken = async () => {
+    try {
+      await updateBrokenStock(editBroken.id, editBrokenForm);
+      setEditBroken(null);
+      setSuccess('Updated successfully');
+      load();
+    } catch (e) { setError(e.response?.data?.detail || 'Error'); }
+  };
+
+  const handleDeleteBroken = async (id) => {
+    if (!window.confirm('Delete this broken stock record?')) return;
+    try {
+      await deleteBrokenStock(id);
+      setSuccess('Deleted');
+      load();
+    } catch (e) { setError(e.response?.data?.detail || 'Error'); }
+  };
+
+  const handleDeleteArrival = async (id) => {
+    if (!window.confirm('Delete this arrival? Stock will be reversed.')) return;
+    try {
+      await deleteArrival(id);
+      setSuccess('Arrival deleted and stock reversed');
+      load();
+    } catch (e) { setError(e.response?.data?.detail || 'Error'); }
+  };
+
+  const handleAdjustStock = async () => {
+    try {
+      await adjustStock(adjustVariant.id, adjustValue);
+      setAdjustVariant(null);
+      setSuccess('Stock updated');
+      load();
+    } catch (e) { setError(e.response?.data?.detail || 'Error'); }
+  };
+
   return (
     <div>
       <div className="page-header">
@@ -123,7 +163,7 @@ export default function Stock({ readOnly = false }) {
             <div className="table-wrapper">
               <table>
                 <thead>
-                  <tr><th>Product</th><th>Size</th><th>Color</th><th>Buy Price</th><th>Stock</th><th>Broken</th><th>Status</th></tr>
+                  <tr><th>Product</th><th>Size</th><th>Color</th><th>Buy Price</th><th>Stock</th><th>Broken</th><th>Status</th><th></th></tr>
                 </thead>
                 <tbody>
                   {products.flatMap(p =>
@@ -147,6 +187,7 @@ export default function Stock({ readOnly = false }) {
                               : <span className="badge badge-green">OK</span>
                           }
                         </td>
+                        <td><button className="btn btn-secondary btn-sm" onClick={() => { setAdjustVariant({ id: v.id, name: p.name, size: v.size, color: v.color }); setAdjustValue(v.stock); }}>Adjust</button></td>
                       </tr>
                     ))
                   )}
@@ -166,7 +207,7 @@ export default function Stock({ readOnly = false }) {
             <div className="table-wrapper">
               <table>
                 <thead>
-                  <tr><th>Date</th><th>Product</th><th>Variant</th><th>Qty</th><th>Unit Cost</th><th>Extra Fees</th><th>Total</th><th>Note</th></tr>
+                  <tr><th>Date</th><th>Product</th><th>Variant</th><th>Qty</th><th>Unit Cost</th><th>Extra Fees</th><th>Total</th><th>Note</th><th></th></tr>
                 </thead>
                 <tbody>
                   {arrivals.map(a => (
@@ -189,6 +230,7 @@ export default function Stock({ readOnly = false }) {
                       </td>
                       <td style={{ fontWeight: 600, color: '#f87171' }}>{a.total_cost} MAD</td>
                       <td style={{ color: '#8892b0', fontSize: 12 }}>{a.description || '—'}</td>
+                      <td><button className="btn btn-danger btn-sm" onClick={() => handleDeleteArrival(a.id)}>Delete</button></td>
                     </tr>
                   ))}
                 </tbody>
@@ -207,7 +249,7 @@ export default function Stock({ readOnly = false }) {
             <div className="table-wrapper">
               <table>
                 <thead>
-                  <tr><th>Date</th><th>Product</th><th>Variant</th><th>Qty</th><th>Source</th><th>Returnable</th><th>Value Lost</th></tr>
+                  <tr><th>Date</th><th>Product</th><th>Variant</th><th>Qty</th><th>Source</th><th>Returnable</th><th>Value Lost</th><th></th></tr>
                 </thead>
                 <tbody>
                   {broken.map(b => (
@@ -228,6 +270,12 @@ export default function Stock({ readOnly = false }) {
                       </td>
                       <td style={{ color: b.returnable_to_supplier ? '#8892b0' : '#f87171' }}>
                         {b.returnable_to_supplier ? '0 (refund)' : `${b.value_lost} MAD`}
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button className="btn btn-secondary btn-sm" onClick={() => { setEditBroken(b); setEditBrokenForm({ quantity: b.quantity, returnable_to_supplier: b.returnable_to_supplier }); }}>Edit</button>
+                          <button className="btn btn-danger btn-sm" onClick={() => handleDeleteBroken(b.id)}>Delete</button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -387,6 +435,62 @@ export default function Stock({ readOnly = false }) {
             <div className="modal-footer">
               <button className="btn btn-secondary" onClick={() => setShowAddBroken(false)}>Cancel</button>
               <button className="btn btn-danger" onClick={handleAddBroken}>Report Broken</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Adjust Stock Modal */}
+      {adjustVariant && (
+        <div className="modal-overlay" onClick={() => setAdjustVariant(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Adjust Stock</h2>
+              <button className="btn-icon" onClick={() => setAdjustVariant(null)}>✕</button>
+            </div>
+            <div className="modal-body">
+              <div style={{ marginBottom: 12, color: 'var(--t2)', fontSize: 14 }}>
+                {adjustVariant.name} — {[adjustVariant.size, adjustVariant.color].filter(Boolean).join(' / ') || 'Default'}
+              </div>
+              <div className="form-group">
+                <label className="form-label">New Stock Count</label>
+                <input className="form-input" type="number" min="0" value={adjustValue} onChange={e => setAdjustValue(parseInt(e.target.value) || 0)} />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setAdjustVariant(null)}>Cancel</button>
+              <button className="btn btn-primary" onClick={handleAdjustStock}>Save</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Broken Modal */}
+      {editBroken && (
+        <div className="modal-overlay" onClick={() => setEditBroken(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Edit Broken Stock</h2>
+              <button className="btn-icon" onClick={() => setEditBroken(null)}>✕</button>
+            </div>
+            <div className="modal-body">
+              <div style={{ marginBottom: 8, color: 'var(--t2)', fontSize: 14 }}>
+                {editBroken.product_name} — {[editBroken.size, editBroken.color].filter(Boolean).join(' / ') || 'Default'}
+              </div>
+              <div className="form-group">
+                <label className="form-label">Quantity</label>
+                <input className="form-input" type="number" min="1" value={editBrokenForm.quantity} onChange={e => setEditBrokenForm({ ...editBrokenForm, quantity: parseInt(e.target.value) || 1 })} />
+              </div>
+              <div className="form-group">
+                <label className="checkbox-label">
+                  <input type="checkbox" checked={editBrokenForm.returnable_to_supplier} onChange={e => setEditBrokenForm({ ...editBrokenForm, returnable_to_supplier: e.target.checked })} />
+                  Returnable to Supplier
+                </label>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setEditBroken(null)}>Cancel</button>
+              <button className="btn btn-primary" onClick={handleEditBroken}>Save</button>
             </div>
           </div>
         </div>

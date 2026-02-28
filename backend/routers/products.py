@@ -1,15 +1,47 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional, List
 from database import get_db
 from auth import get_current_user, get_store_id
 import models
+import uuid, os, shutil
+from datetime import datetime
 
 router = APIRouter(prefix="/products", tags=["products"])
 
+UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "..", "uploads", "products")
+
+
+def _create_initial_arrival(db, user_id: int, variant: models.Variant):
+    """Auto-create a stock arrival when a variant is added with initial stock > 0."""
+    cost = (variant.buying_price or 0) * variant.stock
+    arrival = models.StockArrival(
+        user_id=user_id,
+        variant_id=variant.id,
+        quantity=variant.stock,
+        additional_fees=0,
+        description="Initial stock",
+        total_cost=cost,
+        date=datetime.now(),
+    )
+    db.add(arrival)
+
+
+@router.post("/upload-image")
+async def upload_product_image(file: UploadFile = File(...), user: models.User = Depends(get_current_user)):
+    ext = os.path.splitext(file.filename)[1].lower()
+    if ext not in (".jpg", ".jpeg", ".png", ".webp", ".gif"):
+        raise HTTPException(status_code=400, detail="Only jpg, png, webp, gif allowed")
+    filename = f"{uuid.uuid4()}{ext}"
+    path = os.path.join(UPLOAD_DIR, filename)
+    with open(path, "wb") as f:
+        shutil.copyfileobj(file.file, f)
+    return {"url": f"/uploads/products/{filename}"}
+
 
 class VariantCreate(BaseModel):
+    sku: Optional[str] = None
     size: Optional[str] = None
     color: Optional[str] = None
     buying_price: float
@@ -25,10 +57,14 @@ class ProductCreate(BaseModel):
     has_colors: bool = True
     is_pack: bool = False
     under_1kg: bool = False
+    supplier: Optional[str] = None
+    supplier_id: Optional[int] = None
+    image_url: Optional[str] = None
     variants: List[VariantCreate] = []
 
 
 class VariantUpdate(BaseModel):
+    sku: Optional[str] = None
     size: Optional[str] = None
     color: Optional[str] = None
     buying_price: Optional[float] = None
@@ -43,6 +79,7 @@ def serialize_variant(v, db: Session) -> dict:
 
     return {
         "id": v.id,
+        "sku": v.sku,
         "size": v.size,
         "color": v.color,
         "buying_price": v.buying_price,
@@ -68,6 +105,9 @@ def list_products(db: Session = Depends(get_db), user: models.User = Depends(get
             "has_colors": p.has_colors,
             "is_pack": p.is_pack,
             "under_1kg": p.under_1kg,
+            "supplier": p.supplier,
+            "supplier_id": p.supplier_id,
+            "image_url": p.image_url,
             "variants": [serialize_variant(v, db) for v in p.variants],
         })
     return result
@@ -85,6 +125,9 @@ def create_product(data: ProductCreate, db: Session = Depends(get_db), user: mod
         has_colors=data.has_colors,
         is_pack=data.is_pack,
         under_1kg=data.under_1kg,
+        supplier=data.supplier,
+        supplier_id=data.supplier_id,
+        image_url=data.image_url,
     )
     db.add(product)
     db.flush()
@@ -92,6 +135,9 @@ def create_product(data: ProductCreate, db: Session = Depends(get_db), user: mod
     for v in data.variants:
         variant = models.Variant(product_id=product.id, **v.model_dump())
         db.add(variant)
+        db.flush()
+        if variant.stock > 0:
+            _create_initial_arrival(db, user.id, variant)
 
     db.commit()
     db.refresh(product)
@@ -111,6 +157,9 @@ def update_product(product_id: int, data: ProductCreate, db: Session = Depends(g
     product.has_colors = data.has_colors
     product.is_pack = data.is_pack
     product.under_1kg = data.under_1kg
+    product.supplier = data.supplier
+    product.supplier_id = data.supplier_id
+    product.image_url = data.image_url
     db.commit()
     return {"id": product.id, "name": product.name}
 
@@ -146,6 +195,9 @@ def add_variant(product_id: int, data: VariantCreate, db: Session = Depends(get_
 
     variant = models.Variant(product_id=product_id, **data.model_dump())
     db.add(variant)
+    db.flush()
+    if variant.stock > 0:
+        _create_initial_arrival(db, user.id, variant)
     db.commit()
     db.refresh(variant)
     return {"id": variant.id}

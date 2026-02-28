@@ -53,6 +53,9 @@ class Product(Base):
     has_colors = Column(Boolean, default=True)
     is_pack = Column(Boolean, default=False)
     under_1kg = Column(Boolean, default=False)
+    supplier = Column(String, nullable=True)
+    supplier_id = Column(Integer, ForeignKey("suppliers.id"), nullable=True)
+    image_url = Column(String, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
 
     variants = relationship("Variant", back_populates="product", cascade="all, delete-orphan")
@@ -63,6 +66,7 @@ class Variant(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+    sku = Column(String, nullable=True)
     size = Column(String, nullable=True)
     color = Column(String, nullable=True)
     buying_price = Column(Float, nullable=False)
@@ -347,6 +351,29 @@ class StoreApiKey(Base):
     store_id   = Column(Integer, ForeignKey("users.id"), nullable=False, unique=True)
     key        = Column(String, unique=True, nullable=False)
     created_at = Column(DateTime, server_default=func.now())
+
+
+class Supplier(Base):
+    __tablename__ = "suppliers"
+
+    id         = Column(Integer, primary_key=True)
+    user_id    = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    name       = Column(String, nullable=False)
+    phone      = Column(String, nullable=True)
+    platform   = Column(String, nullable=True)
+    notes      = Column(Text, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+
+class SupplierPayment(Base):
+    __tablename__ = "supplier_payments"
+
+    id          = Column(Integer, primary_key=True)
+    supplier_id = Column(Integer, ForeignKey("suppliers.id"), nullable=False, index=True)
+    amount      = Column(Float, nullable=False)
+    date        = Column(DateTime, nullable=False)
+    note        = Column(Text, nullable=True)
+    created_at  = Column(DateTime, server_default=func.now())
 
 
 class Lead(Base):

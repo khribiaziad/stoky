@@ -108,6 +108,51 @@ def add_bulk_stock(data: BulkStockArrivalCreate, db: Session = Depends(get_db), 
     return {"success": True, "total_cost": total_cost, "items_count": len(variants)}
 
 
+@router.delete("/arrivals/{arrival_id}")
+def delete_arrival(arrival_id: int, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
+    arrival = db.query(models.StockArrival).filter(
+        models.StockArrival.id == arrival_id,
+        models.StockArrival.user_id == get_store_id(user)
+    ).first()
+    if not arrival:
+        raise HTTPException(status_code=404, detail="Arrival not found")
+    # Reverse stock
+    variant = db.query(models.Variant).filter(models.Variant.id == arrival.variant_id).first()
+    if variant:
+        variant.stock = max(0, variant.stock - arrival.quantity)
+    # Remove matching stock_purchase withdrawal
+    withdrawal = db.query(models.Withdrawal).filter(
+        models.Withdrawal.user_id == get_store_id(user),
+        models.Withdrawal.type == "stock_purchase",
+        models.Withdrawal.amount == arrival.total_cost,
+        models.Withdrawal.date == arrival.date,
+    ).first()
+    if withdrawal:
+        db.delete(withdrawal)
+    db.delete(arrival)
+    db.commit()
+    return {"success": True}
+
+
+class StockAdjustInput(BaseModel):
+    stock: int
+
+
+@router.put("/variants/{variant_id}/stock")
+def adjust_stock(variant_id: int, data: StockAdjustInput, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
+    variant = db.query(models.Variant).filter(
+        models.Variant.id == variant_id,
+        models.Variant.product_id.in_(
+            db.query(models.Product.id).filter(models.Product.user_id == get_store_id(user))
+        )
+    ).first()
+    if not variant:
+        raise HTTPException(status_code=404, detail="Variant not found")
+    variant.stock = max(0, data.stock)
+    db.commit()
+    return {"success": True}
+
+
 @router.get("/broken")
 def list_broken_stock(db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
     broken = (
@@ -164,3 +209,31 @@ def add_broken_stock(data: BrokenStockCreate, db: Session = Depends(get_db), use
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+class BrokenStockUpdate(BaseModel):
+    quantity: int
+    returnable_to_supplier: bool
+
+
+@router.put("/broken/{broken_id}")
+def update_broken_stock(broken_id: int, data: BrokenStockUpdate, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
+    broken = db.query(models.BrokenStock).filter(models.BrokenStock.id == broken_id).first()
+    if not broken:
+        raise HTTPException(status_code=404, detail="Record not found")
+    variant = db.query(models.Variant).filter(models.Variant.id == broken.variant_id).first()
+    broken.quantity = data.quantity
+    broken.returnable_to_supplier = data.returnable_to_supplier
+    broken.value_lost = 0.0 if data.returnable_to_supplier else (variant.buying_price or 0.0) * data.quantity
+    db.commit()
+    return {"success": True}
+
+
+@router.delete("/broken/{broken_id}")
+def delete_broken_stock(broken_id: int, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
+    broken = db.query(models.BrokenStock).filter(models.BrokenStock.id == broken_id).first()
+    if not broken:
+        raise HTTPException(status_code=404, detail="Record not found")
+    db.delete(broken)
+    db.commit()
+    return {"success": True}
