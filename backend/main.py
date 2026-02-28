@@ -113,6 +113,12 @@ def order_form():
     return FileResponse(path)
 
 
+@app.get("/landing", include_in_schema=False)
+def landing_page():
+    path = os.path.join(os.path.dirname(__file__), "landing.html")
+    return FileResponse(path)
+
+
 @app.get("/api/settings/{key}")
 def get_setting(key: str, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
     setting = db.query(models.AppSettings).filter(models.AppSettings.key == key, models.AppSettings.user_id == user.id).first()
