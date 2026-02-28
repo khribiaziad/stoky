@@ -227,6 +227,17 @@ def inbound_lead(
     api_key: str,
     db: Session = Depends(get_db),
 ):
+    try:
+        return _inbound_lead_impl(data, api_key, db)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        import traceback
+        detail = f"{type(exc).__name__}: {exc}\n{traceback.format_exc()}"
+        raise HTTPException(status_code=500, detail=detail)
+
+
+def _inbound_lead_impl(data: InboundLeadInput, api_key: str, db: Session):
     # 1. Honeypot check — bots fill in the hidden 'website' field
     if data.website:
         return _SILENT_OK
