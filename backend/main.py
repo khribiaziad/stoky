@@ -40,7 +40,7 @@ with engine.connect() as conn:
             conn.execute(text(stmt))
             conn.commit()
         except Exception:
-            pass  # column already exists
+            conn.rollback()  # PostgreSQL: reset aborted transaction before next statement
 
 # Seed cities on startup
 seed()
