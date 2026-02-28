@@ -95,9 +95,9 @@ def calculate_facebook_ads(db: Session, start: Optional[datetime], end: Optional
         p_end = period.end_date or now
         effective_start = max(range_start, p_start)
         effective_end = min(range_end, p_end)
-        if effective_end <= effective_start:
+        if effective_end.date() < effective_start.date():
             continue
-        days = (effective_end - effective_start).days
+        days = (effective_end.date() - effective_start.date()).days + 1
         total += period.daily_rate_usd * days * USD_TO_MAD
     return total
 
