@@ -273,9 +273,6 @@ def inbound_lead(
     db.commit()
     db.refresh(lead)
 
-    msg = _confirmation_message(lead, store_name)
-    _send_whatsapp(data.customer_phone, msg)
-
     return {"status": "lead_created", "id": lead.id}
 
 
@@ -402,6 +399,62 @@ def delete_lead(
     if not lead:
         raise HTTPException(status_code=404, detail="Lead not found")
     db.delete(lead)
+    db.commit()
+    return {"success": True}
+
+
+@router.post("/{lead_id}/confirm")
+def confirm_lead(
+    lead_id: int,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(get_current_user),
+):
+    """Manually confirm a lead — creates an order from it."""
+    import uuid
+    sid  = get_store_id(user)
+    lead = db.query(models.Lead).filter(models.Lead.id == lead_id, models.Lead.store_id == sid).first()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    if lead.status == "confirmed":
+        raise HTTPException(status_code=400, detail="Lead already confirmed")
+
+    order = models.Order(
+        user_id=lead.store_id,
+        caleo_id=f"LEAD-{lead.id}-{uuid.uuid4().hex[:6].upper()}",
+        customer_name=lead.customer_name,
+        customer_phone=lead.customer_phone,
+        customer_address=lead.customer_address,
+        city=lead.customer_city,
+        total_amount=lead.total_amount or 0,
+        status="pending",
+        order_date=datetime.now(),
+    )
+    db.add(order)
+    db.flush()
+
+    db.add(models.OrderExpense(
+        order_id=order.id,
+        sticker=0, seal_bag=0, packaging=1,
+        delivery_fee=35.0, return_fee=7.0,
+    ))
+
+    lead.status   = "confirmed"
+    lead.order_id = order.id
+    db.commit()
+    return {"success": True, "order_id": order.id}
+
+
+@router.post("/{lead_id}/cancel")
+def cancel_lead(
+    lead_id: int,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(get_current_user),
+):
+    sid  = get_store_id(user)
+    lead = db.query(models.Lead).filter(models.Lead.id == lead_id, models.Lead.store_id == sid).first()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    lead.status = "cancelled"
     db.commit()
     return {"success": True}
 

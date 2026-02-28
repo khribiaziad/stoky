@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { UserCheck, Trash2, Phone, MapPin, Package, Clock, RefreshCw } from 'lucide-react';
-import { getLeads, deleteLead } from '../api';
+import { UserCheck, Trash2, Phone, MapPin, Package, Clock, RefreshCw, CheckCircle, XCircle, MessageCircle } from 'lucide-react';
+import { getLeads, deleteLead, confirmLead, cancelLead } from '../api';
 
 const STATUS_CONFIG = {
   pending:      { label: 'Pending',      color: '#f59e0b', bg: '#f59e0b1f' },
@@ -22,8 +22,51 @@ function StatusBadge({ status }) {
   );
 }
 
-function LeadCard({ lead, onDelete }) {
-  const [deleting, setDeleting] = useState(false);
+function LeadCard({ lead, onUpdate, onDelete }) {
+  const [confirming, setConfirming] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [deleting,   setDeleting]   = useState(false);
+  const [error,      setError]      = useState('');
+
+  const isPending = lead.status === 'pending' || lead.status === 'unresponsive';
+
+  const digits  = lead.customer_phone.replace(/\D/g, '');
+  const waPhone = digits.startsWith('0') ? '212' + digits.slice(1) : digits;
+  const items   = lead.matched_items || lead.raw_items || [];
+  const date    = lead.created_at ? new Date(lead.created_at).toLocaleString('fr-MA', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
+
+  // Pre-filled WhatsApp message (French — agent sends manually)
+  const itemsText = items.map(i => `${i.product_name} ×${i.quantity}`).join(', ');
+  const waMsg = encodeURIComponent(
+    `Bonjour ${lead.customer_name} ! 👋\n` +
+    `Nous avons bien reçu votre commande : ${itemsText || 'à confirmer'}.\n` +
+    (lead.total_amount ? `Total : ${lead.total_amount.toFixed(0)} MAD\n` : '') +
+    `Pouvez-vous confirmer ?`
+  );
+
+  const handleConfirm = async () => {
+    setConfirming(true);
+    setError('');
+    try {
+      await confirmLead(lead.id);
+      onUpdate(lead.id, 'confirmed');
+    } catch (e) {
+      setError(e.response?.data?.detail || 'Error confirming lead');
+      setConfirming(false);
+    }
+  };
+
+  const handleCancel = async () => {
+    setCancelling(true);
+    setError('');
+    try {
+      await cancelLead(lead.id);
+      onUpdate(lead.id, 'cancelled');
+    } catch (e) {
+      setError(e.response?.data?.detail || 'Error cancelling lead');
+      setCancelling(false);
+    }
+  };
 
   const handleDelete = async () => {
     if (!window.confirm(`Delete lead from ${lead.customer_name}?`)) return;
@@ -36,79 +79,120 @@ function LeadCard({ lead, onDelete }) {
     }
   };
 
-  const waLink = `https://wa.me/${lead.customer_phone.replace(/\D/g, '')}`;
-  const items  = lead.matched_items || lead.raw_items || [];
-  const date   = lead.created_at ? new Date(lead.created_at).toLocaleDateString() : '—';
-
   return (
-    <div className="card" style={{ padding: '16px 18px' }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+    <div className="card" style={{ padding: '16px 18px', opacity: lead.status === 'cancelled' ? 0.65 : 1 }}>
 
-        {/* Left: customer info */}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 8 }}>
-            <span style={{ fontWeight: 700, fontSize: 15 }}>{lead.customer_name}</span>
-            <StatusBadge status={lead.status} />
-          </div>
-
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 20px', fontSize: 13, color: 'var(--t2)' }}>
-            <a href={waLink} target="_blank" rel="noreferrer"
-              style={{ display: 'flex', alignItems: 'center', gap: 5, color: '#25d366', fontWeight: 500, textDecoration: 'none' }}>
-              <Phone size={13} strokeWidth={1.75} />
-              {lead.customer_phone}
-            </a>
-            {lead.customer_city && (
-              <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                <MapPin size={13} strokeWidth={1.75} />
-                {lead.customer_city}
-              </span>
-            )}
-            <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-              <Clock size={13} strokeWidth={1.75} />
-              {date}
-            </span>
-          </div>
-
-          {/* Items */}
-          {items.length > 0 && (
-            <div style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {items.map((item, i) => (
-                <span key={i} style={{
-                  fontSize: 12, padding: '3px 10px', borderRadius: 99,
-                  background: 'var(--card-2)', border: '1px solid var(--border)',
-                  color: 'var(--t1)',
-                }}>
-                  <Package size={11} strokeWidth={1.75} style={{ verticalAlign: 'middle', marginRight: 4 }} />
-                  {item.product_name} ×{item.quantity}
-                </span>
-              ))}
-            </div>
-          )}
-
-          {lead.notes && (
-            <div style={{ marginTop: 8, fontSize: 12, color: 'var(--t2)', fontStyle: 'italic' }}>
-              {lead.notes}
-            </div>
-          )}
+      {/* Top row: name + status + amount */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontWeight: 700, fontSize: 15 }}>{lead.customer_name}</span>
+          <StatusBadge status={lead.status} />
         </div>
+        {lead.total_amount != null && (
+          <span style={{ fontWeight: 700, fontSize: 16, color: 'var(--accent)' }}>
+            {lead.total_amount.toFixed(0)} MAD
+          </span>
+        )}
+      </div>
 
-        {/* Right: amount + delete */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 10, flexShrink: 0 }}>
-          {lead.total_amount != null && (
-            <span style={{ fontWeight: 700, fontSize: 16, color: 'var(--accent)' }}>
-              {lead.total_amount.toFixed(0)} MAD
+      {/* Meta row */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px 18px', fontSize: 13, color: 'var(--t2)', marginBottom: 10 }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          <Phone size={12} strokeWidth={1.75} />
+          {lead.customer_phone}
+        </span>
+        {lead.customer_city && (
+          <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <MapPin size={12} strokeWidth={1.75} />
+            {lead.customer_city}
+          </span>
+        )}
+        <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          <Clock size={12} strokeWidth={1.75} />
+          {date}
+        </span>
+      </div>
+
+      {/* Items */}
+      {items.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+          {items.map((item, i) => (
+            <span key={i} style={{
+              fontSize: 12, padding: '3px 10px', borderRadius: 99,
+              background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--t1)',
+              display: 'flex', alignItems: 'center', gap: 5,
+            }}>
+              <Package size={11} strokeWidth={1.75} />
+              {item.product_name} ×{item.quantity}
             </span>
-          )}
+          ))}
+        </div>
+      )}
+
+      {lead.notes && (
+        <div style={{ fontSize: 12, color: 'var(--t2)', fontStyle: 'italic', marginBottom: 10 }}>
+          {lead.notes}
+        </div>
+      )}
+
+      {error && <div className="alert alert-error" style={{ marginBottom: 10, padding: '6px 12px', fontSize: 12 }}>{error}</div>}
+
+      {/* Action buttons */}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', paddingTop: 10, borderTop: '1px solid var(--border)' }}>
+
+        {/* Call */}
+        <a href={`tel:${lead.customer_phone}`}
+          className="btn btn-secondary btn-sm"
+          style={{ display: 'flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}
+        >
+          <Phone size={13} strokeWidth={1.75} /> Call
+        </a>
+
+        {/* WhatsApp — opens chat with pre-filled message */}
+        <a href={`https://wa.me/${waPhone}?text=${waMsg}`}
+          target="_blank" rel="noreferrer"
+          className="btn btn-secondary btn-sm"
+          style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#25d366', textDecoration: 'none' }}
+        >
+          <MessageCircle size={13} strokeWidth={1.75} /> WhatsApp
+        </a>
+
+        {/* Confirm — only for pending/unresponsive */}
+        {isPending && (
           <button
-            className="btn-icon"
-            title="Delete lead"
-            onClick={handleDelete}
-            disabled={deleting}
-            style={{ width: 30, height: 30, borderRadius: 8, color: 'var(--danger)' }}
+            className="btn btn-primary btn-sm"
+            onClick={handleConfirm}
+            disabled={confirming}
+            style={{ display: 'flex', alignItems: 'center', gap: 6 }}
           >
-            <Trash2 size={14} strokeWidth={1.75} />
+            <CheckCircle size={13} strokeWidth={1.75} />
+            {confirming ? 'Confirming…' : 'Confirm Order'}
           </button>
-        </div>
+        )}
+
+        {/* Cancel — only for pending/unresponsive */}
+        {isPending && (
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={handleCancel}
+            disabled={cancelling}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--danger)' }}
+          >
+            <XCircle size={13} strokeWidth={1.75} />
+            {cancelling ? '…' : 'Cancel'}
+          </button>
+        )}
+
+        {/* Delete — always available */}
+        <button
+          className="btn-icon"
+          title="Delete lead"
+          onClick={handleDelete}
+          disabled={deleting}
+          style={{ marginLeft: 'auto', width: 30, height: 30, borderRadius: 8, color: 'var(--t3)' }}
+        >
+          <Trash2 size={14} strokeWidth={1.75} />
+        </button>
 
       </div>
     </div>
@@ -135,7 +219,13 @@ export default function Leads() {
 
   useEffect(() => { load(); }, []);
 
-  const handleDelete = (id) => setLeads(prev => prev.filter(l => l.id !== id));
+  const handleUpdate = (id, newStatus) => {
+    setLeads(prev => prev.map(l => l.id === id ? { ...l, status: newStatus } : l));
+  };
+
+  const handleDelete = (id) => {
+    setLeads(prev => prev.filter(l => l.id !== id));
+  };
 
   const counts = {
     pending:      leads.filter(l => l.status === 'pending').length,
@@ -161,14 +251,13 @@ export default function Leads() {
         </button>
       </div>
 
-      {/* Stats row */}
       {leads.length > 0 && (
         <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
           {[
             { key: 'pending',      label: 'Pending',      color: '#f59e0b' },
             { key: 'cancelled',    label: 'Cancelled',    color: '#ef4444' },
             { key: 'unresponsive', label: 'Unresponsive', color: '#6b7280' },
-          ].map(({ key, label, color }) => (
+          ].map(({ key, label, color }) => counts[key] > 0 && (
             <div key={key} style={{
               padding: '10px 18px', borderRadius: 'var(--r-sm)',
               background: 'var(--card)', border: '1px solid var(--border)',
@@ -189,18 +278,15 @@ export default function Leads() {
           Loading leads…
         </div>
       ) : leads.length === 0 ? (
-        <div style={{
-          textAlign: 'center', padding: '60px 0',
-          color: 'var(--t3)', fontSize: 14,
-        }}>
+        <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--t3)', fontSize: 14 }}>
           <UserCheck size={40} strokeWidth={1} style={{ marginBottom: 12, opacity: 0.3 }} />
           <div style={{ fontWeight: 600, fontSize: 16, color: 'var(--t2)', marginBottom: 6 }}>No leads yet</div>
-          <div>Once customers submit orders on your website, they'll appear here for confirmation.</div>
+          <div>Once customers submit orders on your website, they'll appear here.</div>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {leads.map(lead => (
-            <LeadCard key={lead.id} lead={lead} onDelete={handleDelete} />
+            <LeadCard key={lead.id} lead={lead} onUpdate={handleUpdate} onDelete={handleDelete} />
           ))}
         </div>
       )}

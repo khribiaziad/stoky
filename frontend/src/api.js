@@ -152,6 +152,8 @@ export const deleteSupplierPayment = (id) => api.delete(`/suppliers/payments/${i
 // Leads
 export const getLeads    = ()    => api.get('/leads');
 export const deleteLead  = (id)  => api.delete(`/leads/${id}`);
+export const confirmLead = (id)  => api.post(`/leads/${id}/confirm`);
+export const cancelLead  = (id)  => api.post(`/leads/${id}/cancel`);
 export const getApiKey   = ()    => api.get('/leads/api-key');
 export const rotateApiKey = ()   => api.post('/leads/api-key/rotate');
 
