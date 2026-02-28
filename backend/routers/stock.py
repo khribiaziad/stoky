@@ -139,23 +139,28 @@ def list_broken_stock(db: Session = Depends(get_db), user: models.User = Depends
 
 @router.post("/broken")
 def add_broken_stock(data: BrokenStockCreate, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
-    if user.role == "confirmer":
-        raise HTTPException(status_code=403, detail="Confirmers cannot add broken stock")
-    variant = db.query(models.Variant).filter(models.Variant.id == data.variant_id).first()
-    if not variant:
-        raise HTTPException(status_code=404, detail="Variant not found")
+    try:
+        if user.role == "confirmer":
+            raise HTTPException(status_code=403, detail="Confirmers cannot add broken stock")
+        variant = db.query(models.Variant).filter(models.Variant.id == data.variant_id).first()
+        if not variant:
+            raise HTTPException(status_code=404, detail="Variant not found")
 
-    value_lost = 0.0 if data.returnable_to_supplier else variant.buying_price * data.quantity
-    broken = models.BrokenStock(
-        user_id=user.id,
-        variant_id=data.variant_id,
-        quantity=data.quantity,
-        source=data.source,
-        source_order_id=data.source_order_id,
-        returnable_to_supplier=data.returnable_to_supplier,
-        value_lost=value_lost,
-        date=datetime.now(),
-    )
-    db.add(broken)
-    db.commit()
-    return {"success": True}
+        value_lost = 0.0 if data.returnable_to_supplier else (variant.buying_price or 0.0) * data.quantity
+        broken = models.BrokenStock(
+            user_id=user.id,
+            variant_id=data.variant_id,
+            quantity=data.quantity,
+            source=data.source,
+            source_order_id=data.source_order_id,
+            returnable_to_supplier=data.returnable_to_supplier,
+            value_lost=value_lost,
+            date=datetime.now(),
+        )
+        db.add(broken)
+        db.commit()
+        return {"success": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

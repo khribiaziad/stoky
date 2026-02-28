@@ -83,7 +83,10 @@ export default function Stock({ readOnly = false }) {
       setShowAddBroken(false);
       setBrokenForm({ product_id: '', variant_id: '', quantity: 1, source: 'storage', returnable_to_supplier: false });
       load();
-    } catch (e) { setError(e.response?.data?.detail || 'Error'); }
+    } catch (e) {
+      const d = e.response?.data?.detail;
+      setError(typeof d === 'string' ? d : d ? JSON.stringify(d) : `Error ${e.response?.status ?? ''} — check backend terminal`);
+    }
   };
 
   return (

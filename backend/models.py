@@ -270,6 +270,7 @@ class BrokenStock(Base):
     __tablename__ = "broken_stock"
 
     id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     variant_id = Column(Integer, ForeignKey("variants.id"), nullable=False)
     quantity = Column(Integer, nullable=False)
     source = Column(String, nullable=False)  # "return" or "storage"

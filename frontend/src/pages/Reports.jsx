@@ -198,6 +198,17 @@ export default function Reports() {
                     <span style={{ fontWeight: 600 }}>{item.value}{item.unit}</span>
                   </div>
                 ))}
+                {f.ads_costs > 0 && (
+                  <>
+                    <hr className="divider" />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ color: '#8892b0' }}>Ads Cost / Order</span>
+                      <span style={{ fontWeight: 600, color: '#fbbf24' }}>
+                        {o.delivered > 0 ? `${(f.ads_costs / o.delivered).toFixed(1)} MAD` : '—'}
+                      </span>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </div>
