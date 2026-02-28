@@ -35,8 +35,14 @@ export default function Orders() {
   const [returnChoices, setReturnChoices] = useState({});
 
   // Manual order creation
+  const generateManualId = () => {
+    const now = new Date();
+    const date = now.toISOString().slice(0, 10).replace(/-/g, '');
+    const time = now.toTimeString().slice(0, 8).replace(/:/g, '');
+    return `MAN-${date}-${time}`;
+  };
   const [showManualOrder, setShowManualOrder] = useState(false);
-  const emptyManualOrder = () => ({ caleo_id: '', customer_name: '', customer_phone: '', customer_address: '', city: '', total_amount: '' });
+  const emptyManualOrder = () => ({ caleo_id: generateManualId(), customer_name: '', customer_phone: '', customer_address: '', city: '', total_amount: '' });
   const [manualOrder, setManualOrder] = useState(emptyManualOrder());
   const [manualItems, setManualItems] = useState([{ variant_id: '', quantity: 1 }]);
   const [manualExpenses, setManualExpenses] = useState({ sticker: 0, seal_bag: 0, packaging: 1 });
@@ -112,7 +118,6 @@ export default function Orders() {
   // Handle pickup PDF upload
   const handleManualOrder = async () => {
     setError('');
-    if (!manualOrder.caleo_id.trim()) { setError('CMD ID is required'); return; }
     if (!manualOrder.customer_name.trim()) { setError('Customer name is required'); return; }
     if (!manualOrder.total_amount) { setError('Total amount is required'); return; }
     const flatItems = manualItems
@@ -944,9 +949,9 @@ export default function Orders() {
               {error && <div className="alert alert-error">{error}</div>}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
                 <div>
-                  <label className="form-label">CMD ID *</label>
-                  <input className="form-input" placeholder="e.g. CMD-123456" value={manualOrder.caleo_id}
-                    onChange={e => setManualOrder({ ...manualOrder, caleo_id: e.target.value })} />
+                  <label className="form-label">CMD ID <span style={{ color: 'var(--accent)', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>auto</span></label>
+                  <input className="form-input" value={manualOrder.caleo_id} readOnly
+                    style={{ color: 'var(--accent)', fontFamily: 'monospace', opacity: 0.8, cursor: 'default' }} />
                 </div>
                 <div>
                   <label className="form-label">Customer Name *</label>
