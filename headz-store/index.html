@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="fr" dir="ltr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+  <title>Headz — Caps & Streetwear</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Noto+Kufi+Arabic:wght@400;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --black: #0a0a0a; --white: #fff;
+      --g100: #f7f7f7; --g200: #eeeeee; --g300: #dddddd; --g400: #aaaaaa; --g600: #666;
+      --font: 'Inter', sans-serif; --font-ar: 'Noto Kufi Arabic', sans-serif;
+    }
+    html { scroll-behavior: smooth; }
+    body { font-family: var(--font); background: var(--white); color: var(--black); overflow-x: hidden; }
+
+    /* ── Lang bar ── */
+    .lang-bar { background: var(--black); color: var(--white); padding: 7px 24px; display: flex; justify-content: flex-end; gap: 4px; }
+    .lang-btn { background: none; border: none; color: var(--g400); cursor: pointer; font-size: 11px; font-family: var(--font); padding: 2px 8px; letter-spacing: 1px; transition: color .2s; }
+    .lang-btn.active, .lang-btn:hover { color: var(--white); }
+    .lang-btn + .lang-btn { border-left: 1px solid #333; }
+
+    /* ── Nav ── */
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(255,255,255,0.96); backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--g200);
+      height: 64px; padding: 0 32px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .nav-logo { height: 38px; object-fit: contain; }
+    .nav-logo-text { font-size: 22px; font-weight: 900; letter-spacing: -1px; }
+    .nav-links { display: flex; gap: 32px; list-style: none; }
+    .nav-links a { text-decoration: none; color: var(--g600); font-size: 13px; font-weight: 500; letter-spacing: .3px; transition: color .2s; }
+    .nav-links a:hover { color: var(--black); }
+    .nav-cta { background: var(--black); color: var(--white); border: none; padding: 10px 22px; font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; cursor: pointer; transition: opacity .2s; font-family: var(--font); text-decoration: none; display: inline-flex; align-items: center; }
+    .nav-cta:hover { opacity: .8; }
+    @media (max-width: 768px) { .nav-links { display: none; } nav { padding: 0 20px; } }
+
+    /* ── Hero ── */
+    .hero {
+      display: grid; grid-template-columns: 1fr 1fr;
+      min-height: 88vh; overflow: hidden;
+    }
+    .hero-left {
+      display: flex; flex-direction: column; justify-content: center;
+      padding: 64px 56px; gap: 28px;
+    }
+    .hero-eyebrow {
+      font-size: 11px; font-weight: 700; letter-spacing: 3px;
+      text-transform: uppercase; color: var(--g400);
+    }
+    .hero-title {
+      font-size: clamp(40px, 5vw, 72px); font-weight: 900;
+      line-height: 1.0; letter-spacing: -2px;
+    }
+    .hero-title span { display: block; }
+    .hero-subtitle { font-size: 16px; color: var(--g600); line-height: 1.7; max-width: 420px; }
+    .hero-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+    .btn-primary {
+      background: var(--black); color: var(--white); border: none;
+      padding: 15px 32px; font-size: 13px; font-weight: 700;
+      letter-spacing: 1.5px; text-transform: uppercase; cursor: pointer;
+      transition: opacity .2s; font-family: var(--font);
+      text-decoration: none; display: inline-flex; align-items: center; gap: 8px;
+    }
+    .btn-primary:hover { opacity: .8; }
+    .btn-outline {
+      background: transparent; color: var(--black);
+      border: 1.5px solid var(--black); padding: 15px 32px;
+      font-size: 13px; font-weight: 600; letter-spacing: 1px;
+      text-transform: uppercase; cursor: pointer;
+      transition: all .2s; font-family: var(--font); text-decoration: none;
+      display: inline-flex; align-items: center;
+    }
+    .btn-outline:hover { background: var(--black); color: var(--white); }
+
+    /* Bundle strip */
+    .hero-bundle {
+      display: flex; gap: 8px; flex-wrap: wrap;
+    }
+    .bundle-pill {
+      background: var(--g100); border: 1px solid var(--g200);
+      padding: 8px 14px; font-size: 12px; font-weight: 600;
+      display: flex; flex-direction: column; gap: 2px;
+    }
+    .bundle-pill .label { font-size: 10px; color: var(--g400); font-weight: 500; letter-spacing: .5px; }
+    .bundle-pill .amount { font-size: 15px; font-weight: 800; }
+    .bundle-pill.highlight { background: var(--black); color: var(--white); border-color: var(--black); }
+    .bundle-pill.highlight .label { color: rgba(255,255,255,0.6); }
+
+    .hero-right {
+      background: var(--g100); position: relative;
+      display: grid; grid-template-columns: 1fr 1fr; gap: 2px;
+    }
+    .hero-img {
+      overflow: hidden; aspect-ratio: 3/4;
+    }
+    .hero-img img { width: 100%; height: 100%; object-fit: cover; transition: transform .5s ease; }
+    .hero-img:hover img { transform: scale(1.04); }
+    .hero-img.tall { grid-row: span 2; aspect-ratio: auto; }
+    @media (max-width: 900px) {
+      .hero { grid-template-columns: 1fr; }
+      .hero-left { padding: 40px 24px; gap: 20px; }
+      .hero-right { min-height: 55vw; grid-template-columns: repeat(3,1fr); }
+      .hero-img { aspect-ratio: 1; }
+      .hero-img.tall { grid-row: span 1; }
+    }
+
+    /* ── Section shell ── */
+    .section { padding: 80px 32px; max-width: 1280px; margin: 0 auto; }
+    .section-head { margin-bottom: 40px; }
+    .section-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: var(--g400); margin-bottom: 10px; }
+    .section-title { font-size: clamp(24px, 3vw, 42px); font-weight: 800; letter-spacing: -1px; }
+    .section-desc { font-size: 15px; color: var(--g600); margin-top: 8px; max-width: 500px; line-height: 1.6; }
+    @media (max-width: 600px) { .section { padding: 56px 20px; } }
+
+    /* ── Product grid ── */
+    .products-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px;
+    }
+    @media (max-width: 900px) { .products-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 520px) { .products-grid { grid-template-columns: 1fr; } }
+
+    .product-card { background: var(--white); cursor: pointer; position: relative; overflow: hidden; text-decoration: none; color: inherit; display: block; }
+    .product-card:hover .product-card-img { transform: scale(1.04); }
+    .product-card-thumb { background: var(--g100); overflow: hidden; aspect-ratio: 4/5; position: relative; }
+    .product-card-img { width: 100%; height: 100%; object-fit: cover; transition: transform .5s ease; display: block; }
+    .product-card-badge {
+      position: absolute; top: 12px; left: 12px;
+      background: var(--black); color: var(--white);
+      font-size: 10px; font-weight: 700; letter-spacing: 1px;
+      text-transform: uppercase; padding: 4px 10px;
+    }
+    .product-card-body { padding: 16px 0 24px; }
+    .product-card-name { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+    .product-card-sub { font-size: 12px; color: var(--g400); margin-bottom: 12px; letter-spacing: .3px; }
+    .product-card-footer { display: flex; justify-content: space-between; align-items: center; }
+    .product-card-price { font-size: 18px; font-weight: 800; }
+    .product-card-colors { display: flex; gap: 5px; }
+    .color-dot { width: 16px; height: 16px; border-radius: 50%; border: 1.5px solid var(--g200); }
+
+    /* ── Bundle Deal section ── */
+    .bundle-section { background: var(--black); color: var(--white); }
+    .bundle-section .section { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: center; }
+    .bundle-title { font-size: clamp(28px, 4vw, 52px); font-weight: 900; letter-spacing: -1.5px; line-height: 1.05; margin-bottom: 16px; }
+    .bundle-sub { font-size: 15px; color: rgba(255,255,255,0.6); line-height: 1.7; margin-bottom: 32px; }
+    .bundle-tiers { display: flex; flex-direction: column; gap: 1px; }
+    .bundle-tier {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 16px 20px; background: rgba(255,255,255,0.06);
+      transition: background .2s;
+    }
+    .bundle-tier:hover { background: rgba(255,255,255,0.1); }
+    .bundle-tier.best { background: var(--white); color: var(--black); }
+    .bundle-tier-label { font-size: 14px; font-weight: 600; }
+    .bundle-tier-right { text-align: right; }
+    .bundle-tier-price { font-size: 22px; font-weight: 800; }
+    .bundle-tier-save { font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 2px; }
+    .bundle-tier.best .bundle-tier-save { color: var(--g600); }
+    .bundle-tag { font-size: 9px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; background: var(--black); color: var(--white); padding: 3px 8px; margin-left: 8px; }
+    @media (max-width: 768px) { .bundle-section .section { grid-template-columns: 1fr; gap: 32px; } }
+
+    /* ── Reviews ── */
+    .reviews-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 1px; background: var(--g200); }
+    .review-card { background: var(--white); padding: 32px; }
+    .stars { font-size: 13px; letter-spacing: 2px; margin-bottom: 14px; }
+    .review-text { font-size: 14px; color: var(--g600); line-height: 1.8; margin-bottom: 20px; font-style: italic; }
+    .review-author { display: flex; align-items: center; gap: 10px; }
+    .review-avatar { width: 38px; height: 38px; background: var(--black); color: var(--white); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800; flex-shrink: 0; }
+    .review-name { font-size: 13px; font-weight: 700; }
+    .review-city { font-size: 11px; color: var(--g400); }
+    @media (max-width: 768px) { .reviews-grid { grid-template-columns: 1fr; } }
+
+    /* ── Trust bar ── */
+    .trust-bar { border-top: 1px solid var(--g200); border-bottom: 1px solid var(--g200); }
+    .trust-bar-inner { max-width: 1280px; margin: 0 auto; padding: 24px 32px; display: flex; justify-content: space-around; gap: 24px; flex-wrap: wrap; }
+    .trust-item { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 600; }
+    .trust-icon { font-size: 20px; }
+
+    /* ── Footer ── */
+    footer { background: var(--black); color: var(--white); padding: 48px 32px 24px; }
+    .footer-top { max-width: 1280px; margin: 0 auto; display: flex; justify-content: space-between; align-items: flex-start; gap: 32px; flex-wrap: wrap; margin-bottom: 40px; }
+    .footer-brand .footer-logo { height: 32px; filter: invert(1); margin-bottom: 12px; display: block; }
+    .footer-brand .footer-logo-text { font-size: 20px; font-weight: 900; margin-bottom: 12px; }
+    .footer-brand p { font-size: 13px; color: rgba(255,255,255,0.5); max-width: 240px; line-height: 1.6; }
+    .footer-links-group h4 { font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: rgba(255,255,255,0.4); margin-bottom: 14px; }
+    .footer-links-group a { display: block; color: rgba(255,255,255,0.7); text-decoration: none; font-size: 13px; margin-bottom: 8px; transition: color .2s; }
+    .footer-links-group a:hover { color: var(--white); }
+    .footer-bottom { max-width: 1280px; margin: 0 auto; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+    .footer-bottom p { font-size: 12px; color: rgba(255,255,255,0.35); }
+    .footer-wa { display: inline-flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.08); color: var(--white); text-decoration: none; font-size: 12px; font-weight: 600; padding: 8px 16px; transition: background .2s; }
+    .footer-wa:hover { background: rgba(255,255,255,0.15); }
+  </style>
+</head>
+<body>
+
+<!-- Lang -->
+<div class="lang-bar">
+  <button class="lang-btn active" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" onclick="setLang('en')">EN</button>
+</div>
+
+<!-- Nav -->
+<nav>
+  <a href="index.html" style="display:flex;align-items:center;text-decoration:none">
+    <img src="logo.png" alt="Headz" class="nav-logo" onerror="this.style.display='none';document.getElementById('nl').style.display='block'"/>
+    <span id="nl" style="display:none" class="nav-logo-text">HEADZ</span>
+  </a>
+  <ul class="nav-links">
+    <li><a href="#products" data-t="nav_shop">Collection</a></li>
+    <li><a href="#bundle" data-t="nav_bundle">Offres packs</a></li>
+    <li><a href="#reviews" data-t="nav_reviews">Avis</a></li>
+  </ul>
+  <button class="nav-cta" onclick="openCart()" style="display:flex;align-items:center;gap:8px;background:none;border:1.5px solid #ddd;color:#0a0a0a;font-family:'Inter',sans-serif">
+    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+    <span class="hc-badge" style="display:none">0</span>
+  </button>
+</nav>
+
+<!-- Hero -->
+<section class="hero">
+  <div class="hero-left">
+    <p class="hero-eyebrow" data-t="hero_eyebrow">Collection 2025</p>
+    <h1 class="hero-title">
+      <span data-t="hero_t1">Le Style</span>
+      <span data-t="hero_t2">Que Tu</span>
+      <span data-t="hero_t3">Mérites.</span>
+    </h1>
+    <p class="hero-subtitle" data-t="hero_sub">Casquettes premium, brodées, livrées chez vous en 24–48h. Paiement à la livraison.</p>
+
+    <div class="hero-bundle">
+      <div class="bundle-pill">
+        <span class="label" data-t="pack_1_label">1 Pièce</span>
+        <span class="amount">99 MAD</span>
+      </div>
+      <div class="bundle-pill">
+        <span class="label" data-t="pack_2_label">2 Pièces</span>
+        <span class="amount">123 MAD</span>
+      </div>
+      <div class="bundle-pill highlight">
+        <span class="label" data-t="pack_3_label">3 Pièces</span>
+        <span class="amount">159 MAD</span>
+      </div>
+      <div class="bundle-pill">
+        <span class="label" data-t="pack_4_label">4+</span>
+        <span class="amount">50/pièce</span>
+      </div>
+    </div>
+
+    <div class="hero-actions">
+      <a href="#products" class="btn-primary" data-t="hero_cta1">Voir la collection →</a>
+      <a href="#bundle" class="btn-outline" data-t="hero_cta2">Offres packs</a>
+    </div>
+  </div>
+
+  <div class="hero-right">
+    <div class="hero-img tall">
+      <img src="images/ny47-olive.png" alt="Headz Cap Olive"/>
+    </div>
+    <div class="hero-img">
+      <img src="images/ny47-burgundy.png" alt="Headz Cap Burgundy"/>
+    </div>
+    <div class="hero-img">
+      <img src="images/polo-blue.png" alt="Polo Cap"/>
+    </div>
+  </div>
+</section>
+
+<!-- Trust bar -->
+<div class="trust-bar">
+  <div class="trust-bar-inner">
+    <div class="trust-item"><span class="trust-icon">🚚</span><span data-t="trust_delivery">Livraison 24–48h partout au Maroc</span></div>
+    <div class="trust-item"><span class="trust-icon">💳</span><span data-t="trust_cod">Paiement à la livraison</span></div>
+    <div class="trust-item"><span class="trust-icon">↩️</span><span data-t="trust_return">Retour gratuit sous 7 jours</span></div>
+    <div class="trust-item"><span class="trust-icon">💬</span><span data-t="trust_support">Support WhatsApp 7j/7</span></div>
+  </div>
+</div>
+
+<!-- Products -->
+<div id="products" style="background: var(--g100); padding: 80px 0;">
+  <div class="section" style="padding-top:0;padding-bottom:0;">
+    <div class="section-head">
+      <p class="section-eyebrow" data-t="prod_eyebrow">Collection</p>
+      <h2 class="section-title" data-t="prod_title">Nos Casquettes</h2>
+      <p class="section-desc" data-t="prod_desc">Choisissez votre style, sélectionnez votre couleur, commandez en 60 secondes.</p>
+    </div>
+    <div class="products-grid">
+
+      <!-- NY '47 -->
+      <a href="product.html?id=ny47" class="product-card">
+        <div class="product-card-thumb">
+          <img class="product-card-img" src="images/ny47-brown.png" alt="NY '47 Cap"/>
+          <div class="product-card-badge" data-t="badge_new">Nouveau</div>
+        </div>
+        <div class="product-card-body">
+          <div class="product-card-name">'47 Brand NY Cap</div>
+          <div class="product-card-sub" data-t="ny47_sub">Disponible en 5 coloris · Taille unique</div>
+          <div class="product-card-footer">
+            <div class="product-card-price">99 MAD</div>
+            <div class="product-card-colors">
+              <div class="color-dot" style="background:#4a2c1a" title="Brown"></div>
+              <div class="color-dot" style="background:#6d1a2a" title="Burgundy"></div>
+              <div class="color-dot" style="background:#c8a96e" title="Khaki"></div>
+              <div class="color-dot" style="background:#f4a0b5" title="Pink"></div>
+              <div class="color-dot" style="background:#4a5c2a" title="Olive"></div>
+            </div>
+          </div>
+        </div>
+      </a>
+
+      <!-- Polo -->
+      <a href="product.html?id=polo" class="product-card">
+        <div class="product-card-thumb">
+          <img class="product-card-img" src="images/polo-blue.png" alt="Polo Cap"/>
+        </div>
+        <div class="product-card-body">
+          <div class="product-card-name">Polo Ralph Lauren Cap</div>
+          <div class="product-card-sub" data-t="polo_sub">Logo brodé · Taille unique</div>
+          <div class="product-card-footer">
+            <div class="product-card-price">99 MAD</div>
+            <div class="product-card-colors">
+              <div class="color-dot" style="background:#2563eb" title="Blue"></div>
+            </div>
+          </div>
+        </div>
+      </a>
+
+      <!-- Tommy -->
+      <a href="product.html?id=tommy" class="product-card">
+        <div class="product-card-thumb">
+          <img class="product-card-img" src="images/tommy-beige.png" alt="Tommy Hilfiger Cap"/>
+        </div>
+        <div class="product-card-body">
+          <div class="product-card-name">Tommy Hilfiger Cap</div>
+          <div class="product-card-sub" data-t="tommy_sub">Classic flag · Taille unique</div>
+          <div class="product-card-footer">
+            <div class="product-card-price">99 MAD</div>
+            <div class="product-card-colors">
+              <div class="color-dot" style="background:#c4a882" title="Beige"></div>
+            </div>
+          </div>
+        </div>
+      </a>
+
+    </div>
+  </div>
+</div>
+
+<!-- Bundle section -->
+<div id="bundle" class="bundle-section">
+  <div class="section">
+    <div>
+      <p class="section-eyebrow" style="color:rgba(255,255,255,0.4)" data-t="bundle_eyebrow">Économisez plus</p>
+      <h2 class="bundle-title" data-t="bundle_title">Plus vous commandez,<br/>moins vous payez.</h2>
+      <p class="bundle-sub" data-t="bundle_sub">Nos offres packs sont calculées automatiquement dans le formulaire de commande.</p>
+      <a href="#products" class="btn-primary" style="background:var(--white);color:var(--black)" data-t="bundle_cta">Choisir mes casquettes →</a>
+    </div>
+    <div class="bundle-tiers">
+      <div class="bundle-tier">
+        <div>
+          <div class="bundle-tier-label" data-t="tier1_label">1 casquette</div>
+        </div>
+        <div class="bundle-tier-right">
+          <div class="bundle-tier-price">99 MAD</div>
+          <div class="bundle-tier-save">Prix standard</div>
+        </div>
+      </div>
+      <div class="bundle-tier">
+        <div>
+          <div class="bundle-tier-label" data-t="tier2_label">2 casquettes</div>
+        </div>
+        <div class="bundle-tier-right">
+          <div class="bundle-tier-price">123 MAD</div>
+          <div class="bundle-tier-save" data-t="tier2_save">Économisez 75 MAD</div>
+        </div>
+      </div>
+      <div class="bundle-tier best">
+        <div style="display:flex;align-items:center">
+          <div class="bundle-tier-label" data-t="tier3_label">3 casquettes</div>
+          <span class="bundle-tag" data-t="best_deal">Meilleure offre</span>
+        </div>
+        <div class="bundle-tier-right">
+          <div class="bundle-tier-price">159 MAD</div>
+          <div class="bundle-tier-save" data-t="tier3_save">Économisez 138 MAD</div>
+        </div>
+      </div>
+      <div class="bundle-tier">
+        <div>
+          <div class="bundle-tier-label" data-t="tier4_label">4 casquettes et plus</div>
+        </div>
+        <div class="bundle-tier-right">
+          <div class="bundle-tier-price">50 MAD/pièce</div>
+          <div class="bundle-tier-save" data-t="tier4_save">Prix gros</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Reviews -->
+<div id="reviews" style="padding:80px 0;">
+  <div class="section" style="padding-top:0;padding-bottom:0;">
+    <div class="section-head">
+      <p class="section-eyebrow" data-t="rev_eyebrow">Avis clients</p>
+      <h2 class="section-title" data-t="rev_title">Ils ont commandé. Ils ont adoré.</h2>
+    </div>
+    <div class="reviews-grid">
+      <div class="review-card">
+        <div class="stars">★★★★★</div>
+        <p class="review-text" data-t="r1">"Qualité vraiment au top, j'ai pris la NY47 olive et elle est magnifique. Livraison rapide, je recommande à 100%."</p>
+        <div class="review-author">
+          <div class="review-avatar">Y</div>
+          <div><div class="review-name">Youssef M.</div><div class="review-city">Casablanca</div></div>
+        </div>
+      </div>
+      <div class="review-card">
+        <div class="stars">★★★★★</div>
+        <p class="review-text" data-t="r2">"J'ai pris le pack 3 casquettes, excellente affaire. Qualité premium pour ce prix. La Tommy Hilfiger est superbe."</p>
+        <div class="review-author">
+          <div class="review-avatar">K</div>
+          <div><div class="review-name">Karim B.</div><div class="review-city">Marrakech</div></div>
+        </div>
+      </div>
+      <div class="review-card">
+        <div class="stars">★★★★☆</div>
+        <p class="review-text" data-t="r3">"Service client réactif et produit conforme à la description. Je vais recommander d'autres coloris bientôt."</p>
+        <div class="review-author">
+          <div class="review-avatar">S</div>
+          <div><div class="review-name">Sara L.</div><div class="review-city">Rabat</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Footer -->
+<footer>
+  <div class="footer-top">
+    <div class="footer-brand">
+      <img src="logo.png" class="footer-logo" alt="Headz" onerror="this.style.display='none';document.getElementById('fl').style.display='block'"/>
+      <span id="fl" style="display:none" class="footer-logo-text">HEADZ</span>
+      <p data-t="footer_desc">Casquettes premium livrées partout au Maroc. Paiement à la livraison.</p>
+    </div>
+    <div class="footer-links-group">
+      <h4 data-t="footer_shop">Boutique</h4>
+      <a href="product.html?id=ny47">'47 Brand NY Cap</a>
+      <a href="product.html?id=polo">Polo Ralph Lauren</a>
+      <a href="product.html?id=tommy">Tommy Hilfiger</a>
+    </div>
+    <div class="footer-links-group">
+      <h4 data-t="footer_help">Aide</h4>
+      <a href="#bundle" data-t="footer_bundles">Offres packs</a>
+      <a href="#reviews" data-t="footer_reviews">Avis clients</a>
+      <a href="https://wa.me/212621181153" target="_blank">WhatsApp</a>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <p>© 2025 Headz. <span data-t="footer_rights">Tous droits réservés.</span></p>
+    <a href="https://wa.me/212621181153" target="_blank" class="footer-wa">
+      💬 <span data-t="footer_contact">Contactez-nous sur WhatsApp</span>
+    </a>
+  </div>
+</footer>
+
+<script>
+const T = {
+  fr: {
+    nav_shop:'Collection', nav_bundle:'Offres packs', nav_reviews:'Avis', nav_order:'Commander',
+    hero_eyebrow:'Collection 2025', hero_t1:'Le Style', hero_t2:'Que Tu', hero_t3:'Mérites.',
+    hero_sub:'Casquettes premium, brodées, livrées chez vous en 24–48h. Paiement à la livraison.',
+    pack_1_label:'1 Pièce', pack_2_label:'2 Pièces', pack_3_label:'3 Pièces', pack_4_label:'4+',
+    hero_cta1:'Voir la collection →', hero_cta2:'Offres packs',
+    trust_delivery:'Livraison 24–48h partout au Maroc', trust_cod:'Paiement à la livraison',
+    trust_return:'Retour gratuit sous 7 jours', trust_support:'Support WhatsApp 7j/7',
+    prod_eyebrow:'Collection', prod_title:'Nos Casquettes',
+    prod_desc:'Choisissez votre style, sélectionnez votre couleur, commandez en 60 secondes.',
+    badge_new:'Nouveau', ny47_sub:'Disponible en 5 coloris · Taille unique',
+    polo_sub:'Logo brodé · Taille unique', tommy_sub:'Classic flag · Taille unique',
+    bundle_eyebrow:'Économisez plus', bundle_title:'Plus vous commandez,<br/>moins vous payez.',
+    bundle_sub:'Nos offres packs sont calculées automatiquement dans le formulaire de commande.',
+    bundle_cta:'Choisir mes casquettes →',
+    tier1_label:'1 casquette', tier2_label:'2 casquettes', tier3_label:'3 casquettes', tier4_label:'4 casquettes et plus',
+    tier2_save:'Économisez 75 MAD', tier3_save:'Économisez 138 MAD', tier4_save:'Prix gros',
+    best_deal:'Meilleure offre',
+    rev_eyebrow:'Avis clients', rev_title:'Ils ont commandé. Ils ont adoré.',
+    r1:'"Qualité vraiment au top, j\'ai pris la NY47 olive et elle est magnifique. Livraison rapide, je recommande à 100%."',
+    r2:'"J\'ai pris le pack 3 casquettes, excellente affaire. Qualité premium pour ce prix. La Tommy Hilfiger est superbe."',
+    r3:'"Service client réactif et produit conforme à la description. Je vais recommander d\'autres coloris bientôt."',
+    footer_desc:'Casquettes premium livrées partout au Maroc. Paiement à la livraison.',
+    footer_shop:'Boutique', footer_help:'Aide', footer_bundles:'Offres packs', footer_reviews:'Avis clients',
+    footer_rights:'Tous droits réservés.', footer_contact:'Contactez-nous sur WhatsApp',
+  },
+  ar: {
+    nav_shop:'المتجر', nav_bundle:'عروض الحزم', nav_reviews:'آراء', nav_order:'اطلب الآن',
+    hero_eyebrow:'مجموعة 2025', hero_t1:'الستايل', hero_t2:'الذي', hero_t3:'تستحقه.',
+    hero_sub:'قبعات فاخرة مطرزة، توصيل 24–48 ساعة في جميع أنحاء المغرب. الدفع عند الاستلام.',
+    pack_1_label:'قطعة واحدة', pack_2_label:'2 قطع', pack_3_label:'3 قطع', pack_4_label:'4+',
+    hero_cta1:'اكتشف المجموعة →', hero_cta2:'عروض الحزم',
+    trust_delivery:'توصيل 24–48 ساعة في المغرب', trust_cod:'الدفع عند الاستلام',
+    trust_return:'إرجاع مجاني خلال 7 أيام', trust_support:'دعم واتساب 7 أيام',
+    prod_eyebrow:'المجموعة', prod_title:'قبعاتنا',
+    prod_desc:'اختر ستايلك، اختر لونك، اطلب في 60 ثانية.',
+    badge_new:'جديد', ny47_sub:'متوفر بـ 5 ألوان · مقاس موحد',
+    polo_sub:'شعار مطرز · مقاس موحد', tommy_sub:'كلاسيك · مقاس موحد',
+    bundle_eyebrow:'وفّر أكثر', bundle_title:'كلما طلبت أكثر،<br/>دفعت أقل.',
+    bundle_sub:'عروض الحزم تُحسب تلقائياً في نموذج الطلب.',
+    bundle_cta:'اختر قبعاتي →',
+    tier1_label:'قبعة واحدة', tier2_label:'2 قبعات', tier3_label:'3 قبعات', tier4_label:'4 قبعات فأكثر',
+    tier2_save:'وفر 75 درهم', tier3_save:'وفر 138 درهم', tier4_save:'سعر الجملة',
+    best_deal:'أفضل عرض',
+    rev_eyebrow:'آراء العملاء', rev_title:'طلبوا. أحبوا.',
+    r1:'"جودة ممتازة، أخذت NY47 الزيتوني وهي رائعة. توصيل سريع، أنصح بها 100%."',
+    r2:'"أخذت حزمة 3 قبعات، صفقة ممتازة. جودة عالية بهذا السعر. Tommy Hilfiger رائعة."',
+    r3:'"خدمة عملاء ممتازة والمنتج مطابق للوصف. سأطلب ألوان أخرى قريباً."',
+    footer_desc:'قبعات فاخرة توصيل لجميع أنحاء المغرب. الدفع عند الاستلام.',
+    footer_shop:'المتجر', footer_help:'المساعدة', footer_bundles:'عروض الحزم', footer_reviews:'آراء العملاء',
+    footer_rights:'جميع الحقوق محفوظة.', footer_contact:'تواصل معنا على واتساب',
+  },
+  en: {
+    nav_shop:'Shop', nav_bundle:'Bundle Deals', nav_reviews:'Reviews', nav_order:'Order Now',
+    hero_eyebrow:'2025 Collection', hero_t1:'The Style', hero_t2:'You', hero_t3:'Deserve.',
+    hero_sub:'Premium embroidered caps, delivered across Morocco in 24–48h. Cash on delivery.',
+    pack_1_label:'1 Piece', pack_2_label:'2 Pieces', pack_3_label:'3 Pieces', pack_4_label:'4+',
+    hero_cta1:'View collection →', hero_cta2:'Bundle deals',
+    trust_delivery:'Delivery 24–48h across Morocco', trust_cod:'Cash on delivery',
+    trust_return:'Free returns within 7 days', trust_support:'WhatsApp support 7 days/week',
+    prod_eyebrow:'Collection', prod_title:'Our Caps',
+    prod_desc:'Choose your style, pick your color, order in 60 seconds.',
+    badge_new:'New', ny47_sub:'Available in 5 colors · One size',
+    polo_sub:'Embroidered logo · One size', tommy_sub:'Classic flag · One size',
+    bundle_eyebrow:'Save more', bundle_title:'The more you order,<br/>the less you pay.',
+    bundle_sub:'Bundle pricing is calculated automatically in the order form.',
+    bundle_cta:'Choose my caps →',
+    tier1_label:'1 cap', tier2_label:'2 caps', tier3_label:'3 caps', tier4_label:'4 caps and more',
+    tier2_save:'Save 75 MAD', tier3_save:'Save 138 MAD', tier4_save:'Wholesale price',
+    best_deal:'Best deal',
+    rev_eyebrow:'Customer reviews', rev_title:'They ordered. They loved it.',
+    r1:'"Really top quality, I got the olive NY47 and it\'s stunning. Fast delivery, 100% recommend."',
+    r2:'"Got the 3-cap bundle, amazing deal. Premium quality for this price. Tommy Hilfiger is superb."',
+    r3:'"Responsive customer service and product as described. Will order more colors soon."',
+    footer_desc:'Premium caps delivered across Morocco. Cash on delivery.',
+    footer_shop:'Shop', footer_help:'Help', footer_bundles:'Bundle deals', footer_reviews:'Customer reviews',
+    footer_rights:'All rights reserved.', footer_contact:'Contact us on WhatsApp',
+  },
+};
+
+function setLang(lang) {
+  window.HEADZ_LANG = lang;
+  document.documentElement.lang = lang;
+  document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+  document.body.style.fontFamily = lang === 'ar' ? "'Noto Kufi Arabic','Inter',sans-serif" : "'Inter',sans-serif";
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.textContent.trim().toLowerCase() === lang));
+  const t = T[lang] || T.fr;
+  document.querySelectorAll('[data-t]').forEach(el => {
+    const v = t[el.getAttribute('data-t')];
+    if (v) el.innerHTML = v;
+  });
+}
+setLang('fr');
+</script>
+<script>
+  window.STOCKY_URL = 'https://stoky-o31o.onrender.com';
+  window.STOCKY_KEY = 'HeoVAhRVIqcWO81njUwYEyp9nEqCqhxHRWAY1hDsXLM';
+  window.HEADZ_LANG = 'fr';
+</script>
+<script src="cart.js"></script>
+</body>
+</html>

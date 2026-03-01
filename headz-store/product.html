@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="fr" dir="ltr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+  <title id="page-title">Headz</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Noto+Kufi+Arabic:wght@400;600;700&display=swap" rel="stylesheet"/>
+  <script src="cart.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --black: #0a0a0a; --white: #fff;
+      --g100: #f7f7f7; --g200: #eeeeee; --g300: #dddddd; --g400: #aaaaaa; --g600: #666;
+      --font: 'Inter', sans-serif; --font-ar: 'Noto Kufi Arabic', sans-serif;
+    }
+    html { scroll-behavior: smooth; }
+    body { font-family: var(--font); background: var(--white); color: var(--black); overflow-x: hidden; }
+
+    /* Lang bar */
+    .lang-bar { background: var(--black); color: var(--white); padding: 7px 24px; display: flex; justify-content: flex-end; gap: 4px; }
+    .lang-btn { background: none; border: none; color: var(--g400); cursor: pointer; font-size: 11px; font-family: var(--font); padding: 2px 8px; letter-spacing: 1px; transition: color .2s; }
+    .lang-btn.active, .lang-btn:hover { color: var(--white); }
+    .lang-btn + .lang-btn { border-left: 1px solid #333; }
+
+    /* Nav */
+    nav { position: sticky; top: 0; z-index: 100; background: rgba(255,255,255,0.96); backdrop-filter: blur(12px); border-bottom: 1px solid var(--g200); height: 64px; padding: 0 32px; display: flex; align-items: center; justify-content: space-between; }
+    .nav-logo { height: 38px; object-fit: contain; }
+    .nav-logo-text { font-size: 22px; font-weight: 900; letter-spacing: -1px; text-decoration: none; color: var(--black); }
+    .nav-links { display: flex; gap: 32px; list-style: none; }
+    .nav-links a { text-decoration: none; color: var(--g600); font-size: 13px; font-weight: 500; transition: color .2s; }
+    .nav-links a:hover { color: var(--black); }
+    .nav-cart { background: none; border: 1.5px solid var(--g300); padding: 9px 16px; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; font-family: var(--font); transition: border-color .2s; color: var(--black); }
+    .nav-cart:hover { border-color: var(--black); }
+    @media (max-width: 768px) { .nav-links { display: none; } nav { padding: 0 20px; } }
+
+    /* Breadcrumb */
+    .breadcrumb { max-width: 1280px; margin: 0 auto; padding: 20px 32px 0; display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--g400); }
+    .breadcrumb a { color: var(--g400); text-decoration: none; transition: color .2s; }
+    .breadcrumb a:hover { color: var(--black); }
+    @media (max-width: 600px) { .breadcrumb { padding: 14px 20px 0; } }
+
+    /* Product layout */
+    .product-wrap { max-width: 1280px; margin: 0 auto; padding: 32px 32px 80px; display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: start; }
+    @media (max-width: 900px) { .product-wrap { grid-template-columns: 1fr; gap: 28px; padding: 24px 20px 60px; } }
+
+    /* Gallery */
+    .gallery { position: sticky; top: 80px; }
+    @media (max-width: 900px) { .gallery { position: static; } }
+    .gallery-main { background: var(--g100); aspect-ratio: 1; overflow: hidden; position: relative; }
+    .gallery-main img { width: 100%; height: 100%; object-fit: cover; position: absolute; inset: 0; opacity: 0; transition: opacity .35s ease; }
+    .gallery-main img.active { opacity: 1; }
+    .gallery-thumbs { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+    .gallery-thumb { width: 70px; height: 70px; background: var(--g100); overflow: hidden; cursor: pointer; border: 2px solid transparent; transition: border-color .2s; flex-shrink: 0; }
+    .gallery-thumb.active { border-color: var(--black); }
+    .gallery-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+    /* Info column */
+    .product-info { display: flex; flex-direction: column; gap: 24px; }
+    .product-brand { font-size: 11px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: var(--g400); }
+    .product-name { font-size: clamp(22px, 3vw, 34px); font-weight: 800; letter-spacing: -1px; line-height: 1.1; }
+    .product-rating { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+    .product-stars { color: #f59e0b; font-size: 14px; }
+    .product-rating-n { color: var(--g400); }
+    .product-desc { font-size: 14px; color: var(--g600); line-height: 1.8; }
+
+    /* Price */
+    .price-wrap { display: flex; align-items: baseline; gap: 10px; }
+    .price-main { font-size: 36px; font-weight: 900; letter-spacing: -1.5px; }
+    .price-hint { font-size: 12px; color: var(--g400); }
+
+    /* Color */
+    .sec-label { font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+    .sec-label-val { font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--g600); font-size: 13px; }
+    .color-swatches { display: flex; gap: 10px; flex-wrap: wrap; }
+    .color-swatch { width: 34px; height: 34px; border-radius: 50%; cursor: pointer; border: 2px solid rgba(0,0,0,0.08); outline: 2.5px solid transparent; outline-offset: 3px; position: relative; transition: outline-color .2s; }
+    .color-swatch.active { outline-color: var(--black); }
+    .color-swatch::after { content: '✓'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 900; color: #fff; opacity: 0; transition: opacity .2s; text-shadow: 0 1px 3px rgba(0,0,0,0.5); }
+    .color-swatch.active::after { opacity: 1; }
+
+    /* Quantity */
+    .qty-row { display: flex; align-items: center; }
+    .qty-btn { width: 42px; height: 44px; background: var(--g100); border: 1px solid var(--g200); font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background .15s; color: var(--black); }
+    .qty-btn:hover { background: var(--g200); }
+    .qty-val { width: 60px; height: 44px; border-top: 1px solid var(--g200); border-bottom: 1px solid var(--g200); display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 700; }
+
+    /* Features */
+    .features-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+    .features-list li { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--g600); }
+    .features-list li::before { content: ''; width: 5px; height: 5px; background: var(--black); border-radius: 50%; flex-shrink: 0; }
+
+    /* CTA */
+    .btn-add { width: 100%; padding: 17px; background: var(--black); color: var(--white); border: none; font-size: 13px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; cursor: pointer; font-family: var(--font); display: flex; align-items: center; justify-content: center; gap: 10px; transition: opacity .2s; }
+    .btn-add:hover { opacity: .85; }
+    .btn-add.added { background: #15803d; }
+    .btn-wa { width: 100%; padding: 14px; background: #25d366; color: #fff; border: none; font-size: 13px; font-weight: 600; cursor: pointer; font-family: var(--font); display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; transition: opacity .2s; }
+    .btn-wa:hover { opacity: .88; }
+
+    /* Trust */
+    .trust-mini { display: grid; grid-template-columns: repeat(3, 1fr); background: var(--g200); gap: 1px; }
+    .trust-item { background: var(--white); padding: 13px 8px; text-align: center; }
+    .trust-ico { font-size: 17px; display: block; margin-bottom: 3px; }
+    .trust-lbl { font-size: 10px; color: var(--g600); font-weight: 500; }
+
+    /* Related */
+    .related-section { background: var(--g100); }
+    .related { max-width: 1280px; margin: 0 auto; padding: 64px 32px; }
+    @media (max-width: 600px) { .related { padding: 48px 20px; } }
+    .related-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: var(--g400); margin-bottom: 8px; }
+    .related-title { font-size: 24px; font-weight: 800; letter-spacing: -.5px; margin-bottom: 28px; }
+    .related-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; }
+    @media (max-width: 600px) { .related-grid { grid-template-columns: 1fr 1fr; } }
+    .product-card { background: var(--white); text-decoration: none; color: inherit; display: block; overflow: hidden; }
+    .product-card-thumb { background: var(--g200); overflow: hidden; aspect-ratio: 4/5; }
+    .product-card-img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .5s ease; }
+    .product-card:hover .product-card-img { transform: scale(1.04); }
+    .product-card-body { padding: 14px 0 20px; }
+    .product-card-name { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+    .product-card-sub { font-size: 11px; color: var(--g400); margin-bottom: 8px; }
+    .product-card-price { font-size: 16px; font-weight: 800; }
+
+    /* Footer */
+    footer { background: var(--black); color: var(--white); padding: 48px 32px 24px; }
+    .footer-top { max-width: 1280px; margin: 0 auto; display: flex; justify-content: space-between; align-items: flex-start; gap: 32px; flex-wrap: wrap; margin-bottom: 40px; }
+    .footer-brand .footer-logo { height: 32px; filter: invert(1); margin-bottom: 12px; display: block; }
+    .footer-brand .footer-logo-text { font-size: 20px; font-weight: 900; margin-bottom: 12px; }
+    .footer-brand p { font-size: 13px; color: rgba(255,255,255,0.5); max-width: 240px; line-height: 1.6; }
+    .footer-links-group h4 { font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: rgba(255,255,255,0.4); margin-bottom: 14px; }
+    .footer-links-group a { display: block; color: rgba(255,255,255,0.7); text-decoration: none; font-size: 13px; margin-bottom: 8px; transition: color .2s; }
+    .footer-links-group a:hover { color: var(--white); }
+    .footer-bottom { max-width: 1280px; margin: 0 auto; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+    .footer-bottom p { font-size: 12px; color: rgba(255,255,255,0.35); }
+    .footer-wa { display: inline-flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.08); color: var(--white); text-decoration: none; font-size: 12px; font-weight: 600; padding: 8px 16px; transition: background .2s; }
+    .footer-wa:hover { background: rgba(255,255,255,0.15); }
+  </style>
+</head>
+<body>
+
+<!-- Stocky config -->
+<script>
+  window.STOCKY_URL = 'https://stoky-o31o.onrender.com';
+  window.STOCKY_KEY = 'HeoVAhRVIqcWO81njUwYEyp9nEqCqhxHRWAY1hDsXLM';
+  window.HEADZ_LANG = 'fr';
+</script>
+
+<!-- Lang bar -->
+<div class="lang-bar">
+  <button class="lang-btn active" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" onclick="setLang('en')">EN</button>
+</div>
+
+<!-- Nav -->
+<nav>
+  <a href="index.html" style="display:flex;align-items:center;text-decoration:none">
+    <img src="logo.png" alt="Headz" class="nav-logo" onerror="this.style.display='none';document.getElementById('nl').style.display='block'"/>
+    <span id="nl" style="display:none" class="nav-logo-text">HEADZ</span>
+  </a>
+  <ul class="nav-links">
+    <li><a href="index.html#products" data-t="nav_shop">Collection</a></li>
+    <li><a href="index.html#bundle" data-t="nav_bundle">Offres packs</a></li>
+    <li><a href="index.html#reviews" data-t="nav_reviews">Avis</a></li>
+  </ul>
+  <button class="nav-cart" onclick="openCart()">
+    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+    <span class="hc-badge" style="display:none">0</span>
+  </button>
+</nav>
+
+<!-- Breadcrumb -->
+<div class="breadcrumb">
+  <a href="index.html" data-t="bc_home">Accueil</a>
+  <span style="font-size:10px">›</span>
+  <a href="index.html#products" data-t="bc_shop">Collection</a>
+  <span style="font-size:10px">›</span>
+  <span id="bc-name">—</span>
+</div>
+
+<!-- Product -->
+<div class="product-wrap">
+
+  <!-- Gallery -->
+  <div class="gallery">
+    <div class="gallery-main" id="gallery-main"></div>
+    <div class="gallery-thumbs" id="gallery-thumbs"></div>
+  </div>
+
+  <!-- Info -->
+  <div class="product-info">
+
+    <div>
+      <div class="product-brand" id="prod-brand"></div>
+      <h1 class="product-name" id="prod-name"></h1>
+    </div>
+
+    <div class="product-rating">
+      <span class="product-stars">★★★★★</span>
+      <span class="product-rating-n" data-t="rating_count">(47 avis)</span>
+    </div>
+
+    <p class="product-desc" id="prod-desc"></p>
+
+    <!-- Price -->
+    <div>
+      <div class="price-wrap">
+        <span class="price-main">99 MAD</span>
+      </div>
+      <div class="price-hint" data-t="price_hint" style="margin-top:6px">Remises automatiques appliquées dans le panier dès 2 pièces</div>
+    </div>
+
+    <!-- Color -->
+    <div id="color-section" style="display:none">
+      <div class="sec-label">
+        <span data-t="color_label">Couleur</span>
+        <span class="sec-label-val" id="color-name-display"></span>
+      </div>
+      <div class="color-swatches" id="color-swatches"></div>
+    </div>
+
+    <!-- Quantity -->
+    <div>
+      <div class="sec-label" style="margin-bottom:12px" data-t="qty_label">Quantité</div>
+      <div class="qty-row">
+        <button class="qty-btn" onclick="changeQty(-1)">−</button>
+        <div class="qty-val" id="qty-val">1</div>
+        <button class="qty-btn" onclick="changeQty(1)">+</button>
+      </div>
+    </div>
+
+    <!-- Features -->
+    <ul class="features-list" id="features-list"></ul>
+
+    <!-- CTAs -->
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <button class="btn-add" id="btn-add" onclick="handleAddToCart()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+        <span id="btn-add-label" data-t="btn_add">Ajouter au panier</span>
+      </button>
+      <a id="btn-wa" href="https://wa.me/212621181153" target="_blank" class="btn-wa">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+        <span data-t="btn_wa">Commander via WhatsApp</span>
+      </a>
+    </div>
+
+    <!-- Trust -->
+    <div class="trust-mini">
+      <div class="trust-item">
+        <svg class="trust-ico" style="margin:0 auto 4px;display:block" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+        <span class="trust-lbl" data-t="trust_delivery">Livraison 24–48h</span>
+      </div>
+      <div class="trust-item">
+        <svg class="trust-ico" style="margin:0 auto 4px;display:block" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+        <span class="trust-lbl" data-t="trust_cod">À la livraison</span>
+      </div>
+      <div class="trust-item">
+        <svg class="trust-ico" style="margin:0 auto 4px;display:block" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.51"/></svg>
+        <span class="trust-lbl" data-t="trust_return">7 jours</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Related products -->
+<div class="related-section">
+  <div class="related">
+    <div class="related-eyebrow" data-t="related_eyebrow">À découvrir aussi</div>
+    <div class="related-title" data-t="related_title">Vous pourriez aussi aimer</div>
+    <div class="related-grid" id="related-grid"></div>
+  </div>
+</div>
+
+<!-- Footer -->
+<footer>
+  <div class="footer-top">
+    <div class="footer-brand">
+      <img src="logo.png" class="footer-logo" alt="Headz" onerror="this.style.display='none';document.getElementById('fl').style.display='block'"/>
+      <span id="fl" style="display:none" class="footer-logo-text">HEADZ</span>
+      <p data-t="footer_desc">Casquettes premium livrées partout au Maroc. Paiement à la livraison.</p>
+    </div>
+    <div class="footer-links-group">
+      <h4 data-t="footer_shop">Boutique</h4>
+      <a href="product.html?id=ny47">'47 Brand NY Cap</a>
+      <a href="product.html?id=polo">Polo Ralph Lauren</a>
+      <a href="product.html?id=tommy">Tommy Hilfiger</a>
+    </div>
+    <div class="footer-links-group">
+      <h4 data-t="footer_help">Aide</h4>
+      <a href="index.html#bundle" data-t="footer_bundles">Offres packs</a>
+      <a href="index.html#reviews" data-t="footer_reviews">Avis clients</a>
+      <a href="https://wa.me/212621181153" target="_blank">WhatsApp</a>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <p>© 2025 Headz. <span data-t="footer_rights">Tous droits réservés.</span></p>
+    <a href="https://wa.me/212621181153" target="_blank" class="footer-wa">
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+      <span data-t="footer_contact">Contactez-nous sur WhatsApp</span>
+    </a>
+  </div>
+</footer>
+
+<script>
+// ── Config ────────────────────────────────────────────────────────────────────
+const PRODUCTS = {
+  ny47: {
+    name: "'47 Brand NY Cap", brand: "'47 Brand",
+    desc: {
+      fr: "Casquette NY brodée authentique, coupe ajustable, visière structurée. Logo New York en broderie relief premium. Fabrication qualité supérieure.",
+      ar: "قبعة NY مطرزة أصلية بقصة مريحة قابلة للتعديل. شعار نيويورك بتطريز بارز فاخر وجودة عالية.",
+      en: "Authentic embroidered NY cap, adjustable fit, structured visor. Raised premium NY embroidery. Superior quality construction.",
+    },
+    colors: [
+      { fr:'Olive',    ar:'زيتوني',   en:'Olive',    hex:'#4a5c2a', img:'images/ny47-olive.png'    },
+      { fr:'Marron',   ar:'بني',      en:'Brown',    hex:'#4a2c1a', img:'images/ny47-brown.png'    },
+      { fr:'Bordeaux', ar:'عنابي',    en:'Burgundy', hex:'#6d1a2a', img:'images/ny47-burgundy.png' },
+      { fr:'Kaki',     ar:'كاكي',     en:'Khaki',    hex:'#c8a96e', img:'images/ny47-khaki.png'    },
+      { fr:'Rose',     ar:'وردي',     en:'Pink',     hex:'#f4a0b5', img:'images/ny47-pink.png'     },
+    ],
+    features: {
+      fr: ['Logo NY brodé en relief', 'Fermeture arrière ajustable', 'Taille unique adulte', 'Livraison 24–48h partout au Maroc'],
+      ar: ['شعار NY مطرز بارز', 'إغلاق خلفي قابل للتعديل', 'مقاس موحد للبالغين', 'توصيل 24–48 ساعة في المغرب'],
+      en: ['Raised NY embroidered logo', 'Adjustable back closure', 'One size fits adults', 'Delivery 24–48h across Morocco'],
+    },
+  },
+  polo: {
+    name: "Polo Ralph Lauren Cap", brand: "Polo Ralph Lauren",
+    desc: {
+      fr: "Casquette iconique Polo Ralph Lauren, logo poney brodé signature. Tissu premium respirant, coupe classique et confortable. Le must-have intemporel.",
+      ar: "قبعة بولو رالف لورين الأيقونية مع شعار الحصان المطرز. قماش فاخر وقصة كلاسيكية مريحة.",
+      en: "Iconic Polo Ralph Lauren cap, signature embroidered pony logo. Premium breathable fabric, classic comfortable fit.",
+    },
+    colors: [
+      { fr:'Bleu royal', ar:'أزرق ملكي', en:'Royal Blue', hex:'#2563eb', img:'images/polo-blue.png' },
+    ],
+    features: {
+      fr: ['Logo poney brodé signature', 'Tissu premium respirant', 'Fermeture ajustable', 'Livraison 24–48h partout au Maroc'],
+      ar: ['شعار الحصان المطرز المميز', 'قماش فاخر يسمح بالتهوية', 'إغلاق قابل للتعديل', 'توصيل 24–48 ساعة في المغرب'],
+      en: ['Signature embroidered pony logo', 'Premium breathable fabric', 'Adjustable closure', 'Delivery 24–48h across Morocco'],
+    },
+  },
+  tommy: {
+    name: "Tommy Hilfiger Cap", brand: "Tommy Hilfiger",
+    desc: {
+      fr: "Casquette Tommy Hilfiger avec drapeau tricolore brodé signature. Style preppy américain authentique, coupe classique ajustable.",
+      ar: "قبعة تومي هيلفيغر مع العلم الثلاثي الألوان المطرز. ستايل بريبي أمريكي أصيل وقصة كلاسيكية.",
+      en: "Tommy Hilfiger cap with signature tricolor embroidered flag. Authentic American preppy style, classic adjustable fit.",
+    },
+    colors: [
+      { fr:'Beige', ar:'بيج', en:'Beige', hex:'#c4a882', img:'images/tommy-beige.png' },
+    ],
+    features: {
+      fr: ['Drapeau brodé tricolore signature', 'Coupe classique ajustable', 'Taille unique adulte', 'Livraison 24–48h partout au Maroc'],
+      ar: ['علم ثلاثي الألوان مطرز', 'قصة كلاسيكية قابلة للتعديل', 'مقاس موحد للبالغين', 'توصيل 24–48 ساعة في المغرب'],
+      en: ['Signature tricolor embroidered flag', 'Classic adjustable fit', 'One size fits adults', 'Delivery 24–48h across Morocco'],
+    },
+  },
+};
+
+const T = {
+  fr: {
+    nav_shop:'Collection', nav_bundle:'Offres packs', nav_reviews:'Avis',
+    bc_home:'Accueil', bc_shop:'Collection',
+    rating_count:'(47 avis)', color_label:'Couleur', qty_label:'Quantité',
+    price_hint:'Remises automatiques appliquées dans le panier dès 2 pièces',
+    btn_add:'Ajouter au panier', btn_wa:'Commander via WhatsApp',
+    trust_delivery:'Livraison 24–48h', trust_cod:'À la livraison', trust_return:'7 jours',
+    related_eyebrow:'À découvrir aussi', related_title:'Vous pourriez aussi aimer',
+    footer_desc:'Casquettes premium livrées partout au Maroc. Paiement à la livraison.',
+    footer_shop:'Boutique', footer_help:'Aide', footer_bundles:'Offres packs',
+    footer_reviews:'Avis clients', footer_rights:'Tous droits réservés.',
+    footer_contact:'Contactez-nous sur WhatsApp',
+  },
+  ar: {
+    nav_shop:'المتجر', nav_bundle:'عروض الحزم', nav_reviews:'آراء',
+    bc_home:'الرئيسية', bc_shop:'المجموعة',
+    rating_count:'(47 تقييم)', color_label:'اللون', qty_label:'الكمية',
+    price_hint:'خصومات تلقائية في السلة من قطعتين فأكثر',
+    btn_add:'أضف إلى السلة', btn_wa:'اطلب عبر واتساب',
+    trust_delivery:'توصيل 24–48 ساعة', trust_cod:'الدفع عند الاستلام', trust_return:'7 أيام',
+    related_eyebrow:'اكتشف أيضاً', related_title:'قد يعجبك أيضاً',
+    footer_desc:'قبعات فاخرة توصيل لجميع أنحاء المغرب. الدفع عند الاستلام.',
+    footer_shop:'المتجر', footer_help:'المساعدة', footer_bundles:'عروض الحزم',
+    footer_reviews:'آراء العملاء', footer_rights:'جميع الحقوق محفوظة.',
+    footer_contact:'تواصل معنا على واتساب',
+  },
+  en: {
+    nav_shop:'Shop', nav_bundle:'Bundle Deals', nav_reviews:'Reviews',
+    bc_home:'Home', bc_shop:'Collection',
+    rating_count:'(47 reviews)', color_label:'Color', qty_label:'Quantity',
+    price_hint:'Bundle discounts applied automatically at checkout from 2 pieces',
+    btn_add:'Add to cart', btn_wa:'Order via WhatsApp',
+    trust_delivery:'Delivery 24–48h', trust_cod:'Cash on delivery', trust_return:'7 days',
+    related_eyebrow:'Also check out', related_title:'You might also like',
+    footer_desc:'Premium caps delivered across Morocco. Cash on delivery.',
+    footer_shop:'Shop', footer_help:'Help', footer_bundles:'Bundle deals',
+    footer_reviews:'Customer reviews', footer_rights:'All rights reserved.',
+    footer_contact:'Contact us on WhatsApp',
+  },
+};
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let currentLang = 'fr';
+let selectedColorIdx = 0;
+let qty = 1;
+
+const params = new URLSearchParams(window.location.search);
+const productId = params.get('id') || 'ny47';
+const product = PRODUCTS[productId] || PRODUCTS.ny47;
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+function initProduct() {
+  document.getElementById('bc-name').textContent = product.name;
+  document.getElementById('prod-brand').textContent = product.brand;
+  document.getElementById('prod-name').textContent = product.name;
+  document.getElementById('page-title').textContent = 'Headz — ' + product.name;
+
+  // Gallery
+  const mainEl = document.getElementById('gallery-main');
+  const thumbsEl = document.getElementById('gallery-thumbs');
+  product.colors.forEach((c, i) => {
+    const img = document.createElement('img');
+    img.src = c.img; img.alt = c.fr;
+    if (i === 0) img.classList.add('active');
+    mainEl.appendChild(img);
+
+    const thumb = document.createElement('div');
+    thumb.className = 'gallery-thumb' + (i === 0 ? ' active' : '');
+    thumb.innerHTML = '<img src="' + c.img + '" alt="' + c.fr + '" loading="lazy"/>';
+    thumb.addEventListener('click', () => selectColor(i));
+    thumbsEl.appendChild(thumb);
+  });
+
+  // Colors
+  if (product.colors.length > 1) {
+    document.getElementById('color-section').style.display = 'block';
+    const swatchesEl = document.getElementById('color-swatches');
+    product.colors.forEach((c, i) => {
+      const sw = document.createElement('div');
+      sw.className = 'color-swatch' + (i === 0 ? ' active' : '');
+      sw.style.background = c.hex;
+      sw.title = c.fr;
+      sw.addEventListener('click', () => selectColor(i));
+      swatchesEl.appendChild(sw);
+    });
+  }
+
+  updateRelated();
+}
+
+function selectColor(idx) {
+  selectedColorIdx = idx;
+  document.querySelectorAll('#gallery-main img').forEach((img, i) => img.className = i === idx ? 'active' : '');
+  document.querySelectorAll('.gallery-thumb').forEach((t, i) => t.classList.toggle('active', i === idx));
+  document.querySelectorAll('.color-swatch').forEach((s, i) => s.classList.toggle('active', i === idx));
+  const c = product.colors[idx];
+  const el = document.getElementById('color-name-display');
+  if (el && c) el.textContent = c[currentLang] || c.fr;
+  updateWhatsApp();
+}
+
+function changeQty(d) {
+  qty = Math.max(1, qty + d);
+  document.getElementById('qty-val').textContent = qty;
+  updateWhatsApp();
+}
+
+function updateWhatsApp() {
+  const color = product.colors[selectedColorIdx];
+  const colorPart = (product.colors.length > 1 && color) ? ' (' + color.fr + ')' : '';
+  const msg = 'Bonjour! Je souhaite commander :\n• ' + product.name + colorPart + ' × ' + qty + '\n• 99 MAD/pièce\nPaiement à la livraison.';
+  document.getElementById('btn-wa').href = 'https://wa.me/212621181153?text=' + encodeURIComponent(msg);
+}
+
+function handleAddToCart() {
+  const color = product.colors[selectedColorIdx];
+  addToCart({
+    productId: productId,
+    colorIdx: selectedColorIdx,
+    name: product.name,
+    colorNames: color ? { fr: color.fr, ar: color.ar, en: color.en } : null,
+    colorHex: color ? color.hex : '#cccccc',
+    img: color ? color.img : product.colors[0].img,
+    qty: qty,
+  });
+
+  // Brief visual feedback on the button
+  const btn = document.getElementById('btn-add');
+  const lbl = document.getElementById('btn-add-label');
+  btn.classList.add('added');
+  lbl.textContent = '✓ ' + (T[currentLang]?.btn_add || 'Ajouté');
+  setTimeout(() => {
+    btn.classList.remove('added');
+    lbl.textContent = T[currentLang]?.btn_add || 'Ajouter au panier';
+  }, 1800);
+}
+
+function updateRelated() {
+  const grid = document.getElementById('related-grid');
+  grid.innerHTML = '';
+  Object.entries(PRODUCTS).forEach(([id, p]) => {
+    if (id === productId) return;
+    const img = p.colors[0].img;
+    const sub = p.colors.length > 1 ? p.colors.length + ' coloris · Taille unique' : 'Taille unique';
+    const a = document.createElement('a');
+    a.className = 'product-card';
+    a.href = 'product.html?id=' + id;
+    a.innerHTML = '<div class="product-card-thumb"><img class="product-card-img" src="' + img + '" alt="' + p.name + '" loading="lazy"/></div>'
+      + '<div class="product-card-body"><div class="product-card-name">' + p.name + '</div>'
+      + '<div class="product-card-sub">' + sub + '</div>'
+      + '<div class="product-card-price">99 MAD</div></div>';
+    grid.appendChild(a);
+  });
+}
+
+function setLang(lang) {
+  currentLang = lang;
+  window.HEADZ_LANG = lang;
+  document.documentElement.lang = lang;
+  document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+  document.body.style.fontFamily = lang === 'ar' ? "'Noto Kufi Arabic','Inter',sans-serif" : "'Inter',sans-serif";
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.textContent.trim().toLowerCase() === lang));
+  const t = T[lang] || T.fr;
+  document.querySelectorAll('[data-t]').forEach(el => { const v = t[el.getAttribute('data-t')]; if (v !== undefined) el.innerHTML = v; });
+  // Update color label value
+  const c = product.colors[selectedColorIdx];
+  const cnEl = document.getElementById('color-name-display');
+  if (cnEl && c) cnEl.textContent = c[lang] || c.fr;
+  // Update desc and features
+  document.getElementById('prod-desc').textContent = product.desc[lang] || product.desc.fr;
+  const feats = product.features[lang] || product.features.fr;
+  document.getElementById('features-list').innerHTML = feats.map(f => '<li>' + f + '</li>').join('');
+}
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+initProduct();
+setLang('fr');
+updateWhatsApp();
+</script>
+</body>
+</html>
