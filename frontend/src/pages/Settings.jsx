@@ -227,6 +227,10 @@ export default function Settings({ user, theme, setTheme, lang, setLang, accent,
     ? `${window.location.origin}/api/leads/inbound?api_key=${apiKey}`
     : '';
 
+  const youcanWebhookUrl = apiKey
+    ? `${window.location.origin}/api/youcan/webhook?api_key=${apiKey}`
+    : '';
+
   // ── Cities ──
   const [cities, setCities] = useState([]);
   const [citySearch, setCitySearch] = useState('');
@@ -875,6 +879,43 @@ Content-Type: application/json
               <Check size={14} strokeWidth={2.5} />
               {olivSaving ? 'Saving…' : olivSaved ? 'Saved ✓' : 'Save Olivraison Settings'}
             </button>
+          </div>
+
+          {/* YouCan Integration */}
+          <div className="card">
+            <SectionHeader Icon={Link} title="YouCan Integration" />
+            <p style={{ fontSize: 13, color: 'var(--t2)', marginBottom: 18 }}>
+              Connect your YouCan store to Stocky. New orders will automatically appear as leads.
+            </p>
+
+            <SubLabel text="Step 1 — Copy your webhook URL" />
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 18 }}>
+              <div style={{
+                flex: 1, padding: '9px 12px', background: 'var(--card-2)', borderRadius: 'var(--r-sm)',
+                border: '1px solid var(--border)', fontFamily: 'monospace', fontSize: 12,
+                color: 'var(--t1)', wordBreak: 'break-all', lineHeight: 1.5,
+              }}>
+                {youcanWebhookUrl || 'Loading…'}
+              </div>
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={() => handleCopy(youcanWebhookUrl)}
+                disabled={!youcanWebhookUrl}
+                style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}
+              >
+                <Copy size={13} strokeWidth={2} />
+                {copied ? 'Copied!' : 'Copy'}
+              </button>
+            </div>
+
+            <SubLabel text="Step 2 — Paste it in YouCan" />
+            <ol style={{ fontSize: 13, color: 'var(--t2)', lineHeight: 2, paddingLeft: 18, marginBottom: 0 }}>
+              <li>Go to your <strong style={{ color: 'var(--t1)' }}>YouCan dashboard</strong></li>
+              <li>Open <strong style={{ color: 'var(--t1)' }}>Settings → Webhooks</strong></li>
+              <li>Click <strong style={{ color: 'var(--t1)' }}>Add Webhook</strong></li>
+              <li>Paste the URL above and select event <strong style={{ color: 'var(--accent)' }}>order.create</strong></li>
+              <li>Save — done! New orders will flow into Stocky automatically.</li>
+            </ol>
           </div>
 
           {/* Cities & Delivery Fees */}
