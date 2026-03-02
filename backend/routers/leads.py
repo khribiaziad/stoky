@@ -418,25 +418,9 @@ def confirm_lead(
     if lead.status == "confirmed":
         raise HTTPException(status_code=400, detail="Lead already confirmed")
 
-    order = models.Order(
-        user_id=lead.store_id,
-        caleo_id=f"LEAD-{lead.id}-{uuid.uuid4().hex[:6].upper()}",
-        customer_name=lead.customer_name,
-        customer_phone=lead.customer_phone,
-        customer_address=lead.customer_address,
-        city=lead.customer_city,
-        total_amount=lead.total_amount or 0,
-        status="pending",
-        order_date=datetime.now(),
-    )
-    db.add(order)
-    db.flush()
-
-    db.add(models.OrderExpense(
-        order_id=order.id,
-        sticker=0, seal_bag=0, packaging=1,
-        delivery_fee=35.0, return_fee=7.0,
-    ))
+    order = _create_order_from_lead(lead, db)
+    if order is None:
+        raise HTTPException(status_code=400, detail="Could not confirm order — stock may be insufficient")
 
     lead.status   = "confirmed"
     lead.order_id = order.id
