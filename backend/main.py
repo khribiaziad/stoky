@@ -8,7 +8,7 @@ from database import engine, get_db
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 import models
-from routers import products, stock, orders, team, expenses, reports, packs, auth as auth_router, cities as cities_router, platform as platform_router, leads as leads_router, suppliers as suppliers_router
+from routers import products, stock, orders, team, expenses, reports, packs, auth as auth_router, cities as cities_router, platform as platform_router, leads as leads_router, suppliers as suppliers_router, olivraison as olivraison_router
 from auth import get_current_user
 from seed_cities import seed
 
@@ -35,6 +35,10 @@ with engine.connect() as conn:
         "CREATE TABLE IF NOT EXISTS suppliers (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id), name VARCHAR NOT NULL, phone VARCHAR, platform VARCHAR, notes TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)",
         "CREATE TABLE IF NOT EXISTS supplier_payments (id INTEGER PRIMARY KEY, supplier_id INTEGER NOT NULL REFERENCES suppliers(id), amount FLOAT NOT NULL, date DATETIME NOT NULL, note TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)",
         "ALTER TABLE products ADD COLUMN supplier_id INTEGER REFERENCES suppliers(id)",
+        "ALTER TABLE users ADD COLUMN google_id VARCHAR",
+        "ALTER TABLE users ADD COLUMN google_email VARCHAR",
+        "ALTER TABLE orders ADD COLUMN tracking_id VARCHAR",
+        "ALTER TABLE orders ADD COLUMN delivery_status VARCHAR",
     ]:
         try:
             conn.execute(text(stmt))
@@ -108,6 +112,7 @@ app.include_router(cities_router.router, prefix="/api")
 app.include_router(platform_router.router, prefix="/api")
 app.include_router(leads_router.router, prefix="/api")
 app.include_router(suppliers_router.router, prefix="/api")
+app.include_router(olivraison_router.router, prefix="/api")
 
 
 @app.get("/api/health")

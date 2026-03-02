@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import {
   Sun, Moon, Globe, Lock, User, Store, ShieldCheck,
   Upload, Package, DollarSign, Truck, AlertTriangle, Edit2, Check,
-  MapPin, Plus, Trash2, Search, X, Link, RotateCcw, Copy,
+  MapPin, Plus, Trash2, Search, X, Link, RotateCcw, Copy, Zap,
 } from 'lucide-react';
 import { changePassword, updateStoreName, getSetting, setSetting, getCityList, createCity, updateCity, deleteCity, uploadCityPDF, getCityPdfJob, getApiKey, rotateApiKey } from '../api';
 
@@ -172,10 +172,40 @@ export default function Settings({ user, theme, setTheme, lang, setLang, accent,
   const [rotatingKey, setRotatingKey] = useState(false);
   const [copied, setCopied]           = useState(false);
 
+  // ── Olivraison ──
+  const [oliv, setOliv] = useState({ api_key: '', secret_key: '', pickup_city: '', pickup_street: '', pickup_phone: '' });
+  const [olivSaving, setOlivSaving] = useState(false);
+  const [olivSaved, setOlivSaved]   = useState(false);
+
   useEffect(() => {
     if (!isAdmin) return;
     getApiKey().then(r => setApiKey(r.data.key)).catch(() => {});
+    // Load Olivraison settings
+    const keys = ['olivraison_api_key', 'olivraison_secret_key', 'olivraison_pickup_city', 'olivraison_pickup_street', 'olivraison_pickup_phone'];
+    Promise.all(keys.map(k => getSetting(k).catch(() => ({ data: { value: '' } })))).then(results => {
+      setOliv({
+        api_key:       results[0].data?.value || '',
+        secret_key:    results[1].data?.value || '',
+        pickup_city:   results[2].data?.value || '',
+        pickup_street: results[3].data?.value || '',
+        pickup_phone:  results[4].data?.value || '',
+      });
+    });
   }, [isAdmin]);
+
+  const handleSaveOlivraison = async () => {
+    setOlivSaving(true);
+    await Promise.all([
+      setSetting('olivraison_api_key',      oliv.api_key),
+      setSetting('olivraison_secret_key',   oliv.secret_key),
+      setSetting('olivraison_pickup_city',  oliv.pickup_city),
+      setSetting('olivraison_pickup_street', oliv.pickup_street),
+      setSetting('olivraison_pickup_phone', oliv.pickup_phone),
+    ]);
+    setOlivSaving(false);
+    setOlivSaved(true);
+    setTimeout(() => setOlivSaved(false), 2500);
+  };
 
   const handleRotateKey = async () => {
     if (!window.confirm('Rotating the key will invalidate the old one. Continue?')) return;
@@ -785,6 +815,66 @@ Content-Type: application/json
                 Rotating the key invalidates the old one — update your website's config.
               </span>
             </div>
+          </div>
+
+          {/* Olivraison Integration */}
+          <div className="card">
+            <SectionHeader Icon={Zap} title="Olivraison Integration" />
+            <p style={{ fontSize: 13, color: 'var(--t2)', marginBottom: 18 }}>
+              Connect Olivraison to send orders directly and receive automatic delivery status updates.
+            </p>
+
+            <SubLabel text="API Credentials" />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 18 }}>
+              <div>
+                <label className="form-label">API Key</label>
+                <input className="form-input" type="password" placeholder="api-U2FsdGVkX1..."
+                  value={oliv.api_key} onChange={e => setOliv(o => ({ ...o, api_key: e.target.value }))} />
+              </div>
+              <div>
+                <label className="form-label">Secret Key</label>
+                <input className="form-input" type="password" placeholder="U2FsdGVkX1..."
+                  value={oliv.secret_key} onChange={e => setOliv(o => ({ ...o, secret_key: e.target.value }))} />
+              </div>
+            </div>
+
+            <SubLabel text="Pickup Address (your store)" />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 18 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div>
+                  <label className="form-label">City</label>
+                  <input className="form-input" placeholder="e.g. Casablanca"
+                    value={oliv.pickup_city} onChange={e => setOliv(o => ({ ...o, pickup_city: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="form-label">Phone</label>
+                  <input className="form-input" placeholder="+212..."
+                    value={oliv.pickup_phone} onChange={e => setOliv(o => ({ ...o, pickup_phone: e.target.value }))} />
+                </div>
+              </div>
+              <div>
+                <label className="form-label">Street Address</label>
+                <input className="form-input" placeholder="e.g. 12 Rue Mohammed V"
+                  value={oliv.pickup_street} onChange={e => setOliv(o => ({ ...o, pickup_street: e.target.value }))} />
+              </div>
+            </div>
+
+            <SubLabel text="Webhook URL (paste in Olivraison settings)" />
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 18 }}>
+              <div style={{ flex: 1, padding: '9px 12px', background: 'var(--card-2)', borderRadius: 'var(--r-sm)', border: '1px solid var(--border)', fontFamily: 'monospace', fontSize: 12, wordBreak: 'break-all' }}>
+                {`${window.location.origin}/api/olivraison/webhook`}
+              </div>
+              <button className="btn btn-secondary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}
+                onClick={() => navigator.clipboard.writeText(`${window.location.origin}/api/olivraison/webhook`)}>
+                <Copy size={13} strokeWidth={2} /> Copy
+              </button>
+            </div>
+
+            <button className="btn btn-primary" onClick={handleSaveOlivraison} disabled={olivSaving}
+              style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Check size={14} strokeWidth={2.5} />
+              {olivSaving ? 'Saving…' : olivSaved ? 'Saved ✓' : 'Save Olivraison Settings'}
+            </button>
           </div>
 
           {/* Cities & Delivery Fees */}

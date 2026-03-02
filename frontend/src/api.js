@@ -25,6 +25,7 @@ api.interceptors.response.use(
 // Auth
 export const register = (data) => api.post('/auth/register', data);
 export const login = (data) => api.post('/auth/login', data);
+export const googleLogin = (data) => api.post('/auth/google', data);
 export const changePassword = (data) => api.post('/auth/change-password', data);
 export const updateStoreName = (data) => api.patch('/auth/update-store', data);
 
@@ -80,6 +81,7 @@ export const updateOrderStatus = (id, status) => api.put(`/orders/${id}/status`,
 export const bulkUpdateOrderStatus = (order_ids, status) => api.post('/orders/bulk-status', { order_ids, status });
 export const updateOrderNotes = (id, notes) => api.patch(`/orders/${id}/notes`, { notes });
 export const deleteOrder = (id) => api.delete(`/orders/${id}`);
+export const sendToOlivraison = (id) => api.post(`/olivraison/send/${id}`);
 
 // Team
 export const getTeam = () => api.get('/team');

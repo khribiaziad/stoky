@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from database import get_db
 from auth import hash_password, verify_password, create_token, get_current_user
 import models
+import os, httpx, secrets, string
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -114,6 +115,84 @@ def change_password(data: ChangePasswordInput, db: Session = Depends(get_db), us
     user.password_hash = hash_password(data.new_password)
     db.commit()
     return {"success": True}
+
+
+GOOGLE_CLIENT_ID = os.environ.get(
+    "GOOGLE_CLIENT_ID",
+    "10012394157-7dbqola147563ak63qcogb92i59d0kh0.apps.googleusercontent.com",
+)
+
+
+class GoogleLoginInput(BaseModel):
+    access_token: str
+
+
+@router.post("/google")
+def google_login(data: GoogleLoginInput, db: Session = Depends(get_db)):
+    # Verify by fetching user info from Google
+    r = httpx.get(
+        "https://www.googleapis.com/oauth2/v2/userinfo",
+        headers={"Authorization": f"Bearer {data.access_token}"},
+    )
+    if r.status_code != 200:
+        raise HTTPException(status_code=400, detail="Invalid Google token")
+    info = r.json()
+
+    google_id = info.get("id")
+    google_email = info.get("email", "")
+    google_name = info.get("name") or info.get("given_name") or "User"
+
+    # 1. Look up by google_id
+    user = db.query(models.User).filter(models.User.google_id == google_id).first()
+
+    if not user and google_email:
+        # 2. Link existing account by email
+        user = db.query(models.User).filter(models.User.google_email == google_email).first()
+        if user:
+            user.google_id = google_id
+            db.commit()
+
+    if not user:
+        # 3. Create new account
+        base = google_email.split("@")[0].lower() if google_email else "user"
+        base = "".join(c for c in base if c.isalnum() or c == "_")[:20] or "user"
+        username = base
+        counter = 1
+        while db.query(models.User).filter(models.User.username == username).first():
+            username = f"{base}{counter}"
+            counter += 1
+
+        rand_pwd = "".join(secrets.choice(string.ascii_letters + string.digits) for _ in range(32))
+        user = models.User(
+            username=username,
+            store_name=google_name,
+            password_hash=hash_password(rand_pwd),
+            is_approved=True,
+            is_admin=False,
+            google_id=google_id,
+            google_email=google_email,
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        db.add(models.Subscription(store_id=user.id, plan="free", status="active"))
+        db.commit()
+
+    if not user.is_approved:
+        raise HTTPException(status_code=403, detail="Your account is pending approval")
+
+    token = create_token(user.id)
+    return {
+        "token": token,
+        "user": {
+            "id": user.id,
+            "username": user.username,
+            "store_name": user.store_name,
+            "role": user.role or "admin",
+            "store_id": user.store_id,
+            "team_member_id": user.team_member_id,
+        },
+    }
 
 
 @router.patch("/update-store")

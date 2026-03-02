@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { getOrders, getProducts, getPacks, uploadPickupPDF, bulkCreateOrders, uploadReturnPDF, processReturns, updateOrderStatus, updateOrder, deleteOrder, updateOrderNotes, bulkUpdateOrderStatus } from '../api';
+import { getOrders, getProducts, getPacks, uploadPickupPDF, bulkCreateOrders, uploadReturnPDF, processReturns, updateOrderStatus, updateOrder, deleteOrder, updateOrderNotes, bulkUpdateOrderStatus, sendToOlivraison } from '../api';
 
 function downloadCSV(rows, filename) {
   const csv = rows.map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
@@ -76,6 +76,7 @@ export default function Orders() {
 
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [sendingOliv, setSendingOliv] = useState(null); // order id being sent
 
   const pickupRef = useRef();
   const returnRef = useRef();
@@ -250,6 +251,23 @@ export default function Orders() {
   const handleStatusChange = async (id, status) => {
     await updateOrderStatus(id, status);
     load();
+  };
+
+  const handleSendOlivraison = async (id) => {
+    setSendingOliv(id);
+    try {
+      const res = await sendToOlivraison(id);
+      setOrders(prev => prev.map(o => o.id === id
+        ? { ...o, tracking_id: res.data.tracking_id, delivery_status: 'Envoyé' }
+        : o
+      ));
+      setSuccess(`Sent to Olivraison — Tracking: ${res.data.tracking_id}`);
+      setTimeout(() => setSuccess(''), 4000);
+    } catch (e) {
+      setError(e.response?.data?.detail || 'Failed to send to Olivraison');
+    } finally {
+      setSendingOliv(null);
+    }
   };
 
   const handleDelete = async (id) => {
@@ -535,7 +553,26 @@ export default function Orders() {
                       {o.order_date ? new Date(o.order_date).toLocaleDateString() : '—'}
                     </td>
                     <td>
-                      <div style={{ display: 'flex', gap: 4 }}>
+                      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
+                        {o.tracking_id ? (
+                          <span
+                            title={`Olivraison: ${o.tracking_id}\nStatus: ${o.delivery_status || '—'}\nClick to copy`}
+                            onClick={() => navigator.clipboard.writeText(o.tracking_id)}
+                            style={{ fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 5, cursor: 'pointer',
+                              background: 'rgba(0,212,143,0.12)', color: '#00d48f', border: '1px solid rgba(0,212,143,0.3)',
+                              whiteSpace: 'nowrap', maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            🚚 {o.delivery_status || o.tracking_id}
+                          </span>
+                        ) : o.status === 'pending' ? (
+                          <button
+                            className="btn btn-secondary btn-sm"
+                            title="Send to Olivraison"
+                            style={{ color: '#00d48f', fontSize: 13 }}
+                            disabled={sendingOliv === o.id}
+                            onClick={() => handleSendOlivraison(o.id)}>
+                            {sendingOliv === o.id ? '…' : '🚚'}
+                          </button>
+                        ) : null}
                         <button
                           className="btn btn-secondary btn-sm"
                           title="Edit order"

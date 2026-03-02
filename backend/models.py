@@ -39,6 +39,8 @@ class User(Base):
     role = Column(String, default="admin")  # "admin" or "confirmer"
     store_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # confirmers: points to admin user_id
     team_member_id = Column(Integer, nullable=True)  # links confirmer to their TeamMember record
+    google_id = Column(String, nullable=True, unique=True)
+    google_email = Column(String, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
 
 
@@ -143,6 +145,8 @@ class Order(Base):
     status = Column(String, default="pending", index=True)
     order_date = Column(DateTime, nullable=True)
     notes = Column(Text, nullable=True)
+    tracking_id = Column(String, nullable=True, index=True)
+    delivery_status = Column(String, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
 
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")

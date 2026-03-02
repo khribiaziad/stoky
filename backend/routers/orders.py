@@ -132,6 +132,8 @@ def serialize_order(order: models.Order, db: Session) -> dict:
         "total_amount": order.total_amount,
         "status": order.status,
         "notes": order.notes,
+        "tracking_id": order.tracking_id,
+        "delivery_status": order.delivery_status,
         "order_date": order.order_date.isoformat() if order.order_date else None,
         "created_at": order.created_at.isoformat() if order.created_at else None,
         "uploaded_by": uploaded_by_name,
