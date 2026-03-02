@@ -8,7 +8,7 @@ from database import engine, get_db
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 import models
-from routers import products, stock, orders, team, expenses, reports, packs, auth as auth_router, cities as cities_router, platform as platform_router, leads as leads_router, suppliers as suppliers_router, olivraison as olivraison_router, youcan as youcan_router, woocommerce as woocommerce_router
+from routers import products, stock, orders, team, expenses, reports, packs, auth as auth_router, cities as cities_router, platform as platform_router, leads as leads_router, suppliers as suppliers_router, olivraison as olivraison_router, youcan as youcan_router, woocommerce as woocommerce_router, shopify as shopify_router
 from auth import get_current_user
 from seed_cities import seed
 
@@ -115,6 +115,7 @@ app.include_router(suppliers_router.router, prefix="/api")
 app.include_router(olivraison_router.router, prefix="/api")
 app.include_router(youcan_router.router, prefix="/api")
 app.include_router(woocommerce_router.router, prefix="/api")
+app.include_router(shopify_router.router, prefix="/api")
 
 
 @app.get("/api/health")
