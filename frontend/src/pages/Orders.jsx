@@ -56,6 +56,9 @@ export default function Orders() {
   // Bulk selection
   const [selectedIds, setSelectedIds] = useState(new Set());
 
+  // Detail popup
+  const [detailOrder, setDetailOrder] = useState(null);
+
   // Notes modal
   const [notesOrder, setNotesOrder] = useState(null);
   const [notesDraft, setNotesDraft] = useState('');
@@ -554,6 +557,12 @@ export default function Orders() {
                     </td>
                     <td>
                       <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          title="View order details"
+                          onClick={() => setDetailOrder(o)}>
+                          👁
+                        </button>
                         {o.tracking_id ? (
                           <span
                             title={`Olivraison: ${o.tracking_id}\nStatus: ${o.delivery_status || '—'}\nClick to copy`}
@@ -603,6 +612,102 @@ export default function Orders() {
           </div>
         )}
       </div>
+
+      {/* Order Detail Modal */}
+      {detailOrder && (() => {
+        const o = detailOrder;
+        const source = o.caleo_id?.startsWith('MAN-') ? 'Manual'
+          : o.caleo_id?.startsWith('EXCH-') ? 'Exchange'
+          : o.uploaded_by ? `PDF — ${o.uploaded_by}`
+          : 'Website / Lead';
+        return (
+          <div className="modal-overlay" onClick={() => setDetailOrder(null)}>
+            <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
+              <div className="modal-header">
+                <h2>Order Details</h2>
+                <button className="btn-icon" onClick={() => setDetailOrder(null)}>✕</button>
+              </div>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+                {/* CMD + Source */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontFamily: 'monospace', fontSize: 13, color: 'var(--t2)' }}>{o.caleo_id}</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 99,
+                    background: 'var(--accent)22', color: 'var(--accent)', border: '1px solid var(--accent)44' }}>
+                    {source}
+                  </span>
+                </div>
+
+                {/* Customer info */}
+                <div style={{ background: 'var(--bg)', borderRadius: 8, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 7 }}>
+                  <div style={{ fontWeight: 700, fontSize: 16 }}>{o.customer_name}</div>
+                  {o.customer_phone && (
+                    <a href={`https://wa.me/${o.customer_phone.replace(/\D/g,'')}`} target="_blank" rel="noopener noreferrer"
+                      style={{ color: '#25D366', fontSize: 13, textDecoration: 'none' }}>
+                      💬 {o.customer_phone}
+                    </a>
+                  )}
+                  {o.city && <div style={{ fontSize: 13, color: 'var(--t2)' }}>📍 {o.city}</div>}
+                  {o.customer_address && <div style={{ fontSize: 12, color: 'var(--t3)' }}>{o.customer_address}</div>}
+                </div>
+
+                {/* Amount + Status + Date */}
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                  <div style={{ flex: 1, background: 'var(--bg)', borderRadius: 8, padding: '10px 14px', textAlign: 'center' }}>
+                    <div style={{ fontSize: 11, color: 'var(--t3)', marginBottom: 3 }}>TOTAL</div>
+                    <div style={{ fontWeight: 700, fontSize: 18, color: '#60a5fa' }}>{o.total_amount} MAD</div>
+                  </div>
+                  <div style={{ flex: 1, background: 'var(--bg)', borderRadius: 8, padding: '10px 14px', textAlign: 'center' }}>
+                    <div style={{ fontSize: 11, color: 'var(--t3)', marginBottom: 3 }}>STATUS</div>
+                    <span className={`badge ${STATUS_BADGE[o.status] || ''}`} style={{ fontSize: 12 }}>{o.status}</span>
+                  </div>
+                  <div style={{ flex: 1, background: 'var(--bg)', borderRadius: 8, padding: '10px 14px', textAlign: 'center' }}>
+                    <div style={{ fontSize: 11, color: 'var(--t3)', marginBottom: 3 }}>DATE</div>
+                    <div style={{ fontSize: 13, color: 'var(--t2)' }}>{o.order_date ? new Date(o.order_date).toLocaleDateString() : '—'}</div>
+                  </div>
+                </div>
+
+                {/* Products */}
+                {o.items?.length > 0 && (
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--t3)', letterSpacing: '.08em', marginBottom: 8 }}>PRODUCTS</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {o.items.map(item => (
+                        <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                          background: 'var(--bg)', borderRadius: 7, padding: '8px 12px', fontSize: 13 }}>
+                          <span>{item.product_name}{item.size ? ` — ${item.size}` : ''}{item.color ? ` / ${item.color}` : ''}</span>
+                          <span style={{ fontWeight: 700, color: 'var(--accent)' }}>×{item.quantity}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Tracking */}
+                {o.tracking_id && (
+                  <div style={{ background: 'rgba(0,212,143,0.08)', border: '1px solid rgba(0,212,143,0.25)', borderRadius: 8, padding: '10px 14px' }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: '#00d48f', letterSpacing: '.08em', marginBottom: 4 }}>OLIVRAISON</div>
+                    <div style={{ fontSize: 13, color: 'var(--t1)', fontFamily: 'monospace' }}>{o.tracking_id}</div>
+                    {o.delivery_status && <div style={{ fontSize: 12, color: 'var(--t2)', marginTop: 3 }}>{o.delivery_status}</div>}
+                  </div>
+                )}
+
+                {/* Notes */}
+                {o.notes && (
+                  <div style={{ fontSize: 13, color: 'var(--t2)', fontStyle: 'italic', background: 'var(--bg)', borderRadius: 8, padding: '10px 14px' }}>
+                    📝 {o.notes}
+                  </div>
+                )}
+
+                {/* Confirmed by */}
+                {o.confirmed_by && (
+                  <div style={{ fontSize: 12, color: 'var(--t3)' }}>Confirmed by: <span style={{ color: '#00d48f', fontWeight: 600 }}>{o.confirmed_by}</span></div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Edit Order Modal */}
       {editOrder && (

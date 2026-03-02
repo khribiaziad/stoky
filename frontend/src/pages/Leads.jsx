@@ -203,6 +203,7 @@ export default function Leads() {
   const [leads, setLeads]     = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState('');
+  const [filter, setFilter]   = useState('all');
 
   const load = async () => {
     setLoading(true);
@@ -228,10 +229,13 @@ export default function Leads() {
   };
 
   const counts = {
+    all:          leads.length,
     pending:      leads.filter(l => l.status === 'pending').length,
     cancelled:    leads.filter(l => l.status === 'cancelled').length,
     unresponsive: leads.filter(l => l.status === 'unresponsive').length,
   };
+
+  const visibleLeads = filter === 'all' ? leads : leads.filter(l => l.status === filter);
 
   return (
     <div>
@@ -252,21 +256,36 @@ export default function Leads() {
       </div>
 
       {leads.length > 0 && (
-        <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
           {[
+            { key: 'all',          label: 'All',          color: 'var(--accent)' },
             { key: 'pending',      label: 'Pending',      color: '#f59e0b' },
             { key: 'cancelled',    label: 'Cancelled',    color: '#ef4444' },
             { key: 'unresponsive', label: 'Unresponsive', color: '#6b7280' },
-          ].map(({ key, label, color }) => counts[key] > 0 && (
-            <div key={key} style={{
-              padding: '10px 18px', borderRadius: 'var(--r-sm)',
-              background: 'var(--card)', border: '1px solid var(--border)',
-              display: 'flex', gap: 8, alignItems: 'center',
-            }}>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: color, flexShrink: 0 }} />
-              <span style={{ fontSize: 13, color: 'var(--t2)' }}>{label}</span>
-              <span style={{ fontWeight: 700, fontSize: 15 }}>{counts[key]}</span>
-            </div>
+          ].map(({ key, label, color }) => (
+            <button
+              key={key}
+              onClick={() => setFilter(key)}
+              style={{
+                padding: '8px 16px', borderRadius: 'var(--r-sm)', cursor: 'pointer',
+                background: filter === key ? color + '22' : 'var(--card)',
+                border: `1px solid ${filter === key ? color : 'var(--border)'}`,
+                display: 'flex', gap: 8, alignItems: 'center',
+                color: filter === key ? color : 'var(--t2)',
+                fontWeight: filter === key ? 700 : 400,
+                fontSize: 13, transition: 'all .15s',
+              }}
+            >
+              {label}
+              <span style={{
+                fontWeight: 700, fontSize: 12,
+                background: filter === key ? color + '33' : 'var(--bg)',
+                color: filter === key ? color : 'var(--t3)',
+                padding: '1px 7px', borderRadius: 99,
+              }}>
+                {counts[key]}
+              </span>
+            </button>
           ))}
         </div>
       )}
@@ -283,9 +302,13 @@ export default function Leads() {
           <div style={{ fontWeight: 600, fontSize: 16, color: 'var(--t2)', marginBottom: 6 }}>No leads yet</div>
           <div>Once customers submit orders on your website, they'll appear here.</div>
         </div>
+      ) : visibleLeads.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--t3)', fontSize: 14 }}>
+          No {filter === 'all' ? '' : filter} leads.
+        </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {leads.map(lead => (
+          {visibleLeads.map(lead => (
             <LeadCard key={lead.id} lead={lead} onUpdate={handleUpdate} onDelete={handleDelete} />
           ))}
         </div>
