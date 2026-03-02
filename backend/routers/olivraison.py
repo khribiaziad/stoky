@@ -107,7 +107,7 @@ def send_to_olivraison(
         timeout=15,
     )
 
-    if r.status_code != 200:
+    if r.status_code >= 400:
         raise HTTPException(400, f"Olivraison error: {r.text}")
 
     data = r.json()
