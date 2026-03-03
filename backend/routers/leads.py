@@ -190,6 +190,8 @@ def _check_rate_limit(phone: str, store_id: int, db: Session) -> Optional[str]:
     - 3+ submissions in 24h → too many attempts
     """
     digits = _phone_digits(phone)
+    if len(digits) < 5:
+        return None  # can't rate-limit without a valid phone
     cutoff = datetime.utcnow() - timedelta(hours=24)
 
     existing_active = db.query(models.Lead).filter(
