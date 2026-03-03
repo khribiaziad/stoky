@@ -86,16 +86,42 @@ def _match_items(raw_items: list, store_id: int, db: Session) -> tuple:
     for item in raw_items:
         name = item.get("product_name", "").lower().strip()
         qty  = item.get("quantity", 1)
+
+        # Find product — try name contains order name, then reverse
         product = db.query(models.Product).filter(
             models.Product.user_id == store_id,
             func.lower(models.Product.name).contains(name),
         ).first()
+        if not product:
+            all_products = db.query(models.Product).filter(
+                models.Product.user_id == store_id
+            ).all()
+            for p in all_products:
+                if p.name.lower() in name:
+                    product = p
+                    break
+
         if product and product.variants:
-            v = product.variants[0]
+            # Try to match variant by size/color from the remaining string
+            remainder = name.replace(product.name.lower(), '').strip(' -/')
+            v = None
+            if remainder and len(product.variants) > 1:
+                for candidate in product.variants:
+                    size  = (candidate.size  or '').lower()
+                    color = (candidate.color or '').lower()
+                    if (size and size in remainder) or (color and color in remainder):
+                        v = candidate
+                        break
+            if not v:
+                v = product.variants[0]
+
             unit_price = v.selling_price or 0
+            label = product.name
+            if v.color or v.size:
+                label += ' - ' + ' / '.join(filter(None, [v.color, v.size]))
             matched.append({
                 "variant_id":   v.id,
-                "product_name": product.name,
+                "product_name": label,
                 "quantity":     qty,
                 "unit_price":   unit_price,
             })
