@@ -205,8 +205,8 @@ export default function Leads() {
   const [error, setError]     = useState('');
   const [filter, setFilter]   = useState('all');
 
-  const load = async () => {
-    setLoading(true);
+  const load = async (silent = false) => {
+    if (!silent) setLoading(true);
     setError('');
     try {
       const res = await getLeads();
@@ -214,11 +214,15 @@ export default function Leads() {
     } catch (e) {
       setError(e.response?.data?.detail || 'Failed to load leads');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    const interval = setInterval(() => load(true), 15000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleUpdate = (id, newStatus) => {
     setLeads(prev => prev.map(l => l.id === id ? { ...l, status: newStatus } : l));
