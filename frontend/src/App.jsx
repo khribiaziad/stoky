@@ -141,7 +141,7 @@ export default function App() {
       Loading…
     </div>
   );
-  if (!setupDone) return <Setup user={user} onComplete={() => setSetupDone(true)} />;
+  if (!setupDone) return <Setup user={user} onComplete={() => window.location.reload()} />;
 
   const isConfirmer = user.role === 'confirmer';
   const nav = isConfirmer ? CONFIRMER_NAV : ADMIN_NAV;
