@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { getOrders, getProducts, getPacks, uploadPickupPDF, bulkCreateOrders, uploadReturnPDF, processReturns, updateOrderStatus, updateOrder, deleteOrder, updateOrderNotes, bulkUpdateOrderStatus, sendToOlivraison } from '../api';
+import { getOrders, getProducts, getPacks, uploadPickupPDF, bulkCreateOrders, uploadReturnPDF, processReturns, updateOrderStatus, updateOrder, deleteOrder, updateOrderNotes, bulkUpdateOrderStatus, sendToOlivraison, sendToForcelog, getForcelogStatus } from '../api';
 
 function downloadCSV(rows, filename) {
   const csv = rows.map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
@@ -79,7 +79,8 @@ export default function Orders() {
 
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [sendingOliv, setSendingOliv] = useState(null); // order id being sent
+  const [sendingOliv,  setSendingOliv]  = useState(null);
+  const [sendingForce, setSendingForce] = useState(null);
 
   const pickupRef = useRef();
   const returnRef = useRef();
@@ -254,6 +255,23 @@ export default function Orders() {
   const handleStatusChange = async (id, status) => {
     await updateOrderStatus(id, status);
     load();
+  };
+
+  const handleSendForcelog = async (id) => {
+    setSendingForce(id);
+    try {
+      const res = await sendToForcelog(id);
+      setOrders(prev => prev.map(o => o.id === id
+        ? { ...o, tracking_id: res.data.tracking_id, delivery_status: 'Envoyé' }
+        : o
+      ));
+      setSuccess(`Sent to Forcelog — Tracking: ${res.data.tracking_id}`);
+      setTimeout(() => setSuccess(''), 4000);
+    } catch (e) {
+      setError(e.response?.data?.detail || 'Failed to send to Forcelog');
+    } finally {
+      setSendingForce(null);
+    }
   };
 
   const handleSendOlivraison = async (id) => {
@@ -573,14 +591,24 @@ export default function Orders() {
                             🚚 {o.delivery_status || o.tracking_id}
                           </span>
                         ) : o.status === 'pending' ? (
-                          <button
-                            className="btn btn-secondary btn-sm"
-                            title="Send to Olivraison"
-                            style={{ color: '#00d48f', fontSize: 13 }}
-                            disabled={sendingOliv === o.id}
-                            onClick={() => handleSendOlivraison(o.id)}>
-                            {sendingOliv === o.id ? '…' : '🚚'}
-                          </button>
+                          <>
+                            <button
+                              className="btn btn-secondary btn-sm"
+                              title="Send to Olivraison"
+                              style={{ color: '#00d48f', fontSize: 13 }}
+                              disabled={sendingOliv === o.id}
+                              onClick={() => handleSendOlivraison(o.id)}>
+                              {sendingOliv === o.id ? '…' : '🚚'}
+                            </button>
+                            <button
+                              className="btn btn-secondary btn-sm"
+                              title="Send to Forcelog"
+                              style={{ color: '#7c3aed', fontSize: 13 }}
+                              disabled={sendingForce === o.id}
+                              onClick={() => handleSendForcelog(o.id)}>
+                              {sendingForce === o.id ? '…' : '📦'}
+                            </button>
+                          </>
                         ) : null}
                         <button
                           className="btn btn-secondary btn-sm"

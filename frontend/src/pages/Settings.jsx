@@ -177,6 +177,11 @@ export default function Settings({ user, theme, setTheme, lang, setLang, accent,
   const [olivSaving, setOlivSaving] = useState(false);
   const [olivSaved, setOlivSaved]   = useState(false);
 
+  // ── Forcelog ──
+  const [forcelogKey,    setForcelogKey]    = useState('');
+  const [forcelogSaving, setForcelogSaving] = useState(false);
+  const [forcelogSaved,  setForcelogSaved]  = useState(false);
+
   useEffect(() => {
     if (!isAdmin) return;
     getApiKey().then(r => setApiKey(r.data.key)).catch(() => {});
@@ -190,6 +195,10 @@ export default function Settings({ user, theme, setTheme, lang, setLang, accent,
         pickup_street: results[3].data?.value || '',
         pickup_phone:  results[4].data?.value || '',
       });
+    });
+    // Load Forcelog settings
+    getSetting('forcelog_api_key').catch(() => ({ data: { value: '' } })).then(r => {
+      setForcelogKey(r.data?.value || '');
     });
   }, [isAdmin]);
 
@@ -205,6 +214,14 @@ export default function Settings({ user, theme, setTheme, lang, setLang, accent,
     setOlivSaving(false);
     setOlivSaved(true);
     setTimeout(() => setOlivSaved(false), 2500);
+  };
+
+  const handleSaveForcelog = async () => {
+    setForcelogSaving(true);
+    await setSetting('forcelog_api_key', forcelogKey);
+    setForcelogSaving(false);
+    setForcelogSaved(true);
+    setTimeout(() => setForcelogSaved(false), 2500);
   };
 
   const handleRotateKey = async () => {
@@ -886,6 +903,26 @@ Content-Type: application/json
               style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <Check size={14} strokeWidth={2.5} />
               {olivSaving ? 'Saving…' : olivSaved ? 'Saved ✓' : 'Save Olivraison Settings'}
+            </button>
+          </div>
+
+          {/* Forcelog Integration */}
+          <div className="card">
+            <SectionHeader Icon={Truck} title="Forcelog Integration" />
+            <p style={{ fontSize: 13, color: 'var(--t2)', marginBottom: 18 }}>
+              Connect Forcelog to send orders directly and receive automatic delivery status updates.
+            </p>
+
+            <SubLabel text="API Key" />
+            <div style={{ marginBottom: 18 }}>
+              <input className="form-input" placeholder="Forcelog API Key"
+                value={forcelogKey} onChange={e => setForcelogKey(e.target.value)} />
+            </div>
+
+            <button className="btn btn-primary" onClick={handleSaveForcelog} disabled={forcelogSaving}
+              style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Check size={14} strokeWidth={2.5} />
+              {forcelogSaving ? 'Saving…' : forcelogSaved ? 'Saved ✓' : 'Save Forcelog Settings'}
             </button>
           </div>
 
