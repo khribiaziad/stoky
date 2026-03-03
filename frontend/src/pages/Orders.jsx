@@ -79,8 +79,9 @@ export default function Orders() {
 
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [sendingOliv,  setSendingOliv]  = useState(null);
-  const [sendingForce, setSendingForce] = useState(null);
+  const [sendingOliv,    setSendingOliv]    = useState(null);
+  const [sendingForce,   setSendingForce]   = useState(null);
+  const [refreshingForce, setRefreshingForce] = useState(null);
 
   const pickupRef = useRef();
   const returnRef = useRef();
@@ -262,7 +263,7 @@ export default function Orders() {
     try {
       const res = await sendToForcelog(id);
       setOrders(prev => prev.map(o => o.id === id
-        ? { ...o, tracking_id: res.data.tracking_id, delivery_status: 'Envoyé' }
+        ? { ...o, tracking_id: res.data.tracking_id, delivery_status: 'Envoyé', delivery_provider: 'forcelog' }
         : o
       ));
       setSuccess(`Sent to Forcelog — Tracking: ${res.data.tracking_id}`);
@@ -271,6 +272,24 @@ export default function Orders() {
       setError(e.response?.data?.detail || 'Failed to send to Forcelog');
     } finally {
       setSendingForce(null);
+    }
+  };
+
+  const handleRefreshForcelog = async (id) => {
+    setRefreshingForce(id);
+    try {
+      const res = await getForcelogStatus(id);
+      setOrders(prev => prev.map(o => o.id === id
+        ? { ...o, delivery_status: res.data.delivery_status || res.data.status }
+        : o
+      ));
+      if (detailOrder?.id === id) {
+        setDetailOrder(prev => ({ ...prev, delivery_status: res.data.delivery_status || res.data.status }));
+      }
+    } catch (e) {
+      setError(e.response?.data?.detail || 'Failed to refresh Forcelog status');
+    } finally {
+      setRefreshingForce(null);
     }
   };
 
@@ -583,12 +602,14 @@ export default function Orders() {
                         </button>
                         {o.tracking_id ? (
                           <span
-                            title={`Olivraison: ${o.tracking_id}\nStatus: ${o.delivery_status || '—'}\nClick to copy`}
+                            title={`${o.delivery_provider === 'forcelog' ? 'Forcelog' : 'Olivraison'}: ${o.tracking_id}\nStatus: ${o.delivery_status || '—'}\nClick to copy`}
                             onClick={() => navigator.clipboard.writeText(o.tracking_id)}
                             style={{ fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 5, cursor: 'pointer',
-                              background: 'rgba(0,212,143,0.12)', color: '#00d48f', border: '1px solid rgba(0,212,143,0.3)',
+                              background: o.delivery_provider === 'forcelog' ? 'rgba(124,58,237,0.12)' : 'rgba(0,212,143,0.12)',
+                              color: o.delivery_provider === 'forcelog' ? '#7c3aed' : '#00d48f',
+                              border: `1px solid ${o.delivery_provider === 'forcelog' ? 'rgba(124,58,237,0.3)' : 'rgba(0,212,143,0.3)'}`,
                               whiteSpace: 'nowrap', maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            🚚 {o.delivery_status || o.tracking_id}
+                            {o.delivery_provider === 'forcelog' ? '📦' : '🚚'} {o.delivery_status || o.tracking_id}
                           </span>
                         ) : o.status === 'pending' ? (
                           <>
@@ -712,13 +733,31 @@ export default function Orders() {
                 )}
 
                 {/* Tracking */}
-                {o.tracking_id && (
-                  <div style={{ background: 'rgba(0,212,143,0.08)', border: '1px solid rgba(0,212,143,0.25)', borderRadius: 8, padding: '10px 14px' }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: '#00d48f', letterSpacing: '.08em', marginBottom: 4 }}>OLIVRAISON</div>
-                    <div style={{ fontSize: 13, color: 'var(--t1)', fontFamily: 'monospace' }}>{o.tracking_id}</div>
-                    {o.delivery_status && <div style={{ fontSize: 12, color: 'var(--t2)', marginTop: 3 }}>{o.delivery_status}</div>}
-                  </div>
-                )}
+                {o.tracking_id && (() => {
+                  const isForce = o.delivery_provider === 'forcelog';
+                  const color = isForce ? '#7c3aed' : '#00d48f';
+                  return (
+                    <div style={{ background: isForce ? 'rgba(124,58,237,0.08)' : 'rgba(0,212,143,0.08)', border: `1px solid ${isForce ? 'rgba(124,58,237,0.25)' : 'rgba(0,212,143,0.25)'}`, borderRadius: 8, padding: '10px 14px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color, letterSpacing: '.08em' }}>
+                          {isForce ? 'FORCELOG' : 'OLIVRAISON'}
+                        </div>
+                        {isForce && (
+                          <button
+                            className="btn btn-secondary btn-sm"
+                            title="Refresh delivery status from Forcelog"
+                            style={{ fontSize: 11, padding: '2px 8px', color }}
+                            disabled={refreshingForce === o.id}
+                            onClick={() => handleRefreshForcelog(o.id)}>
+                            {refreshingForce === o.id ? '…' : '🔄 Refresh'}
+                          </button>
+                        )}
+                      </div>
+                      <div style={{ fontSize: 13, color: 'var(--t1)', fontFamily: 'monospace' }}>{o.tracking_id}</div>
+                      {o.delivery_status && <div style={{ fontSize: 12, color: 'var(--t2)', marginTop: 3 }}>{o.delivery_status}</div>}
+                    </div>
+                  );
+                })()}
 
                 {/* Notes */}
                 {o.notes && (

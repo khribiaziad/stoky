@@ -3,6 +3,7 @@ import {
   LayoutDashboard, Package, Tag, Gift, Warehouse,
   Users, BarChart2, Megaphone, Receipt, LogOut, Menu, X, Settings as SettingsIcon, UserCheck, Truck,
 } from 'lucide-react';
+import { getSetting } from './api';
 import Dashboard from './pages/Dashboard';
 import Products from './pages/Products';
 import Packs from './pages/Packs';
@@ -16,6 +17,7 @@ import Settings from './pages/Settings';
 import Leads from './pages/Leads';
 import Suppliers from './pages/Suppliers';
 import Login from './pages/Login';
+import Setup from './pages/Setup';
 import PlatformLayout from './pages/platform/PlatformLayout';
 
 // ── Nav label translations ───────────────────────────────────
@@ -70,6 +72,7 @@ export default function App() {
   const [user, setUser] = useState(() => {
     try { return JSON.parse(localStorage.getItem('user')); } catch { return null; }
   });
+  const [setupDone, setSetupDone] = useState(null); // null=loading, true=done, false=needs setup
 
   // ── Appearance state ────────────────────────────────────────
   const [theme,  setTheme]  = useState(() => localStorage.getItem('app_theme')  || 'dark');
@@ -105,6 +108,18 @@ export default function App() {
     document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
   }, [lang]);
 
+  // Check onboarding status whenever user changes
+  useEffect(() => {
+    if (!user || user.role === 'super_admin' || user.role === 'confirmer') {
+      setSetupDone(true);
+      return;
+    }
+    setSetupDone(null);
+    getSetting('onboarding_done')
+      .then(r => setSetupDone(r.data?.value === 'true'))
+      .catch(() => setSetupDone(true));
+  }, [user?.id]);
+
   const handleAuth = (userData) => setUser(userData);
 
   const handleLogout = () => {
@@ -119,6 +134,14 @@ export default function App() {
   if (user.role === 'super_admin') {
     return <PlatformLayout user={user} onLogout={handleLogout} />;
   }
+
+  // Onboarding — show spinner while checking, then setup wizard if not done
+  if (setupDone === null) return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)', color: 'var(--t2)', fontSize: 14 }}>
+      Loading…
+    </div>
+  );
+  if (!setupDone) return <Setup user={user} onComplete={() => setSetupDone(true)} />;
 
   const isConfirmer = user.role === 'confirmer';
   const nav = isConfirmer ? CONFIRMER_NAV : ADMIN_NAV;

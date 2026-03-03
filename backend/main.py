@@ -39,6 +39,7 @@ with engine.connect() as conn:
         "ALTER TABLE users ADD COLUMN google_email VARCHAR",
         "ALTER TABLE orders ADD COLUMN tracking_id VARCHAR",
         "ALTER TABLE orders ADD COLUMN delivery_status VARCHAR",
+        "ALTER TABLE orders ADD COLUMN delivery_provider VARCHAR",
     ]:
         try:
             conn.execute(text(stmt))

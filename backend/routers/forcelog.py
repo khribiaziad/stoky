@@ -82,6 +82,7 @@ def send_to_forcelog(
 
     order.tracking_id = tracking_number
     order.delivery_status = "Envoyé"
+    order.delivery_provider = "forcelog"
     db.commit()
 
     return {"success": True, "tracking_id": tracking_number}
@@ -128,4 +129,4 @@ def get_forcelog_status(
             order.status = "cancelled"
         db.commit()
 
-    return {"status": status_raw, "tracking_id": order.tracking_id}
+    return {"status": status_raw, "tracking_id": order.tracking_id, "delivery_status": status_raw}

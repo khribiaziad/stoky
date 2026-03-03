@@ -204,3 +204,20 @@ def update_store(data: UpdateStoreInput, db: Session = Depends(get_db), user: mo
     user.store_name = data.store_name.strip()
     db.commit()
     return {"store_name": user.store_name}
+
+
+class UpdateUsernameInput(BaseModel):
+    username: str
+
+@router.patch("/update-username")
+def update_username(data: UpdateUsernameInput, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
+    new = data.username.lower().strip()
+    if len(new) < 3:
+        raise HTTPException(status_code=400, detail="Username must be at least 3 characters")
+    if new != user.username:
+        existing = db.query(models.User).filter(models.User.username == new).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="Username already taken")
+    user.username = new
+    db.commit()
+    return {"username": user.username}

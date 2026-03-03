@@ -115,6 +115,7 @@ def send_to_olivraison(
 
     order.tracking_id = tracking_id
     order.delivery_status = "Envoyé"
+    order.delivery_provider = "olivraison"
     db.commit()
 
     return {"success": True, "tracking_id": tracking_id}
