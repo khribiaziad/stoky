@@ -477,6 +477,7 @@ export default function Settings({ user, theme, setTheme, lang, setLang, accent,
         {[
           { id: 'account', label: 'Account Settings' },
           ...(isAdmin ? [{ id: 'store', label: 'Store Settings' }] : []),
+          ...(isAdmin ? [{ id: 'integrations', label: 'Integrations' }] : []),
         ].map(t => (
           <button
             key={t.id}
@@ -781,262 +782,6 @@ export default function Settings({ user, theme, setTheme, lang, setLang, accent,
             </div>
           </div>
 
-          {/* Website Integration */}
-          <div className="card">
-            <SectionHeader Icon={Link} title="Website Integration" />
-            <p style={{ fontSize: 13, color: 'var(--t2)', marginBottom: 18 }}>
-              Connect your website's order form to Stocky. When a customer submits an order, a WhatsApp confirmation is sent automatically.
-            </p>
-
-            <SubLabel text="Webhook URL" />
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 18 }}>
-              <div style={{
-                flex: 1, padding: '9px 12px', background: 'var(--card-2)', borderRadius: 'var(--r-sm)',
-                border: '1px solid var(--border)', fontFamily: 'monospace', fontSize: 12,
-                color: 'var(--t1)', wordBreak: 'break-all', lineHeight: 1.5,
-              }}>
-                {webhookUrl || 'Loading…'}
-              </div>
-              <button
-                className="btn btn-secondary btn-sm"
-                onClick={() => handleCopy(webhookUrl)}
-                disabled={!webhookUrl}
-                style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}
-                title="Copy URL"
-              >
-                <Copy size={13} strokeWidth={2} />
-                {copied ? 'Copied!' : 'Copy'}
-              </button>
-            </div>
-
-            <SubLabel text="Expected JSON format" />
-            <pre style={{
-              background: 'var(--card-2)', border: '1px solid var(--border)',
-              borderRadius: 'var(--r-sm)', padding: '12px 14px',
-              fontSize: 12, color: 'var(--t2)', overflowX: 'auto',
-              marginBottom: 18, lineHeight: 1.6,
-            }}>{`POST ${window.location.origin}/api/leads/inbound?api_key=YOUR_KEY
-Content-Type: application/json
-
-{
-  "customer_name": "Ahmed Benali",
-  "customer_phone": "+212600000000",
-  "customer_city": "Casablanca",
-  "customer_address": "123 Rue Hassan II",
-  "customer_email": "ahmed@example.com",
-  "notes": "Fragile item",
-  "items": [
-    { "product_name": "Cap Classic", "quantity": 2 }
-  ]
-}`}</pre>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <button
-                className="btn btn-secondary btn-sm"
-                onClick={handleRotateKey}
-                disabled={rotatingKey}
-                style={{ display: 'flex', alignItems: 'center', gap: 6 }}
-              >
-                <RotateCcw size={13} strokeWidth={2} />
-                {rotatingKey ? 'Rotating…' : 'Rotate Key'}
-              </button>
-              <span style={{ fontSize: 12, color: 'var(--t3)' }}>
-                Rotating the key invalidates the old one — update your website's config.
-              </span>
-            </div>
-          </div>
-
-          {/* Olivraison Integration */}
-          <div className="card">
-            <SectionHeader Icon={Zap} title="Olivraison Integration" />
-            <p style={{ fontSize: 13, color: 'var(--t2)', marginBottom: 18 }}>
-              Connect Olivraison to send orders directly and receive automatic delivery status updates.
-            </p>
-
-            <SubLabel text="API Credentials" />
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 18 }}>
-              <div>
-                <label className="form-label">API Key</label>
-                <input className="form-input" type="password" placeholder="api-U2FsdGVkX1..."
-                  value={oliv.api_key} onChange={e => setOliv(o => ({ ...o, api_key: e.target.value }))} />
-              </div>
-              <div>
-                <label className="form-label">Secret Key</label>
-                <input className="form-input" type="password" placeholder="U2FsdGVkX1..."
-                  value={oliv.secret_key} onChange={e => setOliv(o => ({ ...o, secret_key: e.target.value }))} />
-              </div>
-            </div>
-
-            <SubLabel text="Pickup Address (your store)" />
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 18 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                <div>
-                  <label className="form-label">City</label>
-                  <input className="form-input" placeholder="e.g. Casablanca"
-                    value={oliv.pickup_city} onChange={e => setOliv(o => ({ ...o, pickup_city: e.target.value }))} />
-                </div>
-                <div>
-                  <label className="form-label">Phone</label>
-                  <input className="form-input" placeholder="+212..."
-                    value={oliv.pickup_phone} onChange={e => setOliv(o => ({ ...o, pickup_phone: e.target.value }))} />
-                </div>
-              </div>
-              <div>
-                <label className="form-label">Street Address</label>
-                <input className="form-input" placeholder="e.g. 12 Rue Mohammed V"
-                  value={oliv.pickup_street} onChange={e => setOliv(o => ({ ...o, pickup_street: e.target.value }))} />
-              </div>
-            </div>
-
-            <SubLabel text="Webhook URL (paste in Olivraison settings)" />
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 18 }}>
-              <div style={{ flex: 1, padding: '9px 12px', background: 'var(--card-2)', borderRadius: 'var(--r-sm)', border: '1px solid var(--border)', fontFamily: 'monospace', fontSize: 12, wordBreak: 'break-all' }}>
-                {`${window.location.origin}/api/olivraison/webhook`}
-              </div>
-              <button className="btn btn-secondary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}
-                onClick={() => navigator.clipboard.writeText(`${window.location.origin}/api/olivraison/webhook`)}>
-                <Copy size={13} strokeWidth={2} /> Copy
-              </button>
-            </div>
-
-            <button className="btn btn-primary" onClick={handleSaveOlivraison} disabled={olivSaving}
-              style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Check size={14} strokeWidth={2.5} />
-              {olivSaving ? 'Saving…' : olivSaved ? 'Saved ✓' : 'Save Olivraison Settings'}
-            </button>
-          </div>
-
-          {/* Forcelog Integration */}
-          <div className="card">
-            <SectionHeader Icon={Truck} title="Forcelog Integration" />
-            <p style={{ fontSize: 13, color: 'var(--t2)', marginBottom: 18 }}>
-              Connect Forcelog to send orders directly and receive automatic delivery status updates.
-            </p>
-
-            <SubLabel text="API Key" />
-            <div style={{ marginBottom: 18 }}>
-              <input className="form-input" placeholder="Forcelog API Key"
-                value={forcelogKey} onChange={e => setForcelogKey(e.target.value)} />
-            </div>
-
-            <button className="btn btn-primary" onClick={handleSaveForcelog} disabled={forcelogSaving}
-              style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Check size={14} strokeWidth={2.5} />
-              {forcelogSaving ? 'Saving…' : forcelogSaved ? 'Saved ✓' : 'Save Forcelog Settings'}
-            </button>
-          </div>
-
-          {/* YouCan Integration */}
-          <div className="card">
-            <SectionHeader Icon={Link} title="YouCan Integration" />
-            <p style={{ fontSize: 13, color: 'var(--t2)', marginBottom: 18 }}>
-              Connect your YouCan store to Stocky. New orders will automatically appear as leads.
-            </p>
-
-            <SubLabel text="Step 1 — Copy your webhook URL" />
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 18 }}>
-              <div style={{
-                flex: 1, padding: '9px 12px', background: 'var(--card-2)', borderRadius: 'var(--r-sm)',
-                border: '1px solid var(--border)', fontFamily: 'monospace', fontSize: 12,
-                color: 'var(--t1)', wordBreak: 'break-all', lineHeight: 1.5,
-              }}>
-                {youcanWebhookUrl || 'Loading…'}
-              </div>
-              <button
-                className="btn btn-secondary btn-sm"
-                onClick={() => handleCopy(youcanWebhookUrl)}
-                disabled={!youcanWebhookUrl}
-                style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}
-              >
-                <Copy size={13} strokeWidth={2} />
-                {copied ? 'Copied!' : 'Copy'}
-              </button>
-            </div>
-
-            <SubLabel text="Step 2 — Paste it in YouCan" />
-            <ol style={{ fontSize: 13, color: 'var(--t2)', lineHeight: 2, paddingLeft: 18, marginBottom: 0 }}>
-              <li>Go to your <strong style={{ color: 'var(--t1)' }}>YouCan dashboard</strong></li>
-              <li>Open <strong style={{ color: 'var(--t1)' }}>Settings → Webhooks</strong></li>
-              <li>Click <strong style={{ color: 'var(--t1)' }}>Add Webhook</strong></li>
-              <li>Paste the URL above and select event <strong style={{ color: 'var(--accent)' }}>order.create</strong></li>
-              <li>Save — done! New orders will flow into Stocky automatically.</li>
-            </ol>
-          </div>
-
-          {/* Shopify Integration */}
-          <div className="card">
-            <SectionHeader Icon={Link} title="Shopify Integration" />
-            <p style={{ fontSize: 13, color: 'var(--t2)', marginBottom: 18 }}>
-              Connect your Shopify store to Stocky. New orders will automatically appear as leads.
-            </p>
-
-            <SubLabel text="Step 1 — Copy your webhook URL" />
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 18 }}>
-              <div style={{
-                flex: 1, padding: '9px 12px', background: 'var(--card-2)', borderRadius: 'var(--r-sm)',
-                border: '1px solid var(--border)', fontFamily: 'monospace', fontSize: 12,
-                color: 'var(--t1)', wordBreak: 'break-all', lineHeight: 1.5,
-              }}>
-                {shopifyWebhookUrl || 'Loading…'}
-              </div>
-              <button
-                className="btn btn-secondary btn-sm"
-                onClick={() => handleCopy(shopifyWebhookUrl)}
-                disabled={!shopifyWebhookUrl}
-                style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}
-              >
-                <Copy size={13} strokeWidth={2} />
-                {copied ? 'Copied!' : 'Copy'}
-              </button>
-            </div>
-
-            <SubLabel text="Step 2 — Paste it in Shopify" />
-            <ol style={{ fontSize: 13, color: 'var(--t2)', lineHeight: 2, paddingLeft: 18, marginBottom: 0 }}>
-              <li>Go to your <strong style={{ color: 'var(--t1)' }}>Shopify admin</strong></li>
-              <li>Open <strong style={{ color: 'var(--t1)' }}>Settings → Notifications → Webhooks</strong></li>
-              <li>Click <strong style={{ color: 'var(--t1)' }}>Create webhook</strong></li>
-              <li>Set event to <strong style={{ color: 'var(--accent)' }}>Order creation</strong> and format to <strong style={{ color: 'var(--accent)' }}>JSON</strong></li>
-              <li>Paste the URL above and click Save</li>
-            </ol>
-          </div>
-
-          {/* WooCommerce Integration */}
-          <div className="card">
-            <SectionHeader Icon={Link} title="WooCommerce Integration" />
-            <p style={{ fontSize: 13, color: 'var(--t2)', marginBottom: 18 }}>
-              Connect your WooCommerce store to Stocky. New orders will automatically appear as leads.
-            </p>
-
-            <SubLabel text="Step 1 — Copy your webhook URL" />
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 18 }}>
-              <div style={{
-                flex: 1, padding: '9px 12px', background: 'var(--card-2)', borderRadius: 'var(--r-sm)',
-                border: '1px solid var(--border)', fontFamily: 'monospace', fontSize: 12,
-                color: 'var(--t1)', wordBreak: 'break-all', lineHeight: 1.5,
-              }}>
-                {wooWebhookUrl || 'Loading…'}
-              </div>
-              <button
-                className="btn btn-secondary btn-sm"
-                onClick={() => handleCopy(wooWebhookUrl)}
-                disabled={!wooWebhookUrl}
-                style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}
-              >
-                <Copy size={13} strokeWidth={2} />
-                {copied ? 'Copied!' : 'Copy'}
-              </button>
-            </div>
-
-            <SubLabel text="Step 2 — Paste it in WooCommerce" />
-            <ol style={{ fontSize: 13, color: 'var(--t2)', lineHeight: 2, paddingLeft: 18, marginBottom: 0 }}>
-              <li>Go to your <strong style={{ color: 'var(--t1)' }}>WordPress dashboard</strong></li>
-              <li>Open <strong style={{ color: 'var(--t1)' }}>WooCommerce → Settings → Advanced → Webhooks</strong></li>
-              <li>Click <strong style={{ color: 'var(--t1)' }}>Add Webhook</strong></li>
-              <li>Set topic to <strong style={{ color: 'var(--accent)' }}>Order created</strong></li>
-              <li>Paste the URL above in the Delivery URL field and click Save</li>
-            </ol>
-          </div>
-
           {/* Cities & Delivery Fees */}
           <div className="card">
             <SectionHeader Icon={MapPin} title="Cities & Delivery Fees" />
@@ -1193,6 +938,288 @@ Content-Type: application/json
               {filteredCities.length} of {cities.length} cities
             </div>
           </div>
+        </>}
+
+        {/* ════════════ INTEGRATIONS (admin only) ════════════ */}
+        {tab === 'integrations' && isAdmin && <>
+
+          {/* ── Leads ── */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--t2)', letterSpacing: '.08em', textTransform: 'uppercase', flexShrink: 0 }}>Leads</span>
+            <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+          </div>
+
+          {/* Website Integration */}
+          <div className="card">
+            <SectionHeader Icon={Link} title="Website Integration" />
+            <p style={{ fontSize: 13, color: 'var(--t2)', marginBottom: 18 }}>
+              Connect your website's order form to Stocky. When a customer submits an order, a WhatsApp confirmation is sent automatically.
+            </p>
+
+            <SubLabel text="Webhook URL" />
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 18 }}>
+              <div style={{
+                flex: 1, padding: '9px 12px', background: 'var(--card-2)', borderRadius: 'var(--r-sm)',
+                border: '1px solid var(--border)', fontFamily: 'monospace', fontSize: 12,
+                color: 'var(--t1)', wordBreak: 'break-all', lineHeight: 1.5,
+              }}>
+                {webhookUrl || 'Loading…'}
+              </div>
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={() => handleCopy(webhookUrl)}
+                disabled={!webhookUrl}
+                style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}
+                title="Copy URL"
+              >
+                <Copy size={13} strokeWidth={2} />
+                {copied ? 'Copied!' : 'Copy'}
+              </button>
+            </div>
+
+            <SubLabel text="Expected JSON format" />
+            <pre style={{
+              background: 'var(--card-2)', border: '1px solid var(--border)',
+              borderRadius: 'var(--r-sm)', padding: '12px 14px',
+              fontSize: 12, color: 'var(--t2)', overflowX: 'auto',
+              marginBottom: 18, lineHeight: 1.6,
+            }}>{`POST ${window.location.origin}/api/leads/inbound?api_key=YOUR_KEY
+Content-Type: application/json
+
+{
+  "customer_name": "Ahmed Benali",
+  "customer_phone": "+212600000000",
+  "customer_city": "Casablanca",
+  "customer_address": "123 Rue Hassan II",
+  "customer_email": "ahmed@example.com",
+  "notes": "Fragile item",
+  "items": [
+    { "product_name": "Cap Classic", "quantity": 2 }
+  ]
+}`}</pre>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={handleRotateKey}
+                disabled={rotatingKey}
+                style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+              >
+                <RotateCcw size={13} strokeWidth={2} />
+                {rotatingKey ? 'Rotating…' : 'Rotate Key'}
+              </button>
+              <span style={{ fontSize: 12, color: 'var(--t3)' }}>
+                Rotating the key invalidates the old one — update your website's config.
+              </span>
+            </div>
+          </div>
+
+          {/* ── Delivery Companies ── */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--t2)', letterSpacing: '.08em', textTransform: 'uppercase', flexShrink: 0 }}>Delivery Companies</span>
+            <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+          </div>
+
+          {/* Olivraison Integration */}
+          <div className="card">
+            <SectionHeader Icon={Zap} title="Olivraison Integration" />
+            <p style={{ fontSize: 13, color: 'var(--t2)', marginBottom: 18 }}>
+              Connect Olivraison to send orders directly and receive automatic delivery status updates.
+            </p>
+
+            <SubLabel text="API Credentials" />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 18 }}>
+              <div>
+                <label className="form-label">API Key</label>
+                <input className="form-input" type="password" placeholder="api-U2FsdGVkX1..."
+                  value={oliv.api_key} onChange={e => setOliv(o => ({ ...o, api_key: e.target.value }))} />
+              </div>
+              <div>
+                <label className="form-label">Secret Key</label>
+                <input className="form-input" type="password" placeholder="U2FsdGVkX1..."
+                  value={oliv.secret_key} onChange={e => setOliv(o => ({ ...o, secret_key: e.target.value }))} />
+              </div>
+            </div>
+
+            <SubLabel text="Pickup Address (your store)" />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 18 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div>
+                  <label className="form-label">City</label>
+                  <input className="form-input" placeholder="e.g. Casablanca"
+                    value={oliv.pickup_city} onChange={e => setOliv(o => ({ ...o, pickup_city: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="form-label">Phone</label>
+                  <input className="form-input" placeholder="+212..."
+                    value={oliv.pickup_phone} onChange={e => setOliv(o => ({ ...o, pickup_phone: e.target.value }))} />
+                </div>
+              </div>
+              <div>
+                <label className="form-label">Street Address</label>
+                <input className="form-input" placeholder="e.g. 12 Rue Mohammed V"
+                  value={oliv.pickup_street} onChange={e => setOliv(o => ({ ...o, pickup_street: e.target.value }))} />
+              </div>
+            </div>
+
+            <SubLabel text="Webhook URL (paste in Olivraison settings)" />
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 18 }}>
+              <div style={{ flex: 1, padding: '9px 12px', background: 'var(--card-2)', borderRadius: 'var(--r-sm)', border: '1px solid var(--border)', fontFamily: 'monospace', fontSize: 12, wordBreak: 'break-all' }}>
+                {`${window.location.origin}/api/olivraison/webhook`}
+              </div>
+              <button className="btn btn-secondary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}
+                onClick={() => navigator.clipboard.writeText(`${window.location.origin}/api/olivraison/webhook`)}>
+                <Copy size={13} strokeWidth={2} /> Copy
+              </button>
+            </div>
+
+            <button className="btn btn-primary" onClick={handleSaveOlivraison} disabled={olivSaving}
+              style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Check size={14} strokeWidth={2.5} />
+              {olivSaving ? 'Saving…' : olivSaved ? 'Saved ✓' : 'Save Olivraison Settings'}
+            </button>
+          </div>
+
+          {/* Forcelog Integration */}
+          <div className="card">
+            <SectionHeader Icon={Truck} title="Forcelog Integration" />
+            <p style={{ fontSize: 13, color: 'var(--t2)', marginBottom: 18 }}>
+              Connect Forcelog to send orders directly and receive automatic delivery status updates.
+            </p>
+
+            <SubLabel text="API Key" />
+            <div style={{ marginBottom: 18 }}>
+              <input className="form-input" placeholder="Forcelog API Key"
+                value={forcelogKey} onChange={e => setForcelogKey(e.target.value)} />
+            </div>
+
+            <button className="btn btn-primary" onClick={handleSaveForcelog} disabled={forcelogSaving}
+              style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Check size={14} strokeWidth={2.5} />
+              {forcelogSaving ? 'Saving…' : forcelogSaved ? 'Saved ✓' : 'Save Forcelog Settings'}
+            </button>
+          </div>
+
+          {/* ── E-commerce Platforms ── */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--t2)', letterSpacing: '.08em', textTransform: 'uppercase', flexShrink: 0 }}>E-commerce Platforms</span>
+            <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+          </div>
+
+          {/* YouCan Integration */}
+          <div className="card">
+            <SectionHeader Icon={Link} title="YouCan Integration" />
+            <p style={{ fontSize: 13, color: 'var(--t2)', marginBottom: 18 }}>
+              Connect your YouCan store to Stocky. New orders will automatically appear as leads.
+            </p>
+
+            <SubLabel text="Step 1 — Copy your webhook URL" />
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 18 }}>
+              <div style={{
+                flex: 1, padding: '9px 12px', background: 'var(--card-2)', borderRadius: 'var(--r-sm)',
+                border: '1px solid var(--border)', fontFamily: 'monospace', fontSize: 12,
+                color: 'var(--t1)', wordBreak: 'break-all', lineHeight: 1.5,
+              }}>
+                {youcanWebhookUrl || 'Loading…'}
+              </div>
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={() => handleCopy(youcanWebhookUrl)}
+                disabled={!youcanWebhookUrl}
+                style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}
+              >
+                <Copy size={13} strokeWidth={2} />
+                {copied ? 'Copied!' : 'Copy'}
+              </button>
+            </div>
+
+            <SubLabel text="Step 2 — Paste it in YouCan" />
+            <ol style={{ fontSize: 13, color: 'var(--t2)', lineHeight: 2, paddingLeft: 18, marginBottom: 0 }}>
+              <li>Go to your <strong style={{ color: 'var(--t1)' }}>YouCan dashboard</strong></li>
+              <li>Open <strong style={{ color: 'var(--t1)' }}>Settings → Webhooks</strong></li>
+              <li>Click <strong style={{ color: 'var(--t1)' }}>Add Webhook</strong></li>
+              <li>Paste the URL above and select event <strong style={{ color: 'var(--accent)' }}>order.create</strong></li>
+              <li>Save — done! New orders will flow into Stocky automatically.</li>
+            </ol>
+          </div>
+
+          {/* Shopify Integration */}
+          <div className="card">
+            <SectionHeader Icon={Link} title="Shopify Integration" />
+            <p style={{ fontSize: 13, color: 'var(--t2)', marginBottom: 18 }}>
+              Connect your Shopify store to Stocky. New orders will automatically appear as leads.
+            </p>
+
+            <SubLabel text="Step 1 — Copy your webhook URL" />
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 18 }}>
+              <div style={{
+                flex: 1, padding: '9px 12px', background: 'var(--card-2)', borderRadius: 'var(--r-sm)',
+                border: '1px solid var(--border)', fontFamily: 'monospace', fontSize: 12,
+                color: 'var(--t1)', wordBreak: 'break-all', lineHeight: 1.5,
+              }}>
+                {shopifyWebhookUrl || 'Loading…'}
+              </div>
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={() => handleCopy(shopifyWebhookUrl)}
+                disabled={!shopifyWebhookUrl}
+                style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}
+              >
+                <Copy size={13} strokeWidth={2} />
+                {copied ? 'Copied!' : 'Copy'}
+              </button>
+            </div>
+
+            <SubLabel text="Step 2 — Paste it in Shopify" />
+            <ol style={{ fontSize: 13, color: 'var(--t2)', lineHeight: 2, paddingLeft: 18, marginBottom: 0 }}>
+              <li>Go to your <strong style={{ color: 'var(--t1)' }}>Shopify admin</strong></li>
+              <li>Open <strong style={{ color: 'var(--t1)' }}>Settings → Notifications → Webhooks</strong></li>
+              <li>Click <strong style={{ color: 'var(--t1)' }}>Create webhook</strong></li>
+              <li>Set event to <strong style={{ color: 'var(--accent)' }}>Order creation</strong> and format to <strong style={{ color: 'var(--accent)' }}>JSON</strong></li>
+              <li>Paste the URL above and click Save</li>
+            </ol>
+          </div>
+
+          {/* WooCommerce Integration */}
+          <div className="card">
+            <SectionHeader Icon={Link} title="WooCommerce Integration" />
+            <p style={{ fontSize: 13, color: 'var(--t2)', marginBottom: 18 }}>
+              Connect your WooCommerce store to Stocky. New orders will automatically appear as leads.
+            </p>
+
+            <SubLabel text="Step 1 — Copy your webhook URL" />
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 18 }}>
+              <div style={{
+                flex: 1, padding: '9px 12px', background: 'var(--card-2)', borderRadius: 'var(--r-sm)',
+                border: '1px solid var(--border)', fontFamily: 'monospace', fontSize: 12,
+                color: 'var(--t1)', wordBreak: 'break-all', lineHeight: 1.5,
+              }}>
+                {wooWebhookUrl || 'Loading…'}
+              </div>
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={() => handleCopy(wooWebhookUrl)}
+                disabled={!wooWebhookUrl}
+                style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}
+              >
+                <Copy size={13} strokeWidth={2} />
+                {copied ? 'Copied!' : 'Copy'}
+              </button>
+            </div>
+
+            <SubLabel text="Step 2 — Paste it in WooCommerce" />
+            <ol style={{ fontSize: 13, color: 'var(--t2)', lineHeight: 2, paddingLeft: 18, marginBottom: 0 }}>
+              <li>Go to your <strong style={{ color: 'var(--t1)' }}>WordPress dashboard</strong></li>
+              <li>Open <strong style={{ color: 'var(--t1)' }}>WooCommerce → Settings → Advanced → Webhooks</strong></li>
+              <li>Click <strong style={{ color: 'var(--t1)' }}>Add Webhook</strong></li>
+              <li>Set topic to <strong style={{ color: 'var(--accent)' }}>Order created</strong></li>
+              <li>Paste the URL above in the Delivery URL field and click Save</li>
+            </ol>
+          </div>
+
         </>}
 
       </div>
