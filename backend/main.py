@@ -40,6 +40,10 @@ with engine.connect() as conn:
         "ALTER TABLE orders ADD COLUMN tracking_id VARCHAR",
         "ALTER TABLE orders ADD COLUMN delivery_status VARCHAR",
         "ALTER TABLE orders ADD COLUMN delivery_provider VARCHAR",
+        "ALTER TABLE users ADD COLUMN email VARCHAR",
+        "ALTER TABLE users ADD COLUMN whatsapp VARCHAR",
+        "ALTER TABLE users ADD COLUMN reset_token VARCHAR",
+        "ALTER TABLE users ADD COLUMN reset_token_expires DATETIME",
     ]:
         try:
             conn.execute(text(stmt))

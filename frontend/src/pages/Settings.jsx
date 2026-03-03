@@ -4,7 +4,7 @@ import {
   Upload, Package, DollarSign, Truck, AlertTriangle, Edit2, Check,
   MapPin, Plus, Trash2, Search, X, Link, RotateCcw, Copy, Zap,
 } from 'lucide-react';
-import { changePassword, updateStoreName, getSetting, setSetting, getCityList, createCity, updateCity, deleteCity, uploadCityPDF, getCityPdfJob, getApiKey, rotateApiKey } from '../api';
+import { changePassword, updateStoreName, updateProfile, getSetting, setSetting, getCityList, createCity, updateCity, deleteCity, uploadCityPDF, getCityPdfJob, getApiKey, rotateApiKey } from '../api';
 
 const LANGUAGES = [
   { code: 'en', label: 'English',  flag: '🇬🇧' },
@@ -38,6 +38,42 @@ function SectionHeader({ Icon, title }) {
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
       <Icon size={18} strokeWidth={1.75} style={{ color: 'var(--accent)' }} />
       <span style={{ fontWeight: 600, fontSize: 15 }}>{title}</span>
+    </div>
+  );
+}
+
+// ── Contact info (email + whatsapp) ─────────────────────────
+function ProfileContact({ user }) {
+  const [email,    setEmail]    = useState(user?.email    || '');
+  const [whatsapp, setWhatsapp] = useState(user?.whatsapp || '');
+  const [saving,   setSaving]   = useState(false);
+  const [saved,    setSaved]    = useState(false);
+  const [err,      setErr]      = useState('');
+
+  const handleSave = async () => {
+    setSaving(true); setErr('');
+    try {
+      await updateProfile({ email, whatsapp });
+      setSaved(true); setTimeout(() => setSaved(false), 2500);
+    } catch (e) { setErr(e.response?.data?.detail || 'Error saving'); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--t2)', letterSpacing: '.07em', textTransform: 'uppercase' }}>Contact Info</div>
+      {err && <div style={{ fontSize: 13, color: '#f87171' }}>{err}</div>}
+      <div>
+        <label className="form-label">Email</label>
+        <input className="form-input" type="email" placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} />
+      </div>
+      <div>
+        <label className="form-label">WhatsApp Number</label>
+        <input className="form-input" placeholder="+212600000000" value={whatsapp} onChange={e => setWhatsapp(e.target.value)} />
+      </div>
+      <button className="btn btn-primary" onClick={handleSave} disabled={saving} style={{ display: 'flex', alignItems: 'center', gap: 6, alignSelf: 'flex-start' }}>
+        <Check size={14} strokeWidth={2.5} /> {saving ? 'Saving…' : saved ? 'Saved ✓' : 'Save Contact Info'}
+      </button>
     </div>
   );
 }
@@ -574,11 +610,12 @@ export default function Settings({ user, theme, setTheme, lang, setLang, accent,
           {/* Profile info */}
           <div className="card">
             <SectionHeader Icon={User} title="Profile" />
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
               <InfoRow Icon={User}        label="Username" value={`@${user?.username}`} />
               <InfoRow Icon={Store}       label="Store"    value={user?.store_name} />
               <InfoRow Icon={ShieldCheck} label="Role"     value={isAdmin ? 'Admin' : 'Confirmer'} />
             </div>
+            <ProfileContact user={user} />
           </div>
 
           {/* Change Password */}

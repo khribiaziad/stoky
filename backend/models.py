@@ -41,6 +41,10 @@ class User(Base):
     team_member_id = Column(Integer, nullable=True)  # links confirmer to their TeamMember record
     google_id = Column(String, nullable=True, unique=True)
     google_email = Column(String, nullable=True)
+    email = Column(String, nullable=True)
+    whatsapp = Column(String, nullable=True)
+    reset_token = Column(String, nullable=True)
+    reset_token_expires = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
 
 
