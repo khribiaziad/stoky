@@ -240,12 +240,14 @@ export default function Orders() {
       load();
     } catch (e) {
       const detail = e.response?.data?.detail || 'Error creating orders';
-      // Parse "[CMD-xxx] message" to highlight the specific order
+      // Parse "[CMD-xxx] message" to highlight the specific order card
       const idMatch = detail.match(/^\[([^\]]+)\]/);
       if (idMatch) {
-        const failedId = idMatch[1];
+        const failedId = idMatch[1].trim();
         const msg = detail.replace(/^\[[^\]]+\]\s*/, '');
-        setOrderErrors({ [failedId]: msg });
+        // Find by index so whitespace in caleo_id never causes a mismatch
+        const failedIdx = parsedOrders.findIndex(o => (o.caleo_id || '').trim() === failedId);
+        setOrderErrors(failedIdx !== -1 ? { [failedIdx]: msg } : {});
         setError(`Order ${failedId}: ${msg}`);
       } else {
         setError(detail);
@@ -1029,12 +1031,12 @@ export default function Orders() {
           <div className="modal modal-xl">
             <div className="modal-header">
               <h2>📦 Assign Products to Orders ({parsedOrders.length} orders found)</h2>
-              <button className="btn-icon" onClick={() => setParsedOrders(null)}>✕</button>
+              <button className="btn-icon" onClick={() => { setParsedOrders(null); setOrderErrors({}); }}>✕</button>
             </div>
             <div className="modal-body">
               {error && <div className="alert alert-error">{error}</div>}
               {parsedOrders.map((order, i) => {
-                const orderErr = orderErrors[order.caleo_id];
+                const orderErr = orderErrors[i];
                 return (
                 <div key={i} style={{ border: `1px solid ${orderErr ? '#f87171' : '#2d3248'}`, borderRadius: 10, padding: 16, marginBottom: 16, background: orderErr ? 'rgba(248,113,113,0.07)' : undefined }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
