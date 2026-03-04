@@ -53,6 +53,9 @@ export default function Orders() {
   const [selectedReturn, setSelectedReturn] = useState(null);
   const [manualReturnChoice, setManualReturnChoice] = useState({ seal_bag_returned: false, product_broken: false });
 
+  // Tab
+  const [activeTab, setActiveTab] = useState('orders');
+
   // Bulk selection
   const [selectedIds, setSelectedIds] = useState(new Set());
 
@@ -470,13 +473,23 @@ export default function Orders() {
     }
   };
 
+  const searchMatch = (o) =>
+    !search ||
+    o.customer_name?.toLowerCase().includes(search.toLowerCase()) ||
+    o.caleo_id?.includes(search) ||
+    o.city?.toLowerCase().includes(search.toLowerCase()) ||
+    o.customer_phone?.includes(search);
+
+  // Orders tab: pending + delivered only
   const filtered = orders
+    .filter(o => o.status !== 'cancelled')
     .filter(o => filter === 'all' || o.status === filter)
-    .filter(o => !search ||
-      o.customer_name?.toLowerCase().includes(search.toLowerCase()) ||
-      o.caleo_id?.includes(search) ||
-      o.city?.toLowerCase().includes(search.toLowerCase()) ||
-      o.customer_phone?.includes(search));
+    .filter(searchMatch);
+
+  // Returns tab: cancelled orders
+  const filteredReturns = orders
+    .filter(o => o.status === 'cancelled')
+    .filter(searchMatch);
 
   if (loading) return <div className="loading">Loading orders...</div>;
 
@@ -487,18 +500,36 @@ export default function Orders() {
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <input type="file" ref={pickupRef} accept=".pdf" style={{ display: 'none' }} onChange={handlePickupUpload} />
           <input type="file" ref={returnRef} accept=".pdf" style={{ display: 'none' }} onChange={handleReturnUpload} />
-          <button className="btn btn-primary" onClick={() => { setError(''); setShowManualOrder(true); }}>+ New Order</button>
-          <button className="btn btn-secondary" onClick={() => { setError(''); setShowManualReturn(true); }}>↩ Return Order</button>
-          <button className="btn btn-secondary" onClick={() => pickupRef.current.click()} disabled={uploading}>
-            {uploading ? '⏳ Parsing...' : '📤 Upload Pickup PDF'}
-          </button>
-          <button className="btn btn-secondary" onClick={() => returnRef.current.click()} disabled={uploading}>
-            📥 Upload Return PDF
-          </button>
-          <button className="btn btn-secondary" onClick={exportCSV} title="Export visible orders to CSV">
-            ⬇ Export CSV
-          </button>
+          {activeTab === 'orders' ? <>
+            <button className="btn btn-primary" onClick={() => { setError(''); setShowManualOrder(true); }}>+ New Order</button>
+            <button className="btn btn-secondary" onClick={() => pickupRef.current.click()} disabled={uploading}>
+              {uploading ? '⏳ Parsing...' : '📤 Upload Pickup PDF'}
+            </button>
+            <button className="btn btn-secondary" onClick={exportCSV} title="Export visible orders to CSV">⬇ Export CSV</button>
+          </> : <>
+            <button className="btn btn-secondary" style={{ borderColor: '#f87171', color: '#f87171' }} onClick={() => { setError(''); setShowManualReturn(true); }}>↩ Create Return</button>
+            <button className="btn btn-secondary" onClick={() => returnRef.current.click()} disabled={uploading}>
+              {uploading ? '⏳ Parsing...' : '📥 Upload Return PDF'}
+            </button>
+          </>}
         </div>
+      </div>
+
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: 0, marginBottom: 16, borderBottom: '1px solid var(--border)' }}>
+        {[{ id: 'orders', label: `Orders (${orders.filter(o => o.status !== 'cancelled').length})` },
+          { id: 'returns', label: `Returns (${orders.filter(o => o.status === 'cancelled').length})` }].map(tab => (
+          <button key={tab.id} onClick={() => { setActiveTab(tab.id); setSearch(''); setFilter('all'); setSelectedIds(new Set()); }}
+            style={{
+              background: 'none', border: 'none', padding: '10px 20px', cursor: 'pointer',
+              fontSize: 14, fontWeight: 600,
+              color: activeTab === tab.id ? 'var(--accent)' : 'var(--t2)',
+              borderBottom: `2px solid ${activeTab === tab.id ? 'var(--accent)' : 'transparent'}`,
+              transition: 'all .15s',
+            }}>
+            {tab.label}
+          </button>
+        ))}
       </div>
 
       {error && <div className="alert alert-error">{error} <button style={{ float: 'right', background: 'none', border: 'none', color: 'inherit', cursor: 'pointer' }} onClick={() => setError('')}>✕</button></div>}
@@ -506,19 +537,19 @@ export default function Orders() {
 
       {/* Filters */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 16, alignItems: 'center' }}>
-        {['all', 'pending', 'delivered', 'cancelled'].map(s => (
+        {activeTab === 'orders' && ['all', 'pending', 'delivered'].map(s => (
           <button key={s} className={`btn btn-sm ${filter === s ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setFilter(s)}>
             {s.charAt(0).toUpperCase() + s.slice(1)}
           </button>
         ))}
-        <div className="search-bar" style={{ marginLeft: 'auto' }}>
+        <div className="search-bar" style={{ marginLeft: activeTab === 'returns' ? 0 : 'auto' }}>
           <span>🔍</span>
           <input placeholder="Search by name, CMD, city, or phone..." value={search} onChange={e => setSearch(e.target.value)} />
         </div>
       </div>
 
-      {/* Bulk action bar */}
-      {selectedIds.size > 0 && (
+      {/* Bulk action bar — orders tab only */}
+      {activeTab === 'orders' && selectedIds.size > 0 && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', background: '#1a1a2e', border: '1px solid #00d48f44', borderRadius: 10, marginBottom: 12, flexWrap: 'wrap' }}>
           <span style={{ fontWeight: 600, color: '#00d48f' }}>{selectedIds.size} selected</span>
           <span style={{ color: '#8892b0', fontSize: 13 }}>Update to:</span>
@@ -529,8 +560,62 @@ export default function Orders() {
         </div>
       )}
 
+      {/* Returns Table */}
+      {activeTab === 'returns' && (
+        <div className="card">
+          {filteredReturns.length === 0 ? (
+            <div className="empty-state">
+              <h3>No returns yet</h3>
+              <p>Click "↩ Create Return" to register a returned order</p>
+            </div>
+          ) : (
+            <div className="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>CMD-ID</th><th>Customer</th><th>City</th><th>Amount</th><th>Items</th><th>Status</th><th>Date</th><th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredReturns.map(o => (
+                    <tr key={o.id} style={{ opacity: 0.55 }}>
+                      <td style={{ fontFamily: 'monospace', fontSize: 12 }}>{o.caleo_id}</td>
+                      <td>
+                        <div style={{ fontWeight: 500 }}>{o.customer_name}</div>
+                        {o.customer_phone
+                          ? <div style={{ color: '#8892b0', fontSize: 11 }}>{o.customer_phone}</div>
+                          : <div style={{ color: '#8892b0', fontSize: 11 }}>—</div>}
+                      </td>
+                      <td>{o.city}</td>
+                      <td style={{ fontWeight: 600, color: '#60a5fa' }}>{o.total_amount} MAD</td>
+                      <td>
+                        {o.items?.length > 0
+                          ? o.items.map(item => <div key={item.id} style={{ fontSize: 12 }}>{item.product_name} {item.size} {item.color} x{item.quantity}</div>)
+                          : <span style={{ color: '#8892b0' }}>—</span>}
+                      </td>
+                      <td>
+                        <span className="badge badge-red">Return</span>
+                      </td>
+                      <td style={{ color: '#8892b0', fontSize: 12 }}>
+                        {o.order_date ? new Date(o.order_date).toLocaleDateString() : '—'}
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', gap: 4 }}>
+                          <button className="btn btn-secondary btn-sm" title="View details" onClick={() => setDetailOrder(o)}>👁</button>
+                          <button className="btn btn-danger btn-sm" onClick={() => handleDelete(o.id)}>✕</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Orders Table */}
-      <div className="card">
+      {activeTab === 'orders' && <div className="card">
         {filtered.length === 0 ? (
           <div className="empty-state">
             <h3>No orders found</h3>
@@ -660,7 +745,7 @@ export default function Orders() {
             </table>
           </div>
         )}
-      </div>
+      </div>}
 
       {/* Order Detail Modal */}
       {detailOrder && (() => {
