@@ -95,22 +95,35 @@ def _extract_order_id(text: str) -> str:
 
 
 def _extract_phone(text: str) -> str:
-    """Extract a Moroccan phone number from text."""
-    # Try labeled field first (multi-language labels)
-    labeled = re.search(
-        r'(?:t[ée]l(?:[ée]phone)?|phone|mobile|portable|gsm|هاتف|رقم(?:\s+الهاتف)?|tel)\s*[:#\s]?\s*(\+?[\d\s\.\-]{9,16})',
-        text, re.IGNORECASE
-    )
-    if labeled:
-        phone = re.sub(r'[\s\.\-]', '', labeled.group(1))
-        if re.match(r'^(\+?212|00212)?[067]\d{8}$', phone):
-            return phone
+    """Extract a Moroccan phone number from text.
 
-    # Raw Moroccan phone anywhere in text
-    clean = re.sub(r'[\s\.\-]', '', text)
-    m = re.search(r'(\+?212[67]\d{8}|00212[67]\d{8}|0[67]\d{8})', clean)
-    if m:
-        return m.group(1)
+    Searches the recipient section first to avoid returning the sender's phone,
+    which is the same on every page and often appears before the customer's number.
+    """
+    # Narrow down to the recipient section when possible
+    dest_section = re.search(
+        r'(?:destinataire|client|b[ée]n[ée]ficiaire|recipient|المستلم).*?(?=exp[ée]diteur|envoyeur|$)',
+        text, re.IGNORECASE | re.DOTALL
+    )
+    search_text = dest_section.group(0) if dest_section else text
+
+    # Try labeled field in recipient section first, then full text
+    for search in ([search_text, text] if dest_section else [text]):
+        labeled = re.search(
+            r'(?:t[ée]l(?:[ée]phone)?|phone|mobile|portable|gsm|هاتف|رقم(?:\s+الهاتف)?|tel)\s*[:#\s]?\s*(\+?[\d\s\.\-]{9,16})',
+            search, re.IGNORECASE
+        )
+        if labeled:
+            phone = re.sub(r'[\s\.\-]', '', labeled.group(1))
+            if re.match(r'^(\+?212|00212)?[067]\d{8}$', phone):
+                return phone
+
+    # Raw Moroccan phone — prefer within recipient section
+    for search in ([search_text, text] if dest_section else [text]):
+        clean = re.sub(r'[\s\.\-]', '', search)
+        m = re.search(r'(\+?212[67]\d{8}|00212[67]\d{8}|0[67]\d{8})', clean)
+        if m:
+            return m.group(1)
 
     return ""
 
@@ -323,7 +336,11 @@ def _parse_caleo_page(text: str) -> Optional[dict]:
     name_match = re.search(r'Destinataire\s*[:\s]+([^\n\r]+)', text, re.IGNORECASE)
     customer_name = name_match.group(1).strip() if name_match else ""
 
-    phone_match = re.search(r't[ée]l[ée]phone\s*[:\s]*(\+?\d[\d\s\-]{7,})', text, re.IGNORECASE)
+    # Extract phone from the Destinataire section only, to avoid picking up the
+    # sender's phone (which is the same on every page and comes first in many layouts).
+    dest_section = re.search(r'Destinataire.*?(?=Exp[ée]diteur|$)', text, re.IGNORECASE | re.DOTALL)
+    phone_search_text = dest_section.group(0) if dest_section else text
+    phone_match = re.search(r't[ée]l[ée]phone\s*[:\s]*(\+?\d[\d\s\-]{7,})', phone_search_text, re.IGNORECASE)
     customer_phone = re.sub(r'\s+', '', phone_match.group(1)).strip() if phone_match else ""
 
     city_match = re.search(r'Ville\s*[:\s]+([^\n\r]+)', text, re.IGNORECASE)
