@@ -15,42 +15,50 @@ from seed_cities import seed
 # Create all tables
 models.Base.metadata.create_all(bind=engine)
 
-# Migrations for new columns on existing tables
-# Each statement runs in its own connection so a failure (e.g. column already exists)
-# never aborts subsequent statements (important for PostgreSQL).
+# Migrations — use IF NOT EXISTS so statements are fully idempotent on PostgreSQL.
+# Each runs in its own connection so a failure never aborts the next statement.
+_is_pg = (os.environ.get("DATABASE_URL", "").startswith("postgres"))
+
+def _col(table, col, typedef):
+    """Return an idempotent ADD COLUMN statement."""
+    if _is_pg:
+        return f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col} {typedef}"
+    return f"ALTER TABLE {table} ADD COLUMN {col} {typedef}"  # SQLite: caught below
+
 for _stmt in [
-    "ALTER TABLE facebook_ads ADD COLUMN platform VARCHAR DEFAULT 'facebook'",
-    "ALTER TABLE facebook_ads ADD COLUMN platform_id INTEGER REFERENCES ad_platforms(id)",
-    "ALTER TABLE fixed_expenses ADD COLUMN category VARCHAR DEFAULT 'other'",
-    "ALTER TABLE orders ADD COLUMN notes TEXT",
-    "ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'admin'",
-    "ALTER TABLE subscriptions ADD COLUMN notes TEXT",
-    "ALTER TABLE subscriptions ADD COLUMN needs_renewal BOOLEAN DEFAULT 0",
+    _col("facebook_ads",   "platform",              "VARCHAR DEFAULT 'facebook'"),
+    _col("facebook_ads",   "platform_id",            "INTEGER REFERENCES ad_platforms(id)"),
+    _col("fixed_expenses", "category",               "VARCHAR DEFAULT 'other'"),
+    _col("orders",         "notes",                  "TEXT"),
+    _col("users",          "role",                   "TEXT DEFAULT 'admin'"),
+    _col("subscriptions",  "notes",                  "TEXT"),
+    _col("subscriptions",  "needs_renewal",          "BOOLEAN DEFAULT 0"),
     "CREATE TABLE IF NOT EXISTS platform_expenses (id INTEGER PRIMARY KEY, name VARCHAR NOT NULL, category VARCHAR DEFAULT 'other', amount FLOAT NOT NULL, currency VARCHAR DEFAULT 'MAD', type VARCHAR DEFAULT 'monthly', date DATETIME NOT NULL, note TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)",
     "CREATE TABLE IF NOT EXISTS store_api_keys (id INTEGER PRIMARY KEY, store_id INTEGER NOT NULL UNIQUE REFERENCES users(id), key VARCHAR NOT NULL UNIQUE, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)",
     "CREATE TABLE IF NOT EXISTS leads (id INTEGER PRIMARY KEY, store_id INTEGER NOT NULL REFERENCES users(id), customer_name VARCHAR NOT NULL, customer_phone VARCHAR NOT NULL, customer_email VARCHAR, customer_city VARCHAR, customer_address VARCHAR, raw_items JSON, matched_items JSON, total_amount FLOAT, notes TEXT, status VARCHAR DEFAULT 'pending', order_id INTEGER REFERENCES orders(id), message_count INTEGER DEFAULT 0, last_message_at DATETIME, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)",
-    "ALTER TABLE broken_stock ADD COLUMN user_id INTEGER REFERENCES users(id)",
-    "ALTER TABLE products ADD COLUMN supplier VARCHAR",
-    "ALTER TABLE products ADD COLUMN image_url VARCHAR",
-    "ALTER TABLE variants ADD COLUMN sku VARCHAR",
+    _col("broken_stock",   "user_id",                "INTEGER REFERENCES users(id)"),
+    _col("products",       "supplier",               "VARCHAR"),
+    _col("products",       "image_url",              "VARCHAR"),
+    _col("variants",       "sku",                    "VARCHAR"),
     "CREATE TABLE IF NOT EXISTS suppliers (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id), name VARCHAR NOT NULL, phone VARCHAR, platform VARCHAR, notes TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)",
     "CREATE TABLE IF NOT EXISTS supplier_payments (id INTEGER PRIMARY KEY, supplier_id INTEGER NOT NULL REFERENCES suppliers(id), amount FLOAT NOT NULL, date DATETIME NOT NULL, note TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)",
-    "ALTER TABLE products ADD COLUMN supplier_id INTEGER REFERENCES suppliers(id)",
-    "ALTER TABLE users ADD COLUMN google_id VARCHAR",
-    "ALTER TABLE users ADD COLUMN google_email VARCHAR",
-    "ALTER TABLE orders ADD COLUMN tracking_id VARCHAR",
-    "ALTER TABLE orders ADD COLUMN delivery_status VARCHAR",
-    "ALTER TABLE orders ADD COLUMN delivery_provider VARCHAR",
-    "ALTER TABLE users ADD COLUMN email VARCHAR",
-    "ALTER TABLE users ADD COLUMN whatsapp VARCHAR",
-    "ALTER TABLE users ADD COLUMN reset_token VARCHAR",
-    "ALTER TABLE users ADD COLUMN reset_token_expires DATETIME",
+    _col("products",       "supplier_id",            "INTEGER REFERENCES suppliers(id)"),
+    _col("users",          "google_id",              "VARCHAR"),
+    _col("users",          "google_email",           "VARCHAR"),
+    _col("orders",         "tracking_id",            "VARCHAR"),
+    _col("orders",         "delivery_status",        "VARCHAR"),
+    _col("orders",         "delivery_provider",      "VARCHAR"),
+    _col("users",          "email",                  "VARCHAR"),
+    _col("users",          "whatsapp",               "VARCHAR"),
+    _col("users",          "reset_token",            "VARCHAR"),
+    _col("users",          "reset_token_expires",    "TIMESTAMP"),
 ]:
     try:
         with engine.begin() as _conn:
             _conn.execute(text(_stmt))
-    except Exception:
-        pass  # column/table already exists — safe to ignore
+        print(f"[migration] OK: {_stmt[:80]}")
+    except Exception as _e:
+        print(f"[migration] SKIP ({_e.__class__.__name__}): {_stmt[:80]}")
 
 # Seed cities on startup
 seed()
