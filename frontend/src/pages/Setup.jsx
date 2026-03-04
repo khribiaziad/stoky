@@ -91,7 +91,10 @@ export default function Setup({ user, onComplete }) {
         // find first incomplete step
         const first = STEPS.find(s => !p[s.id]);
         if (first) setActive(first.id);
-        else onComplete(); // all done
+        else {
+          // All steps already done — ensure onboarding_done is saved then exit
+          setSetting('onboarding_done', 'true').catch(() => {}).finally(() => onComplete());
+        }
       } catch {}
     }).catch(() => {});
   }, []);
@@ -99,11 +102,19 @@ export default function Setup({ user, onComplete }) {
   const markDone = async (stepId) => {
     const next = { ...done, [stepId]: true };
     setDone(next);
-    await setSetting('onboarding_progress', JSON.stringify(next));
+    try {
+      await setSetting('onboarding_progress', JSON.stringify(next));
+    } catch {
+      // non-fatal: keep going
+    }
     // check if all done
     const allDone = STEPS.every(s => next[s.id]);
     if (allDone) {
-      await setSetting('onboarding_done', 'true');
+      try {
+        await setSetting('onboarding_done', 'true');
+      } catch {
+        // non-fatal: the useEffect safety net will save it on next load
+      }
       onComplete();
     } else {
       const nextStep = STEPS.find(s => !next[s.id]);
