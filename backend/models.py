@@ -151,6 +151,7 @@ class Order(Base):
     notes = Column(Text, nullable=True)
     tracking_id = Column(String, nullable=True, index=True)
     delivery_status = Column(String, nullable=True)
+    delivery_provider = Column(String, nullable=True)  # "olivraison" | "forcelog"
     created_at = Column(DateTime, server_default=func.now())
 
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")

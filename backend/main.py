@@ -16,40 +16,41 @@ from seed_cities import seed
 models.Base.metadata.create_all(bind=engine)
 
 # Migrations for new columns on existing tables
-with engine.connect() as conn:
-    for stmt in [
-        "ALTER TABLE facebook_ads ADD COLUMN platform VARCHAR DEFAULT 'facebook'",
-        "ALTER TABLE facebook_ads ADD COLUMN platform_id INTEGER REFERENCES ad_platforms(id)",
-        "ALTER TABLE fixed_expenses ADD COLUMN category VARCHAR DEFAULT 'other'",
-        "ALTER TABLE orders ADD COLUMN notes TEXT",
-        "ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'admin'",
-        "ALTER TABLE subscriptions ADD COLUMN notes TEXT",
-        "ALTER TABLE subscriptions ADD COLUMN needs_renewal BOOLEAN DEFAULT 0",
-        "CREATE TABLE IF NOT EXISTS platform_expenses (id INTEGER PRIMARY KEY, name VARCHAR NOT NULL, category VARCHAR DEFAULT 'other', amount FLOAT NOT NULL, currency VARCHAR DEFAULT 'MAD', type VARCHAR DEFAULT 'monthly', date DATETIME NOT NULL, note TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)",
-        "CREATE TABLE IF NOT EXISTS store_api_keys (id INTEGER PRIMARY KEY, store_id INTEGER NOT NULL UNIQUE REFERENCES users(id), key VARCHAR NOT NULL UNIQUE, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)",
-        "CREATE TABLE IF NOT EXISTS leads (id INTEGER PRIMARY KEY, store_id INTEGER NOT NULL REFERENCES users(id), customer_name VARCHAR NOT NULL, customer_phone VARCHAR NOT NULL, customer_email VARCHAR, customer_city VARCHAR, customer_address VARCHAR, raw_items JSON, matched_items JSON, total_amount FLOAT, notes TEXT, status VARCHAR DEFAULT 'pending', order_id INTEGER REFERENCES orders(id), message_count INTEGER DEFAULT 0, last_message_at DATETIME, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)",
-        "ALTER TABLE broken_stock ADD COLUMN user_id INTEGER REFERENCES users(id)",
-        "ALTER TABLE products ADD COLUMN supplier VARCHAR",
-        "ALTER TABLE products ADD COLUMN image_url VARCHAR",
-        "ALTER TABLE variants ADD COLUMN sku VARCHAR",
-        "CREATE TABLE IF NOT EXISTS suppliers (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id), name VARCHAR NOT NULL, phone VARCHAR, platform VARCHAR, notes TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)",
-        "CREATE TABLE IF NOT EXISTS supplier_payments (id INTEGER PRIMARY KEY, supplier_id INTEGER NOT NULL REFERENCES suppliers(id), amount FLOAT NOT NULL, date DATETIME NOT NULL, note TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)",
-        "ALTER TABLE products ADD COLUMN supplier_id INTEGER REFERENCES suppliers(id)",
-        "ALTER TABLE users ADD COLUMN google_id VARCHAR",
-        "ALTER TABLE users ADD COLUMN google_email VARCHAR",
-        "ALTER TABLE orders ADD COLUMN tracking_id VARCHAR",
-        "ALTER TABLE orders ADD COLUMN delivery_status VARCHAR",
-        "ALTER TABLE orders ADD COLUMN delivery_provider VARCHAR",
-        "ALTER TABLE users ADD COLUMN email VARCHAR",
-        "ALTER TABLE users ADD COLUMN whatsapp VARCHAR",
-        "ALTER TABLE users ADD COLUMN reset_token VARCHAR",
-        "ALTER TABLE users ADD COLUMN reset_token_expires DATETIME",
-    ]:
-        try:
-            conn.execute(text(stmt))
-            conn.commit()
-        except Exception:
-            conn.rollback()  # PostgreSQL: reset aborted transaction before next statement
+# Each statement runs in its own connection so a failure (e.g. column already exists)
+# never aborts subsequent statements (important for PostgreSQL).
+for _stmt in [
+    "ALTER TABLE facebook_ads ADD COLUMN platform VARCHAR DEFAULT 'facebook'",
+    "ALTER TABLE facebook_ads ADD COLUMN platform_id INTEGER REFERENCES ad_platforms(id)",
+    "ALTER TABLE fixed_expenses ADD COLUMN category VARCHAR DEFAULT 'other'",
+    "ALTER TABLE orders ADD COLUMN notes TEXT",
+    "ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'admin'",
+    "ALTER TABLE subscriptions ADD COLUMN notes TEXT",
+    "ALTER TABLE subscriptions ADD COLUMN needs_renewal BOOLEAN DEFAULT 0",
+    "CREATE TABLE IF NOT EXISTS platform_expenses (id INTEGER PRIMARY KEY, name VARCHAR NOT NULL, category VARCHAR DEFAULT 'other', amount FLOAT NOT NULL, currency VARCHAR DEFAULT 'MAD', type VARCHAR DEFAULT 'monthly', date DATETIME NOT NULL, note TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)",
+    "CREATE TABLE IF NOT EXISTS store_api_keys (id INTEGER PRIMARY KEY, store_id INTEGER NOT NULL UNIQUE REFERENCES users(id), key VARCHAR NOT NULL UNIQUE, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)",
+    "CREATE TABLE IF NOT EXISTS leads (id INTEGER PRIMARY KEY, store_id INTEGER NOT NULL REFERENCES users(id), customer_name VARCHAR NOT NULL, customer_phone VARCHAR NOT NULL, customer_email VARCHAR, customer_city VARCHAR, customer_address VARCHAR, raw_items JSON, matched_items JSON, total_amount FLOAT, notes TEXT, status VARCHAR DEFAULT 'pending', order_id INTEGER REFERENCES orders(id), message_count INTEGER DEFAULT 0, last_message_at DATETIME, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)",
+    "ALTER TABLE broken_stock ADD COLUMN user_id INTEGER REFERENCES users(id)",
+    "ALTER TABLE products ADD COLUMN supplier VARCHAR",
+    "ALTER TABLE products ADD COLUMN image_url VARCHAR",
+    "ALTER TABLE variants ADD COLUMN sku VARCHAR",
+    "CREATE TABLE IF NOT EXISTS suppliers (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id), name VARCHAR NOT NULL, phone VARCHAR, platform VARCHAR, notes TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)",
+    "CREATE TABLE IF NOT EXISTS supplier_payments (id INTEGER PRIMARY KEY, supplier_id INTEGER NOT NULL REFERENCES suppliers(id), amount FLOAT NOT NULL, date DATETIME NOT NULL, note TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)",
+    "ALTER TABLE products ADD COLUMN supplier_id INTEGER REFERENCES suppliers(id)",
+    "ALTER TABLE users ADD COLUMN google_id VARCHAR",
+    "ALTER TABLE users ADD COLUMN google_email VARCHAR",
+    "ALTER TABLE orders ADD COLUMN tracking_id VARCHAR",
+    "ALTER TABLE orders ADD COLUMN delivery_status VARCHAR",
+    "ALTER TABLE orders ADD COLUMN delivery_provider VARCHAR",
+    "ALTER TABLE users ADD COLUMN email VARCHAR",
+    "ALTER TABLE users ADD COLUMN whatsapp VARCHAR",
+    "ALTER TABLE users ADD COLUMN reset_token VARCHAR",
+    "ALTER TABLE users ADD COLUMN reset_token_expires DATETIME",
+]:
+    try:
+        with engine.begin() as _conn:
+            _conn.execute(text(_stmt))
+    except Exception:
+        pass  # column/table already exists — safe to ignore
 
 # Seed cities on startup
 seed()
@@ -60,7 +61,9 @@ _admin_pass = os.environ.get("ADMIN_PASSWORD", "")
 _admin_store = os.environ.get("ADMIN_STORE", "My Store")
 if _admin_user and _admin_pass:
     from auth import hash_password
-    with next(get_db()) as _db:
+    from database import SessionLocal
+    _db = SessionLocal()
+    try:
         _existing = _db.query(models.User).filter(models.User.username == _admin_user).first()
         if _existing:
             _existing.password_hash = hash_password(_admin_pass)
@@ -73,6 +76,11 @@ if _admin_user and _admin_pass:
                 is_approved=True,
             ))
         _db.commit()
+    except Exception as e:
+        _db.rollback()
+        print(f"Warning: admin user setup failed: {e}")
+    finally:
+        _db.close()
 
 app = FastAPI(title="Stocky API", version="1.0.0")
 
