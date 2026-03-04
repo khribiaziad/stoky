@@ -90,6 +90,35 @@ if _admin_user and _admin_pass:
     finally:
         _db.close()
 
+# ── Ensure super admin exists (uses SUPER_ADMIN_USERNAME / SUPER_ADMIN_PASSWORD env vars) ──
+_super_user = os.environ.get("SUPER_ADMIN_USERNAME", "")
+_super_pass = os.environ.get("SUPER_ADMIN_PASSWORD", "")
+if _super_user and _super_pass:
+    from auth import hash_password as _hp
+    from database import SessionLocal as _SL
+    _db2 = _SL()
+    try:
+        _sexisting = _db2.query(models.User).filter(models.User.username == _super_user).first()
+        if _sexisting:
+            _sexisting.password_hash = _hp(_super_pass)
+            _sexisting.role = "super_admin"
+            _sexisting.is_approved = True
+        else:
+            _db2.add(models.User(
+                username=_super_user,
+                password_hash=_hp(_super_pass),
+                store_name="Platform Admin",
+                role="super_admin",
+                is_approved=True,
+            ))
+        _db2.commit()
+        print(f"[startup] Super admin '{_super_user}' ready")
+    except Exception as _e2:
+        _db2.rollback()
+        print(f"Warning: super admin setup failed: {_e2}")
+    finally:
+        _db2.close()
+
 app = FastAPI(title="Stocky API", version="1.0.0")
 
 # ── APScheduler: follow-up job for leads ──────────────────────────────────────
