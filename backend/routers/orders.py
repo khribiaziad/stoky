@@ -303,7 +303,7 @@ def bulk_create_orders(data: BulkOrderCreate, db: Session = Depends(get_db), use
                 db.rollback()
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Insufficient stock for {variant.product.name} {variant.size or ''} {variant.color or ''}. "
+                    detail=f"[{order_data.caleo_id}] Insufficient stock for {variant.product.name} {variant.size or ''} {variant.color or ''}. "
                            f"Available: {variant.stock}, requested: {item_data.quantity}"
                 )
             variant.stock -= item_data.quantity
@@ -454,7 +454,7 @@ def update_order(order_id: int, data: OrderUpdateInput, db: Session = Depends(ge
                     db.rollback()
                     raise HTTPException(
                         status_code=400,
-                        detail=f"Insufficient stock for {variant.product.name} {variant.size or ''} {variant.color or ''}. "
+                        detail=f"[{order.caleo_id}] Insufficient stock for {variant.product.name} {variant.size or ''} {variant.color or ''}. "
                                f"Available: {variant.stock}, requested: {item_data.quantity}"
                     )
                 variant.stock -= item_data.quantity

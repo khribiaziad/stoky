@@ -28,6 +28,7 @@ export default function Orders() {
   const [parsedOrders, setParsedOrders] = useState(null);
   const [orderItems, setOrderItems] = useState({});
   const [orderExpenses, setOrderExpenses] = useState({});
+  const [orderErrors, setOrderErrors] = useState({});
   const [uploading, setUploading] = useState(false);
 
   // Returns states (PDF flow)
@@ -235,9 +236,20 @@ export default function Orders() {
       const res = await bulkCreateOrders(ordersToCreate);
       setSuccess(`${res.data.count} orders created successfully!`);
       setParsedOrders(null);
+      setOrderErrors({});
       load();
     } catch (e) {
-      setError(e.response?.data?.detail || 'Error creating orders');
+      const detail = e.response?.data?.detail || 'Error creating orders';
+      // Parse "[CMD-xxx] message" to highlight the specific order
+      const idMatch = detail.match(/^\[([^\]]+)\]/);
+      if (idMatch) {
+        const failedId = idMatch[1];
+        const msg = detail.replace(/^\[[^\]]+\]\s*/, '');
+        setOrderErrors({ [failedId]: msg });
+        setError(`Order ${failedId}: ${msg}`);
+      } else {
+        setError(detail);
+      }
     }
   };
 
@@ -1021,13 +1033,16 @@ export default function Orders() {
             </div>
             <div className="modal-body">
               {error && <div className="alert alert-error">{error}</div>}
-              {parsedOrders.map((order, i) => (
-                <div key={i} style={{ border: '1px solid #2d3248', borderRadius: 10, padding: 16, marginBottom: 16 }}>
+              {parsedOrders.map((order, i) => {
+                const orderErr = orderErrors[order.caleo_id];
+                return (
+                <div key={i} style={{ border: `1px solid ${orderErr ? '#f87171' : '#2d3248'}`, borderRadius: 10, padding: 16, marginBottom: 16, background: orderErr ? 'rgba(248,113,113,0.07)' : undefined }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
                     <div>
-                      <div style={{ fontWeight: 600, fontFamily: 'monospace', color: '#7c6ef5' }}>{order.caleo_id}</div>
+                      <div style={{ fontWeight: 600, fontFamily: 'monospace', color: orderErr ? '#f87171' : '#7c6ef5' }}>{order.caleo_id}</div>
                       <div style={{ marginTop: 4 }}>{order.customer_name} · {order.city} · <strong style={{ color: '#60a5fa' }}>{order.total_amount} MAD</strong></div>
                       <div style={{ color: '#8892b0', fontSize: 12 }}>{order.customer_phone} · {order.customer_address}</div>
+                      {orderErr && <div style={{ marginTop: 6, color: '#f87171', fontSize: 12, fontWeight: 500 }}>⚠ {orderErr}</div>}
                     </div>
                   </div>
 
@@ -1227,7 +1242,7 @@ export default function Orders() {
                     </div>
                   </div>
                 </div>
-              ))}
+              ); })}
             </div>
             <div className="modal-footer">
               <button className="btn btn-secondary" onClick={() => setParsedOrders(null)}>Cancel</button>
