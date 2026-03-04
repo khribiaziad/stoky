@@ -319,6 +319,12 @@ export default function Orders() {
     load();
   };
 
+  const handleRevertReturn = async (id) => {
+    if (!confirm('Revert this return back to Pending?')) return;
+    await updateOrderStatus(id, 'pending');
+    load();
+  };
+
   // ── Bulk & CSV ────────────────────────────────────────────────────────────
   const toggleSelect = (id) => {
     setSelectedIds(prev => {
@@ -602,7 +608,7 @@ export default function Orders() {
                       <td>
                         <div style={{ display: 'flex', gap: 4 }}>
                           <button className="btn btn-secondary btn-sm" title="View details" onClick={() => setDetailOrder(o)}>👁</button>
-                          <button className="btn btn-danger btn-sm" onClick={() => handleDelete(o.id)}>✕</button>
+                          <button className="btn btn-secondary btn-sm" title="Revert to Pending" onClick={() => handleRevertReturn(o.id)} style={{ color: '#facc15', borderColor: '#facc15' }}>↩ Modify</button>
                         </div>
                       </td>
                     </tr>

@@ -203,6 +203,7 @@ def add_broken_stock(data: BrokenStockCreate, db: Session = Depends(get_db), use
             date=datetime.now(),
         )
         db.add(broken)
+        variant.stock = max(0, variant.stock - data.quantity)
         db.commit()
         return {"success": True}
     except HTTPException:
@@ -227,9 +228,12 @@ def update_broken_stock(broken_id: int, data: BrokenStockUpdate, db: Session = D
     if not broken:
         raise HTTPException(status_code=404, detail="Record not found")
     variant = db.query(models.Variant).filter(models.Variant.id == broken.variant_id).first()
+    old_quantity = broken.quantity
     broken.quantity = data.quantity
     broken.returnable_to_supplier = data.returnable_to_supplier
     broken.value_lost = 0.0 if data.returnable_to_supplier else ((variant.buying_price or 0.0) if variant else 0.0) * data.quantity
+    if variant:
+        variant.stock = max(0, variant.stock + old_quantity - data.quantity)
     db.commit()
     return {"success": True}
 
@@ -244,6 +248,9 @@ def delete_broken_stock(broken_id: int, db: Session = Depends(get_db), user: mod
     ).first()
     if not broken:
         raise HTTPException(status_code=404, detail="Record not found")
+    variant = db.query(models.Variant).filter(models.Variant.id == broken.variant_id).first()
+    if variant:
+        variant.stock += broken.quantity
     db.delete(broken)
     db.commit()
     return {"success": True}

@@ -358,6 +358,7 @@ def process_returns(data: ProcessReturnsInput, db: Session = Depends(get_db), us
                     models.Variant.id == item.variant_id
                 ).first()
                 broken = models.BrokenStock(
+                    user_id=order.user_id,
                     variant_id=item.variant_id,
                     quantity=item.quantity,
                     source="return",
