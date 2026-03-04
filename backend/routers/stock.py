@@ -40,7 +40,7 @@ def list_arrivals(db: Session = Depends(get_db), user: models.User = Depends(get
             "id": a.id,
             "batch_id": a.description,
             "variant_id": a.variant_id,
-            "product_name": variant.product.name if variant else "",
+            "product_name": (variant.product.name if variant and variant.product else "") if variant else "",
             "size": variant.size if variant else "",
             "color": variant.color if variant else "",
             "quantity": a.quantity,
@@ -159,7 +159,7 @@ def list_broken_stock(db: Session = Depends(get_db), user: models.User = Depends
         db.query(models.BrokenStock)
         .join(models.Variant, models.BrokenStock.variant_id == models.Variant.id)
         .join(models.Product, models.Variant.product_id == models.Product.id)
-        .filter(models.Product.user_id == user.id)
+        .filter(models.Product.user_id == get_store_id(user))
         .order_by(models.BrokenStock.date.desc())
         .all()
     )
@@ -169,7 +169,7 @@ def list_broken_stock(db: Session = Depends(get_db), user: models.User = Depends
         result.append({
             "id": b.id,
             "variant_id": b.variant_id,
-            "product_name": variant.product.name if variant else "",
+            "product_name": (variant.product.name if variant and variant.product else "") if variant else "",
             "size": variant.size if variant else "",
             "color": variant.color if variant else "",
             "quantity": b.quantity,
@@ -218,20 +218,30 @@ class BrokenStockUpdate(BaseModel):
 
 @router.put("/broken/{broken_id}")
 def update_broken_stock(broken_id: int, data: BrokenStockUpdate, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
-    broken = db.query(models.BrokenStock).filter(models.BrokenStock.id == broken_id).first()
+    if user.role == "confirmer":
+        raise HTTPException(status_code=403, detail="Not authorized")
+    broken = db.query(models.BrokenStock).filter(
+        models.BrokenStock.id == broken_id,
+        models.BrokenStock.user_id == get_store_id(user),
+    ).first()
     if not broken:
         raise HTTPException(status_code=404, detail="Record not found")
     variant = db.query(models.Variant).filter(models.Variant.id == broken.variant_id).first()
     broken.quantity = data.quantity
     broken.returnable_to_supplier = data.returnable_to_supplier
-    broken.value_lost = 0.0 if data.returnable_to_supplier else (variant.buying_price or 0.0) * data.quantity
+    broken.value_lost = 0.0 if data.returnable_to_supplier else ((variant.buying_price or 0.0) if variant else 0.0) * data.quantity
     db.commit()
     return {"success": True}
 
 
 @router.delete("/broken/{broken_id}")
 def delete_broken_stock(broken_id: int, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
-    broken = db.query(models.BrokenStock).filter(models.BrokenStock.id == broken_id).first()
+    if user.role == "confirmer":
+        raise HTTPException(status_code=403, detail="Not authorized")
+    broken = db.query(models.BrokenStock).filter(
+        models.BrokenStock.id == broken_id,
+        models.BrokenStock.user_id == get_store_id(user),
+    ).first()
     if not broken:
         raise HTTPException(status_code=404, detail="Record not found")
     db.delete(broken)

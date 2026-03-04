@@ -36,7 +36,7 @@ def serialize_pack(pack: models.Pack, db: Session) -> dict:
                     "id": item.id,
                     "variant_id": item.variant_id,
                     "quantity": item.quantity,
-                    "label": f"{variant.product.name}{' · ' + variant.size if variant.size else ''}{' · ' + variant.color if variant.color else ''}",
+                    "label": f"{variant.product.name if variant.product else '?'}{' · ' + variant.size if variant.size else ''}{' · ' + variant.color if variant.color else ''}",
                     "stock": variant.stock,
                     "buying_price": variant.buying_price,
                 })
@@ -123,8 +123,13 @@ def add_preset(pack_id: int, data: PackPresetInput, db: Session = Depends(get_db
 
 
 @router.delete("/presets/{preset_id}")
-def delete_preset(preset_id: int, db: Session = Depends(get_db)):
-    preset = db.query(models.PackPreset).filter(models.PackPreset.id == preset_id).first()
+def delete_preset(preset_id: int, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
+    if user.role == "confirmer":
+        raise HTTPException(status_code=403, detail="Not authorized")
+    preset = db.query(models.PackPreset).join(models.Pack).filter(
+        models.PackPreset.id == preset_id,
+        models.Pack.user_id == user.id,
+    ).first()
     if not preset:
         raise HTTPException(status_code=404, detail="Preset not found")
     db.delete(preset)

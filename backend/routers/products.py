@@ -205,8 +205,15 @@ def add_variant(product_id: int, data: VariantCreate, db: Session = Depends(get_
 
 
 @router.put("/variants/{variant_id}")
-def update_variant(variant_id: int, data: VariantUpdate, db: Session = Depends(get_db)):
-    variant = db.query(models.Variant).filter(models.Variant.id == variant_id).first()
+def update_variant(variant_id: int, data: VariantUpdate, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
+    if user.role == "confirmer":
+        raise HTTPException(status_code=403, detail="Not authorized")
+    variant = db.query(models.Variant).filter(
+        models.Variant.id == variant_id,
+        models.Variant.product_id.in_(
+            db.query(models.Product.id).filter(models.Product.user_id == get_store_id(user))
+        ),
+    ).first()
     if not variant:
         raise HTTPException(status_code=404, detail="Variant not found")
     for field, value in data.model_dump(exclude_none=True).items():
@@ -216,8 +223,15 @@ def update_variant(variant_id: int, data: VariantUpdate, db: Session = Depends(g
 
 
 @router.delete("/variants/{variant_id}")
-def delete_variant(variant_id: int, db: Session = Depends(get_db)):
-    variant = db.query(models.Variant).filter(models.Variant.id == variant_id).first()
+def delete_variant(variant_id: int, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
+    if user.role == "confirmer":
+        raise HTTPException(status_code=403, detail="Not authorized")
+    variant = db.query(models.Variant).filter(
+        models.Variant.id == variant_id,
+        models.Variant.product_id.in_(
+            db.query(models.Product.id).filter(models.Product.user_id == get_store_id(user))
+        ),
+    ).first()
     if not variant:
         raise HTTPException(status_code=404, detail="Variant not found")
 
