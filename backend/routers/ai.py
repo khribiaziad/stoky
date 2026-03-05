@@ -28,6 +28,7 @@ def explain_error(
     user: models.User = Depends(get_current_user),
 ):
     api_key = os.environ.get("ANTHROPIC_API_KEY")
+    print(f"[AI] key present: {bool(api_key)}, key prefix: {api_key[:8] if api_key else 'None'}")
     if not api_key:
         raise HTTPException(503, "AI assistance not configured")
 
