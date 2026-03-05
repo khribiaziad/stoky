@@ -72,7 +72,7 @@ const TYPE_LABEL = { delivered: '✓ Livré', returned: '↩ Retour', failed: '�
 function NotifDropdown({ notifications, onNotifClick, onMarkAll }) {
   return (
     <div style={{
-      position: 'absolute', right: 0, top: 'calc(100% + 8px)', width: 300,
+      position: 'fixed', top: 56, right: 8, width: 300, maxWidth: 'calc(100vw - 16px)',
       background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 10,
       boxShadow: '0 8px 24px rgba(0,0,0,0.3)', zIndex: 9999, overflow: 'hidden',
     }}>
