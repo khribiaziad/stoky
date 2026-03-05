@@ -977,7 +977,9 @@ export default function Orders() {
                       }}>
                       <option value="">Select product...</option>
                       {allVariants.map(v => (
-                        <option key={v.id} value={v.id}>{v.label} (stock: {v.stock})</option>
+                        <option key={v.id} value={v.id} disabled={v.stock === 0}>
+                          {v.stock === 0 ? `${v.label} — OUT OF STOCK` : v.stock <= 3 ? `${v.label} (⚠ ${v.stock} left)` : `${v.label} (${v.stock} in stock)`}
+                        </option>
                       ))}
                     </select>
                     <input className="form-input" type="number" min="1" placeholder="Qty" style={{ width: 80 }}
@@ -1131,7 +1133,9 @@ export default function Orders() {
                           >
                             <option value="">Select product...</option>
                             {allVariants.map(v => (
-                              <option key={v.id} value={v.id}>{v.label} (stock: {v.stock})</option>
+                              <option key={v.id} value={v.id} disabled={v.stock === 0}>
+                          {v.stock === 0 ? `${v.label} — OUT OF STOCK` : v.stock <= 3 ? `${v.label} (⚠ ${v.stock} left)` : `${v.label} (${v.stock} in stock)`}
+                        </option>
                             ))}
                           </select>
                           <input
@@ -1222,7 +1226,9 @@ export default function Orders() {
                                     >
                                       <option value="">Select product...</option>
                                       {allVariants.map(v => (
-                                        <option key={v.id} value={v.id}>{v.label} (stock: {v.stock})</option>
+                                        <option key={v.id} value={v.id} disabled={v.stock === 0}>
+                          {v.stock === 0 ? `${v.label} — OUT OF STOCK` : v.stock <= 3 ? `${v.label} (⚠ ${v.stock} left)` : `${v.label} (${v.stock} in stock)`}
+                        </option>
                                       ))}
                                     </select>
                                     <input
@@ -1350,7 +1356,9 @@ export default function Orders() {
                       }}>
                       <option value="">Select product...</option>
                       {allVariants.map(v => (
-                        <option key={v.id} value={v.id}>{v.label} (stock: {v.stock})</option>
+                        <option key={v.id} value={v.id} disabled={v.stock === 0}>
+                          {v.stock === 0 ? `${v.label} — OUT OF STOCK` : v.stock <= 3 ? `${v.label} (⚠ ${v.stock} left)` : `${v.label} (${v.stock} in stock)`}
+                        </option>
                       ))}
                     </select>
                     <input className="form-input" type="number" min="1" placeholder="Qty" style={{ width: 80 }}
@@ -1545,7 +1553,9 @@ export default function Orders() {
                           }}>
                           <option value="">Select product...</option>
                           {allVariants.map(v => (
-                            <option key={v.id} value={v.id}>{v.label} (stock: {v.stock})</option>
+                            <option key={v.id} value={v.id} disabled={v.stock === 0}>
+                          {v.stock === 0 ? `${v.label} — OUT OF STOCK` : v.stock <= 3 ? `${v.label} (⚠ ${v.stock} left)` : `${v.label} (${v.stock} in stock)`}
+                        </option>
                           ))}
                         </select>
                         <input className="form-input" type="number" min="1" placeholder="Qty" style={{ width: 80 }}
