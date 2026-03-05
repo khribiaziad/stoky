@@ -191,3 +191,15 @@ export const getPlatformExpenses     = (month) => api.get('/platform/expenses', 
 export const createPlatformExpense   = (data) => api.post('/platform/expenses', data);
 export const updatePlatformExpense   = (id, data) => api.patch(`/platform/expenses/${id}`, data);
 export const deletePlatformExpense   = (id) => api.delete(`/platform/expenses/${id}`);
+
+// Shared error message helper
+export function errorMessage(e) {
+  if (!e.response) return "Cannot reach server — check your connection";
+  const detail = e.response?.data?.detail;
+  if (detail) return typeof detail === 'string' ? detail : JSON.stringify(detail);
+  if (e.response.status === 500) return "Server error — try again or contact support";
+  if (e.response.status === 422) return "Invalid data — check your inputs";
+  if (e.response.status === 403) return "You don't have permission to do this";
+  if (e.response.status === 404) return "Not found";
+  return `Something went wrong (${e.response.status})`;
+}

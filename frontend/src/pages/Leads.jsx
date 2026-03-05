@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { UserCheck, Trash2, Phone, MapPin, Package, Clock, RefreshCw, CheckCircle, XCircle, MessageCircle } from 'lucide-react';
-import { getLeads, deleteLead, confirmLead, cancelLead } from '../api';
+import { getLeads, deleteLead, confirmLead, cancelLead, errorMessage } from '../api';
 
 const STATUS_CONFIG = {
   pending:      { label: 'Pending',      color: '#f59e0b', bg: '#f59e0b1f' },
@@ -51,7 +51,7 @@ function LeadCard({ lead, onUpdate, onDelete }) {
       await confirmLead(lead.id);
       onUpdate(lead.id, 'confirmed');
     } catch (e) {
-      setError(e.response?.data?.detail || 'Error confirming lead');
+      setError(errorMessage(e));
       setConfirming(false);
     }
   };
@@ -63,7 +63,7 @@ function LeadCard({ lead, onUpdate, onDelete }) {
       await cancelLead(lead.id);
       onUpdate(lead.id, 'cancelled');
     } catch (e) {
-      setError(e.response?.data?.detail || 'Error cancelling lead');
+      setError(errorMessage(e));
       setCancelling(false);
     }
   };
@@ -212,7 +212,7 @@ export default function Leads() {
       const res = await getLeads();
       setLeads(res.data);
     } catch (e) {
-      setError(e.response?.data?.detail || 'Failed to load leads');
+      setError(errorMessage(e));
     } finally {
       if (!silent) setLoading(false);
     }

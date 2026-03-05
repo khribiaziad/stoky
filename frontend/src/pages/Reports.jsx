@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getReportSummary, getTopProducts, getTopCities } from '../api';
+import { getReportSummary, getTopProducts, getTopCities, errorMessage } from '../api';
 
 const PERIODS = [
   { value: 'this_month', label: 'This Month' },
@@ -19,6 +19,7 @@ export default function Reports() {
   const [topProducts, setTopProducts] = useState([]);
   const [topCities, setTopCities] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [compare, setCompare] = useState(false);
   const [prevSummary, setPrevSummary] = useState(null);
 
@@ -56,6 +57,7 @@ export default function Reports() {
 
   const load = () => {
     setLoading(true);
+    setLoadError('');
     const params = { period: period || undefined };
     if (period === 'custom') {
       params.start = customStart;
@@ -70,7 +72,8 @@ export default function Reports() {
       setSummary(s.data);
       setTopProducts(p.data);
       setTopCities(c.data);
-    }).finally(() => setLoading(false));
+    }).catch(e => setLoadError(errorMessage(e)))
+      .finally(() => setLoading(false));
   };
 
   useEffect(() => {
@@ -122,6 +125,8 @@ export default function Reports() {
           </button>
         </div>
       </div>
+
+      {loadError && <div className="alert alert-error" style={{ marginBottom: 16 }}>{loadError}</div>}
 
       {loading ? <div className="loading">Loading reports...</div> : (
         <>

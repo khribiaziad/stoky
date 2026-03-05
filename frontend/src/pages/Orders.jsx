@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { getOrders, getProducts, getPacks, uploadPickupPDF, bulkCreateOrders, uploadReturnPDF, processReturns, updateOrderStatus, updateOrder, deleteOrder, updateOrderNotes, bulkUpdateOrderStatus, sendToOlivraison, sendToForcelog, getForcelogStatus, syncAllForcelog, syncAllOlivraison } from '../api';
+import { getOrders, getProducts, getPacks, uploadPickupPDF, bulkCreateOrders, uploadReturnPDF, processReturns, updateOrderStatus, updateOrder, deleteOrder, updateOrderNotes, bulkUpdateOrderStatus, sendToOlivraison, sendToForcelog, getForcelogStatus, syncAllForcelog, syncAllOlivraison, errorMessage } from '../api';
 
 function downloadCSV(rows, filename) {
   const csv = rows.map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
@@ -148,7 +148,7 @@ export default function Orders() {
       setManualItems([{ variant_id: '', quantity: 1 }]);
       setManualExpenses({ sticker: 0, seal_bag: 0, packaging: 1 });
       load();
-    } catch (e) { setError(e.response?.data?.detail || 'Error creating order'); }
+    } catch (e) { setError(errorMessage(e)); }
   };
 
   const handleManualReturn = async () => {
@@ -161,7 +161,7 @@ export default function Orders() {
       setReturnSearch('');
       setManualReturnChoice({ seal_bag_returned: false, product_broken: false });
       load();
-    } catch (e) { setError(e.response?.data?.detail || 'Error processing return'); }
+    } catch (e) { setError(errorMessage(e)); }
   };
 
   const handlePickupUpload = async (e) => {
@@ -184,7 +184,7 @@ export default function Orders() {
       setOrderItems(items);
       setOrderExpenses(expenses);
     } catch (e) {
-      setError(e.response?.data?.detail || 'Failed to parse PDF');
+      setError(errorMessage(e));
     }
     setUploading(false);
     pickupRef.current.value = '';
@@ -205,7 +205,7 @@ export default function Orders() {
       });
       setReturnChoices(choices);
     } catch (e) {
-      setError(e.response?.data?.detail || 'Failed to parse return PDF');
+      setError(errorMessage(e));
     }
     setUploading(false);
     returnRef.current.value = '';
@@ -245,9 +245,9 @@ export default function Orders() {
       setOrderErrors({});
       load();
     } catch (e) {
-      const detail = e.response?.data?.detail || 'Error creating orders';
+      const detail = e.response?.data?.detail;
       // Parse "[CMD-xxx] message" to highlight the specific order card
-      const idMatch = detail.match(/^\[([^\]]+)\]/);
+      const idMatch = typeof detail === 'string' ? detail.match(/^\[([^\]]+)\]/) : null;
       if (idMatch) {
         const failedId = idMatch[1].trim();
         const msg = detail.replace(/^\[[^\]]+\]\s*/, '');
@@ -256,7 +256,7 @@ export default function Orders() {
         setOrderErrors(failedIdx !== -1 ? { [failedIdx]: msg } : {});
         setError(`Order ${failedId}: ${msg}`);
       } else {
-        setError(detail);
+        setError(errorMessage(e));
       }
     }
   };
@@ -272,7 +272,7 @@ export default function Orders() {
       setReturnOrders(null);
       load();
     } catch (e) {
-      setError(e.response?.data?.detail || 'Error processing returns');
+      setError(errorMessage(e));
     }
   };
 
@@ -282,7 +282,7 @@ export default function Orders() {
       await updateOrderStatus(id, status);
       load();
     } catch (e) {
-      setError(e.response?.data?.detail || 'Failed to update order status');
+      setError(errorMessage(e));
     }
   };
 
@@ -297,7 +297,7 @@ export default function Orders() {
       setSuccess(`Synced: ${flCount} Forcelog + ${olCount} Olivraison orders updated`);
       load();
     } catch (e) {
-      setError(e.response?.data?.detail || 'Sync failed');
+      setError(errorMessage(e));
     }
     setSyncing(false);
   };
@@ -313,7 +313,7 @@ export default function Orders() {
       setSuccess(`Sent to Forcelog — Tracking: ${res.data.tracking_id}`);
       setTimeout(() => setSuccess(''), 4000);
     } catch (e) {
-      setError(e.response?.data?.detail || 'Failed to send to Forcelog');
+      setError(errorMessage(e));
     } finally {
       setSendingForce(null);
     }
@@ -331,7 +331,7 @@ export default function Orders() {
         setDetailOrder(prev => ({ ...prev, delivery_status: res.data.delivery_status || res.data.status }));
       }
     } catch (e) {
-      setError(e.response?.data?.detail || 'Failed to refresh Forcelog status');
+      setError(errorMessage(e));
     } finally {
       setRefreshingForce(null);
     }
@@ -348,7 +348,7 @@ export default function Orders() {
       setSuccess(`Sent to Olivraison — Tracking: ${res.data.tracking_id}`);
       setTimeout(() => setSuccess(''), 4000);
     } catch (e) {
-      setError(e.response?.data?.detail || 'Failed to send to Olivraison');
+      setError(errorMessage(e));
     } finally {
       setSendingOliv(null);
     }
@@ -360,7 +360,7 @@ export default function Orders() {
       await deleteOrder(id);
       load();
     } catch (e) {
-      setError(e.response?.data?.detail || 'Failed to delete order');
+      setError(errorMessage(e));
     }
   };
 
@@ -395,7 +395,7 @@ export default function Orders() {
       setSuccess(`${count} orders updated to ${status}`);
       load();
     } catch (e) {
-      setError(e.response?.data?.detail || 'Error updating orders');
+      setError(errorMessage(e));
     }
   };
 
@@ -432,7 +432,7 @@ export default function Orders() {
       setNotesOrder(null);
       setSuccess('Notes saved');
     } catch (e) {
-      setError('Error saving notes');
+      setError(errorMessage(e));
     }
   };
 
@@ -479,7 +479,7 @@ export default function Orders() {
       setEditOrder(null);
       load();
     } catch (e) {
-      setError(e.response?.data?.detail || 'Error updating order');
+      setError(errorMessage(e));
     }
   };
 
@@ -520,7 +520,7 @@ export default function Orders() {
       setExchangeOrder(null);
       load();
     } catch (e) {
-      setError(e.response?.data?.detail || 'Error processing exchange');
+      setError(errorMessage(e));
     }
   };
 

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getReportSummary, getMyStats, getProducts, getTopProducts, getSetting, setSetting } from '../api';
+import { getReportSummary, getMyStats, getProducts, getTopProducts, getSetting, setSetting, errorMessage } from '../api';
 
 const PERIODS = [
   { value: 'today', label: 'Today' },
@@ -14,6 +14,7 @@ export default function Dashboard({ onNavigate, user }) {
   const [period, setPeriod] = useState('this_month');
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
   // Admin-only extras
   const [lowStockItems, setLowStockItems] = useState([]);
@@ -65,11 +66,12 @@ export default function Dashboard({ onNavigate, user }) {
 
   const load = (p) => {
     setLoading(true);
+    setLoadError('');
     const params = p === 'all' ? {} : { period: p };
     const request = isConfirmer ? getMyStats(params) : getReportSummary(params);
     request
       .then(r => setSummary(r.data))
-      .catch(console.error)
+      .catch(e => setLoadError(errorMessage(e)))
       .finally(() => setLoading(false));
   };
 
@@ -83,7 +85,7 @@ export default function Dashboard({ onNavigate, user }) {
       setDailyGoal(val);
       setEditingGoal(false);
     } catch (e) {
-      console.error(e);
+      setLoadError(errorMessage(e));
     }
   };
 
@@ -106,6 +108,8 @@ export default function Dashboard({ onNavigate, user }) {
             ))}
           </select>
         </div>
+
+        {loadError && <div className="alert alert-error" style={{ marginBottom: 16 }}>{loadError}</div>}
 
         {loading ? (
           <div className="loading">Loading...</div>
@@ -245,6 +249,8 @@ export default function Dashboard({ onNavigate, user }) {
           </div>
         </div>
       )}
+
+      {loadError && <div className="alert alert-error" style={{ marginBottom: 16 }}>{loadError}</div>}
 
       {loading ? (
         <div className="loading">Loading...</div>

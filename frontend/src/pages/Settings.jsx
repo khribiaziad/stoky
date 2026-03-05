@@ -4,7 +4,7 @@ import {
   Upload, Package, DollarSign, Truck, AlertTriangle, Edit2, Check,
   MapPin, Plus, Trash2, Search, X, Link, RotateCcw, Copy, Zap,
 } from 'lucide-react';
-import { changePassword, updateStoreName, updateProfile, getSetting, setSetting, getCityList, createCity, updateCity, deleteCity, uploadCityPDF, getCityPdfJob, getApiKey, rotateApiKey } from '../api';
+import { changePassword, updateStoreName, updateProfile, getSetting, setSetting, getCityList, createCity, updateCity, deleteCity, uploadCityPDF, getCityPdfJob, getApiKey, rotateApiKey, errorMessage } from '../api';
 
 const LANGUAGES = [
   { code: 'en', label: 'English',  flag: '🇬🇧' },
@@ -55,7 +55,7 @@ function ProfileContact({ user }) {
     try {
       await updateProfile({ email, whatsapp });
       setSaved(true); setTimeout(() => setSaved(false), 2500);
-    } catch (e) { setErr(e.response?.data?.detail || 'Error saving'); }
+    } catch (e) { setErr(errorMessage(e)); }
     finally { setSaving(false); }
   };
 
@@ -357,7 +357,7 @@ export default function Settings({ user, theme, setTheme, lang, setLang, accent,
       setNewCity({ name: '', delivery_fee: '35', return_fee: '7', is_casa: false });
       setShowAddCity(false);
     } catch (e) {
-      setCityError(e.response?.data?.detail || 'Error adding city');
+      setCityError(errorMessage(e));
     } finally { setCityLoading(false); }
   };
 
@@ -366,7 +366,7 @@ export default function Settings({ user, theme, setTheme, lang, setLang, accent,
       const res = await updateCity(id, data);
       setCities(prev => prev.map(c => c.id === id ? res.data : c).sort((a, b) => a.name.localeCompare(b.name)));
     } catch (e) {
-      setCityError(e.response?.data?.detail || 'Error updating city');
+      setCityError(errorMessage(e));
     }
   };
 
@@ -375,7 +375,7 @@ export default function Settings({ user, theme, setTheme, lang, setLang, accent,
       await deleteCity(id);
       setCities(prev => prev.filter(c => c.id !== id));
     } catch (e) {
-      setCityError(e.response?.data?.detail || 'Error deleting city');
+      setCityError(errorMessage(e));
     }
   };
 
@@ -463,7 +463,7 @@ export default function Settings({ user, theme, setTheme, lang, setLang, accent,
       setPwSuccess('Password changed successfully');
       setPwForm({ current_password: '', new_password: '', confirm: '' });
     } catch (e) {
-      setPwError(e.response?.data?.detail || 'Error changing password');
+      setPwError(errorMessage(e));
     } finally { setPwLoading(false); }
   };
 
@@ -478,7 +478,7 @@ export default function Settings({ user, theme, setTheme, lang, setLang, accent,
       onStoreName(res.data.store_name); // update App.jsx state
       setTimeout(() => setStoreSuccess(''), 3000);
     } catch (e) {
-      setStoreError(e.response?.data?.detail || 'Error updating store name');
+      setStoreError(errorMessage(e));
     } finally { setStoreNameLoading(false); }
   };
 

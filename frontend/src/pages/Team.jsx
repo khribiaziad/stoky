@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { BarChart2, TrendingUp, TrendingDown, Clock, Package, X } from 'lucide-react';
-import { getTeam, createTeamMember, deleteTeamMember, createConfirmerAccount, getMemberStats, toggleMemberAccount } from '../api';
+import { getTeam, createTeamMember, deleteTeamMember, createConfirmerAccount, getMemberStats, toggleMemberAccount, errorMessage } from '../api';
 
 const PERIODS = [
   { value: 'this_month', label: 'This Month' },
@@ -39,7 +39,7 @@ export default function Team() {
       setShowAddMember(false);
       setMemberForm({ name: '', role: '', payment_type: 'per_order', fixed_monthly: 0, per_order_rate: 0, is_confirmer: false, start_date: new Date().toISOString().split('T')[0] });
       load();
-    } catch (e) { setError(e.response?.data?.detail || 'Error'); }
+    } catch (e) { setError(errorMessage(e)); }
   };
 
   const openMemberStats = (member) => {
@@ -68,7 +68,7 @@ export default function Team() {
       setShowCreateAccount(null);
       setAccountForm({ username: '', password: '', role: 'confirmer' });
       load();
-    } catch (e) { setError(e.response?.data?.detail || 'Error'); }
+    } catch (e) { setError(errorMessage(e)); }
   };
 
   return (

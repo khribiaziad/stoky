@@ -5,6 +5,7 @@ import {
   toggleFixedExpense, deleteFixedExpense,
   getWithdrawals, createWithdrawal, deleteWithdrawal,
   getAdPlatforms, getSetting, getTeam,
+  errorMessage,
 } from '../api';
 
 // ── Catalogues ───────────────────────────────────────────────
@@ -126,11 +127,11 @@ export default function Expenses() {
       setSuccess(editingExpense ? 'Expense updated' : 'Expense added');
       setShowExpenseModal(false);
       load();
-    } catch (e) { setError(e.response?.data?.detail || 'Error saving expense'); }
+    } catch (e) { setError(errorMessage(e)); }
   };
 
-  const handleToggle        = async (id) => { try { await toggleFixedExpense(id); load(); } catch (e) { setError('Error'); } };
-  const handleDeleteExpense = async (id) => { if (!confirm('Delete this expense?')) return; try { await deleteFixedExpense(id); load(); } catch (e) { setError('Error'); } };
+  const handleToggle        = async (id) => { try { await toggleFixedExpense(id); load(); } catch (e) { setError(errorMessage(e)); } };
+  const handleDeleteExpense = async (id) => { if (!confirm('Delete this expense?')) return; try { await deleteFixedExpense(id); load(); } catch (e) { setError(errorMessage(e)); } };
 
   // ── Withdrawal CRUD ───────────────────────────────────────
   const handleAddWithdrawal = async () => {
@@ -142,10 +143,10 @@ export default function Expenses() {
       setShowAddWithdrawal(false);
       setWithdrawalForm({ amount: '', description: '', date: todayStr() });
       load();
-    } catch (e) { setError(e.response?.data?.detail || 'Error'); }
+    } catch (e) { setError(errorMessage(e)); }
   };
 
-  const handleDeleteWithdrawal = async (id) => { if (!confirm('Delete?')) return; try { await deleteWithdrawal(id); load(); } catch (e) { setError('Error'); } };
+  const handleDeleteWithdrawal = async (id) => { if (!confirm('Delete?')) return; try { await deleteWithdrawal(id); load(); } catch (e) { setError(errorMessage(e)); } };
 
   const exportExpensesCSV = () => {
     const rows = [

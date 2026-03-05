@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getSuppliers, createSupplier, updateSupplier, deleteSupplier, getSupplierDetail, addSupplierPayment, deleteSupplierPayment } from '../api';
+import { getSuppliers, createSupplier, updateSupplier, deleteSupplier, getSupplierDetail, addSupplierPayment, deleteSupplierPayment, errorMessage } from '../api';
 
 const PLATFORMS = ['Alibaba', 'AliExpress', 'Local', 'Wholesale', 'Direct', 'Other'];
 
@@ -74,7 +74,7 @@ export default function Suppliers() {
       }
       setError('');
       load();
-    } catch (e) { setError(e.response?.data?.detail || 'Error saving supplier'); }
+    } catch (e) { setError(errorMessage(e)); }
   };
 
   const handleDelete = async (id) => {
@@ -91,7 +91,7 @@ export default function Suppliers() {
       setPaymentForm({ amount: '', date: new Date().toISOString().split('T')[0], note: '' });
       setError('');
       await reloadDetail(supplierId);
-    } catch (e) { setError(e.response?.data?.detail || 'Error adding payment'); }
+    } catch (e) { setError(errorMessage(e)); }
   };
 
   const handleDeletePayment = async (supplierId, paymentId) => {

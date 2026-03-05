@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getPacks, getProducts, createPack, updatePack, deletePack, addPackPreset, deletePackPreset } from '../api';
+import { getPacks, getProducts, createPack, updatePack, deletePack, addPackPreset, deletePackPreset, errorMessage } from '../api';
 
 export default function Packs({ readOnly = false }) {
   const [packs, setPacks] = useState([]);
@@ -66,7 +66,7 @@ export default function Packs({ readOnly = false }) {
       setShowPackForm(false);
       setError('');
       load();
-    } catch (e) { setError(e.response?.data?.detail || 'Error saving pack'); }
+    } catch (e) { setError(errorMessage(e)); }
   };
 
   const handleDeletePack = async (e, id) => {
@@ -96,7 +96,7 @@ export default function Packs({ readOnly = false }) {
       setAddingPresetTo(null);
       setError('');
       load();
-    } catch (e) { setError(e.response?.data?.detail || 'Error saving preset'); }
+    } catch (e) { setError(errorMessage(e)); }
   };
 
   const handleDeletePreset = async (e, presetId) => {

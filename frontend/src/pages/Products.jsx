@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { getProducts, createProduct, updateProduct, deleteProduct, addVariant, updateVariant, deleteVariant, uploadProductImage, getSuppliers } from '../api';
+import { getProducts, createProduct, updateProduct, deleteProduct, addVariant, updateVariant, deleteVariant, uploadProductImage, getSuppliers, errorMessage } from '../api';
 
 export default function Products({ readOnly = false }) {
   const [products, setProducts] = useState([]);
@@ -82,7 +82,7 @@ export default function Products({ readOnly = false }) {
       setBulkSizes(''); setBulkColors(''); setBulkBuyPrice(''); setBulkSellPrice(''); setBulkStock(0); setBulkThreshold(5);
       load();
     } catch (e) {
-      setError(e.response?.data?.detail || 'Error adding variants');
+      setError(errorMessage(e));
     } finally {
       setBulkLoading(false);
     }
@@ -103,7 +103,7 @@ export default function Products({ readOnly = false }) {
       setNewProduct({ name: '', category: 'caps', has_sizes: true, has_colors: true, under_1kg: false, supplier_id: '', image_url: '' });
       setError('');
       load();
-    } catch (e) { setError(e.response?.data?.detail || 'Error creating product'); }
+    } catch (e) { setError(errorMessage(e)); }
   };
 
   const handleAddVariant = async () => {
@@ -118,7 +118,7 @@ export default function Products({ readOnly = false }) {
       setNewVariant({ sku: '', size: '', color: '', buying_price: '', selling_price: '', stock: 0, low_stock_threshold: 5 });
       setError('');
       load();
-    } catch (e) { setError(e.response?.data?.detail || 'Error adding variant'); }
+    } catch (e) { setError(errorMessage(e)); }
   };
 
   const openEditVariant = (variant, product) => {
@@ -146,7 +146,7 @@ export default function Products({ readOnly = false }) {
       setEditingVariant(null);
       setError('');
       load();
-    } catch (e) { setError(e.response?.data?.detail || 'Error updating variant'); }
+    } catch (e) { setError(errorMessage(e)); }
   };
 
   const openEditProduct = (e, product) => {
@@ -171,7 +171,7 @@ export default function Products({ readOnly = false }) {
       setEditingProduct(null);
       setError('');
       load();
-    } catch (e) { setError(e.response?.data?.detail || 'Error updating product'); }
+    } catch (e) { setError(errorMessage(e)); }
   };
 
   const handleDeleteProduct = async (e, id) => {

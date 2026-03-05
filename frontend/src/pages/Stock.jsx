@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getProducts, getStockArrivals, addBulkStockArrival, getBrokenStock, addBrokenStock, updateBrokenStock, deleteBrokenStock, deleteArrival, adjustStock } from '../api';
+import { getProducts, getStockArrivals, addBulkStockArrival, getBrokenStock, addBrokenStock, updateBrokenStock, deleteBrokenStock, deleteArrival, adjustStock, errorMessage } from '../api';
 
 const emptyItem = () => ({ product_id: '', variant_id: '', quantity: 1 });
 
@@ -77,7 +77,7 @@ export default function Stock({ readOnly = false }) {
       setDescription('');
       setDate(new Date().toISOString().split('T')[0]);
       load();
-    } catch (e) { setError(e.response?.data?.detail || 'Error adding stock'); }
+    } catch (e) { setError(errorMessage(e)); }
   };
 
   const handleAddBroken = async () => {
@@ -88,8 +88,7 @@ export default function Stock({ readOnly = false }) {
       setBrokenForm({ product_id: '', variant_id: '', quantity: 1, source: 'storage', returnable_to_supplier: false });
       load();
     } catch (e) {
-      const d = e.response?.data?.detail;
-      setError(typeof d === 'string' ? d : d ? JSON.stringify(d) : `Error ${e.response?.status ?? ''} — check backend terminal`);
+      setError(errorMessage(e));
     }
   };
 
@@ -99,7 +98,7 @@ export default function Stock({ readOnly = false }) {
       setEditBroken(null);
       setSuccess('Updated successfully');
       load();
-    } catch (e) { setError(e.response?.data?.detail || 'Error'); }
+    } catch (e) { setError(errorMessage(e)); }
   };
 
   const handleDeleteBroken = async (id) => {
@@ -108,7 +107,7 @@ export default function Stock({ readOnly = false }) {
       await deleteBrokenStock(id);
       setSuccess('Deleted');
       load();
-    } catch (e) { setError(e.response?.data?.detail || 'Error'); }
+    } catch (e) { setError(errorMessage(e)); }
   };
 
   const handleDeleteArrival = async (id) => {
@@ -117,7 +116,7 @@ export default function Stock({ readOnly = false }) {
       await deleteArrival(id);
       setSuccess('Arrival deleted and stock reversed');
       load();
-    } catch (e) { setError(e.response?.data?.detail || 'Error'); }
+    } catch (e) { setError(errorMessage(e)); }
   };
 
   const handleAdjustStock = async () => {
@@ -126,7 +125,7 @@ export default function Stock({ readOnly = false }) {
       setAdjustVariant(null);
       setSuccess('Stock updated');
       load();
-    } catch (e) { setError(e.response?.data?.detail || 'Error'); }
+    } catch (e) { setError(errorMessage(e)); }
   };
 
   return (
