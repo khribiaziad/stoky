@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   LayoutDashboard, Package, Tag, Gift, Warehouse,
-  Users, BarChart2, Megaphone, Receipt, LogOut, Menu, X, Settings as SettingsIcon, UserCheck, Truck,
+  Users, BarChart2, Megaphone, Receipt, LogOut, Menu, X, Settings as SettingsIcon, UserCheck, Truck, Bell,
 } from 'lucide-react';
-import { getSetting } from './api';
+import { getSetting, getNotifications, markNotificationRead, markAllNotificationsRead } from './api';
 import Dashboard from './pages/Dashboard';
 import Products from './pages/Products';
 import Packs from './pages/Packs';
@@ -66,6 +66,57 @@ const CONFIRMER_NAV = [
   { id: 'settings',  Icon: SettingsIcon },
 ];
 
+const TYPE_COLOR = { delivered: '#4ade80', returned: '#f87171', failed: '#facc15' };
+const TYPE_LABEL = { delivered: '✓ Livré', returned: '↩ Retour', failed: '⚠ Tentative' };
+
+function NotifDropdown({ notifications, onNotifClick, onMarkAll }) {
+  return (
+    <div style={{
+      position: 'absolute', right: 0, top: 'calc(100% + 8px)', width: 300,
+      background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 10,
+      boxShadow: '0 8px 24px rgba(0,0,0,0.3)', zIndex: 9999, overflow: 'hidden',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '10px 14px', borderBottom: '1px solid var(--border)' }}>
+        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--t1)' }}>Notifications</span>
+        <button onClick={onMarkAll} style={{ fontSize: 11, color: 'var(--accent)', background: 'none',
+          border: 'none', cursor: 'pointer', padding: 0 }}>
+          Mark all read
+        </button>
+      </div>
+      <div style={{ maxHeight: 360, overflowY: 'auto' }}>
+        {notifications.length === 0 ? (
+          <div style={{ padding: '20px 14px', textAlign: 'center', fontSize: 13, color: 'var(--t2)' }}>
+            No notifications yet
+          </div>
+        ) : notifications.map(n => (
+          <div key={n.id} onClick={() => onNotifClick(n)}
+            style={{
+              padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid var(--border)',
+              background: n.is_read ? 'transparent' : 'var(--card-2)',
+              display: 'flex', gap: 10, alignItems: 'flex-start',
+            }}>
+            <span style={{
+              marginTop: 2, fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4, flexShrink: 0,
+              background: (TYPE_COLOR[n.type] || '#8892b0') + '22',
+              color: TYPE_COLOR[n.type] || '#8892b0',
+            }}>{TYPE_LABEL[n.type] || n.type}</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--t1)',
+                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {n.customer_name} {n.caleo_id ? `· ${n.caleo_id}` : ''}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--t2)', marginTop: 2 }}>{n.message}</div>
+            </div>
+            {!n.is_read && <span style={{ width: 7, height: 7, borderRadius: '50%',
+              background: 'var(--accent)', flexShrink: 0, marginTop: 4 }} />}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [page, setPage] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -82,6 +133,19 @@ export default function App() {
   const [storeName, setStoreName] = useState(() => {
     try { return JSON.parse(localStorage.getItem('user'))?.store_name || ''; } catch { return ''; }
   });
+
+  const [notifications, setNotifications] = useState([]);
+  const [unread, setUnread] = useState(0);
+  const [bellOpen, setBellOpen] = useState(false);
+  const bellRef = useRef(null);
+  const bellRefSidebar = useRef(null);
+
+  const loadNotifications = useCallback(() => {
+    getNotifications().then(r => {
+      setNotifications(r.data.notifications);
+      setUnread(r.data.unread);
+    }).catch(() => {});
+  }, []);
 
   const handleStoreName = useCallback((name) => {
     setStoreName(name);
@@ -119,6 +183,42 @@ export default function App() {
       .then(r => setSetupDone(r.data?.value === 'true'))
       .catch(() => setSetupDone(true));
   }, [user?.id]);
+
+  // Poll notifications every 60 seconds
+  useEffect(() => {
+    if (!user || user.role === 'super_admin') return;
+    loadNotifications();
+    const id = setInterval(loadNotifications, 60_000);
+    return () => clearInterval(id);
+  }, [user?.id, loadNotifications]);
+
+  // Close bell dropdown on outside click
+  useEffect(() => {
+    if (!bellOpen) return;
+    const handler = (e) => {
+      const inTopbar  = bellRef.current && bellRef.current.contains(e.target);
+      const inSidebar = bellRefSidebar.current && bellRefSidebar.current.contains(e.target);
+      if (!inTopbar && !inSidebar) setBellOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [bellOpen]);
+
+  const handleBellClick = () => {
+    setBellOpen(o => !o);
+  };
+
+  const handleNotifClick = (n) => {
+    if (!n.is_read) {
+      markNotificationRead(n.id).then(loadNotifications).catch(() => {});
+    }
+    setBellOpen(false);
+    setPage('orders');
+  };
+
+  const handleMarkAllRead = () => {
+    markAllNotificationsRead().then(loadNotifications).catch(() => {});
+  };
 
   const handleAuth = (userData) => setUser(userData);
 
@@ -184,7 +284,24 @@ export default function App() {
           <Menu size={20} strokeWidth={1.75} />
         </button>
         <span className="topbar-logo">STOCKY</span>
-        <span className="topbar-store">{storeName || user.store_name}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }}>
+          <span className="topbar-store">{storeName || user.store_name}</span>
+          <div ref={bellRef} style={{ position: 'relative' }}>
+            <button className="btn-icon" onClick={handleBellClick} aria-label="Notifications"
+              style={{ position: 'relative' }}>
+              <Bell size={18} strokeWidth={1.75} />
+              {unread > 0 && (
+                <span style={{
+                  position: 'absolute', top: 1, right: 1, background: '#f87171',
+                  color: '#fff', borderRadius: '50%', fontSize: 9, fontWeight: 700,
+                  width: 14, height: 14, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  lineHeight: 1, pointerEvents: 'none',
+                }}>{unread > 9 ? '9+' : unread}</span>
+              )}
+            </button>
+            {bellOpen && <NotifDropdown notifications={notifications} onNotifClick={handleNotifClick} onMarkAll={handleMarkAllRead} />}
+          </div>
+        </div>
       </div>
 
       {/* ── Backdrop ── */}
@@ -218,12 +335,27 @@ export default function App() {
 
         <div className="sidebar-user">
           <div className="sidebar-avatar">{initial}</div>
-          <div>
+          <div style={{ flex: 1 }}>
             <div className="sidebar-username">@{user.username}</div>
             <div className="sidebar-role">
               <span className="sidebar-role-dot" />
               {isConfirmer ? (labels.confirmer || 'Confirmer') : 'Admin'}
             </div>
+          </div>
+          <div ref={bellRefSidebar} style={{ position: 'relative', flexShrink: 0 }}>
+            <button className="btn-icon" onClick={handleBellClick} aria-label="Notifications"
+              style={{ position: 'relative' }}>
+              <Bell size={16} strokeWidth={1.75} />
+              {unread > 0 && (
+                <span style={{
+                  position: 'absolute', top: 1, right: 1, background: '#f87171',
+                  color: '#fff', borderRadius: '50%', fontSize: 9, fontWeight: 700,
+                  width: 14, height: 14, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  lineHeight: 1, pointerEvents: 'none',
+                }}>{unread > 9 ? '9+' : unread}</span>
+              )}
+            </button>
+            {bellOpen && <NotifDropdown notifications={notifications} onNotifClick={handleNotifClick} onMarkAll={handleMarkAllRead} />}
           </div>
         </div>
 

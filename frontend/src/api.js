@@ -167,6 +167,11 @@ export const cancelLead  = (id)  => api.post(`/leads/${id}/cancel`);
 export const getApiKey   = ()    => api.get('/leads/api-key');
 export const rotateApiKey = ()   => api.post('/leads/api-key/rotate');
 
+// Notifications
+export const getNotifications    = ()   => api.get('/notifications');
+export const markNotificationRead = (id) => api.patch(`/notifications/${id}/read`);
+export const markAllNotificationsRead = () => api.patch('/notifications/read-all');
+
 // Platform (super admin)
 export const getPlatformStats        = () => api.get('/platform/stats');
 export const getPlatformGrowth       = () => api.get('/platform/growth');

@@ -155,6 +155,14 @@ async def olivraison_webhook(request: Request, db: Session = Depends(get_db)):
     if mapped:
         order.status = mapped
 
+    # Create in-app notification for meaningful events
+    if status_raw:
+        from routers.notifications import _create_notification
+        if mapped == "delivered":
+            _create_notification(db, order.user_id, order, f"Livré — {status_raw}", "delivered")
+        elif mapped == "cancelled":
+            _create_notification(db, order.user_id, order, f"Retour — {status_raw}", "returned")
+
     db.commit()
     return {"ok": True}
 

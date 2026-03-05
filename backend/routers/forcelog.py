@@ -338,5 +338,14 @@ async def forcelog_webhook(request: Request, db: Session = Depends(get_db)):
         if mapped:
             order.status = mapped
 
+        # Create in-app notification for meaningful events
+        from routers.notifications import _create_notification
+        if status_raw in FORCELOG_DELIVERED or mapped == "delivered":
+            _create_notification(db, order.user_id, order, f"Livré — {display}", "delivered")
+        elif status_raw in FORCELOG_CANCELLED or mapped == "cancelled":
+            _create_notification(db, order.user_id, order, f"Retour — {display}", "returned")
+        elif secondary.upper() in ("NO_ANSWER", "ABSENT", "FAILED_ATTEMPT"):
+            _create_notification(db, order.user_id, order, f"Tentative échouée — {display}", "failed")
+
     db.commit()
     return {"ok": True}
