@@ -60,6 +60,19 @@ def _normalize_city_for_forcelog(city: str) -> str:
     return FORCELOG_CITY_MAP.get(city.strip().lower(), city.strip())
 
 
+def _normalize_phone_for_forcelog(phone: str) -> str:
+    """Convert any Moroccan phone format to 0XXXXXXXXX (10 digits)."""
+    import re
+    p = re.sub(r'[\s\.\-\(\)]', '', phone or '')
+    if p.startswith('+212'):
+        p = '0' + p[4:]
+    elif p.startswith('00212'):
+        p = '0' + p[5:]
+    elif p.startswith('212') and len(p) == 12:
+        p = '0' + p[3:]
+    return p[:14]
+
+
 def _get_store_id(user: models.User) -> int:
     return user.store_id if user.role == "confirmer" else user.id
 
@@ -125,7 +138,7 @@ def send_to_forcelog(
     payload = {
         "ORDER_NUM":      (order.caleo_id or str(order.id))[:20],
         "RECEIVER":       (order.customer_name or "")[:50],
-        "PHONE":          (order.customer_phone or "")[:14],
+        "PHONE":          _normalize_phone_for_forcelog(order.customer_phone or ""),
         "CITY":           _normalize_city_for_forcelog(order.city or "")[:50],
         "ADDRESS":        (order.customer_address or order.city or "")[:100],
         "COMMENT":        (order.notes or "")[:100],
