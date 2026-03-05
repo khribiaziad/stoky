@@ -324,12 +324,9 @@ def _parse_caleo_page(text: str) -> Optional[dict]:
     name_match = re.search(r'Destinataire\s*[:\s]+([^\n\r]+)', text, re.IGNORECASE)
     customer_name = name_match.group(1).strip() if name_match else ""
 
-    # Extract phone from the Destinataire section only, to avoid picking up the
-    # sender's phone (which is the same on every page and comes first in many layouts).
-    dest_section = re.search(r'Destinataire.*?(?=Exp[ée]diteur|$)', text, re.IGNORECASE | re.DOTALL)
-    phone_search_text = dest_section.group(0) if dest_section else text
-    phone_match = re.search(r't[ée]l[ée]phone\s*[:\s]*(\+?\d[\d\s\-]{7,})', phone_search_text, re.IGNORECASE)
-    customer_phone = re.sub(r'\s+', '', phone_match.group(1)).strip() if phone_match else ""
+    # Use the shared extractor: finds all Moroccan numbers, returns the last
+    # distinct one (sender's number is always first/repeated; customer's is last).
+    customer_phone = _extract_phone(text)
 
     city_match = re.search(r'Ville\s*[:\s]+([^\n\r]+)', text, re.IGNORECASE)
     city = normalize_city(city_match.group(1).strip()) if city_match else ""
