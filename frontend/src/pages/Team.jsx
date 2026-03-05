@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { BarChart2, TrendingUp, TrendingDown, Clock, Package, X } from 'lucide-react';
 import { getTeam, createTeamMember, deleteTeamMember, createConfirmerAccount, getMemberStats, toggleMemberAccount, errorMessage } from '../api';
+import ErrorExplain from '../components/ErrorExplain';
 
 const PERIODS = [
   { value: 'this_month', label: 'This Month' },
@@ -78,7 +79,7 @@ export default function Team() {
         <button className="btn btn-primary" onClick={() => setShowAddMember(true)}>+ Add Member</button>
       </div>
 
-      {error && <div className="alert alert-error">{error}</div>}
+      {error && <ErrorExplain message={error} page="Team" />}
 
       <div className="card">
         {team.length === 0 ? <div className="empty-state"><h3>No team members yet</h3></div> : (

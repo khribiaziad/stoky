@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getReportSummary, getTopProducts, getTopCities, errorMessage } from '../api';
+import ErrorExplain from '../components/ErrorExplain';
 
 const PERIODS = [
   { value: 'this_month', label: 'This Month' },
@@ -126,7 +127,7 @@ export default function Reports() {
         </div>
       </div>
 
-      {loadError && <div className="alert alert-error" style={{ marginBottom: 16 }}>{loadError}</div>}
+      {loadError && <ErrorExplain message={loadError} page="Reports" />}
 
       {loading ? <div className="loading">Loading reports...</div> : (
         <>

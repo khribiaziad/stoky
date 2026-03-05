@@ -7,6 +7,7 @@ import {
   getAdPlatforms, getSetting, getTeam,
   errorMessage,
 } from '../api';
+import ErrorExplain from '../components/ErrorExplain';
 
 // ── Catalogues ───────────────────────────────────────────────
 const CATEGORIES = [
@@ -208,7 +209,7 @@ export default function Expenses() {
         </div>
       </div>
 
-      {error   && <div className="alert alert-error">{error}<button style={{ float:'right', background:'none', border:'none', color:'inherit', cursor:'pointer' }} onClick={() => setError('')}>✕</button></div>}
+      {error   && <ErrorExplain message={error} page="Expenses" />}
       {success && <div className="alert alert-success">{success}<button style={{ float:'right', background:'none', border:'none', color:'inherit', cursor:'pointer' }} onClick={() => setSuccess('')}>✕</button></div>}
 
       {/* ── Summary Cards ── */}

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { getDashboardStats, getReportSummary, getProducts, getMyStats, getLeads, getSetting, setSetting, errorMessage } from '../api';
+import ErrorExplain from '../components/ErrorExplain';
 
 // ── Translations ───────────────────────────────────────────────────────────
 const T = {
@@ -250,7 +251,7 @@ export default function Dashboard({ onNavigate, user, lang = 'en' }) {
           </select>
         </div>
 
-        {confError && <div className="alert alert-error" style={{ marginBottom: 16 }}>{confError}</div>}
+        {confError && <ErrorExplain message={confError} page="Dashboard" />}
 
         {confLoading ? <div className="loading">Loading...</div> : (
           <>
@@ -426,7 +427,7 @@ export default function Dashboard({ onNavigate, user, lang = 'en' }) {
         </div>
       )}
 
-      {loadError && <div className="alert alert-error" style={{ marginBottom: 16 }}>{loadError}</div>}
+      {loadError && <ErrorExplain message={loadError} page="Dashboard" />}
 
       {loading ? <div className="loading">Loading...</div> : (
         <>

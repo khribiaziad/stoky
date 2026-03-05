@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { getOrders, getProducts, getPacks, uploadPickupPDF, bulkCreateOrders, uploadReturnPDF, processReturns, updateOrderStatus, updateOrder, deleteOrder, updateOrderNotes, bulkUpdateOrderStatus, sendToOlivraison, sendToForcelog, getForcelogStatus, syncAllForcelog, syncAllOlivraison, errorMessage } from '../api';
+import ErrorExplain from '../components/ErrorExplain';
 
 function downloadCSV(rows, filename) {
   const csv = rows.map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
@@ -584,7 +585,7 @@ export default function Orders() {
         ))}
       </div>
 
-      {error && <div className="alert alert-error">{error} <button style={{ float: 'right', background: 'none', border: 'none', color: 'inherit', cursor: 'pointer' }} onClick={() => setError('')}>✕</button></div>}
+      {error && <ErrorExplain message={error} page="Orders" />}
       {success && <div className="alert alert-success">{success} <button style={{ float: 'right', background: 'none', border: 'none', color: 'inherit', cursor: 'pointer' }} onClick={() => setSuccess('')}>✕</button></div>}
 
       {/* Filters */}

@@ -5,6 +5,7 @@ import {
   createAdCampaign, updateAdCampaign, deleteAdCampaign,
   getAdCostPerOrder, getSetting, setSetting,
 } from '../api';
+import ErrorExplain from '../components/ErrorExplain';
 
 // ── Predefined platform catalogue ──────────────────────────
 const PLATFORM_CATALOGUE = [
@@ -394,7 +395,7 @@ export default function Ads() {
         </div>
       </div>
 
-      {error && <div className="alert alert-error">{error}<button style={{ float: 'right', background: 'none', border: 'none', color: 'inherit', cursor: 'pointer' }} onClick={() => setError('')}>✕</button></div>}
+      {error && <ErrorExplain message={error} page="Ads" />}
       {success && <div className="alert alert-success">{success}<button style={{ float: 'right', background: 'none', border: 'none', color: 'inherit', cursor: 'pointer' }} onClick={() => setSuccess('')}>✕</button></div>}
 
       {/* Global summary */}

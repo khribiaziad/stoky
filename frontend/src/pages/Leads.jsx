@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { UserCheck, Trash2, Phone, MapPin, Package, Clock, RefreshCw, CheckCircle, XCircle, MessageCircle } from 'lucide-react';
 import { getLeads, deleteLead, confirmLead, cancelLead, errorMessage } from '../api';
+import ErrorExplain from '../components/ErrorExplain';
 
 const STATUS_CONFIG = {
   pending:      { label: 'Pending',      color: '#f59e0b', bg: '#f59e0b1f' },
@@ -294,7 +295,7 @@ export default function Leads() {
         </div>
       )}
 
-      {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
+      {error && <ErrorExplain message={error} page="Leads" />}
 
       {loading ? (
         <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--t3)', fontSize: 14 }}>

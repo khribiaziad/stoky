@@ -193,6 +193,9 @@ export const createPlatformExpense   = (data) => api.post('/platform/expenses', 
 export const updatePlatformExpense   = (id, data) => api.patch(`/platform/expenses/${id}`, data);
 export const deletePlatformExpense   = (id) => api.delete(`/platform/expenses/${id}`);
 
+// AI
+export const explainError = (data) => api.post('/ai/explain-error', data);
+
 // Shared error message helper
 export function errorMessage(e) {
   if (!e.response) return "Cannot reach server — check your connection";
