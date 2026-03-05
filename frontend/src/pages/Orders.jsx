@@ -271,8 +271,13 @@ export default function Orders() {
   };
 
   const handleStatusChange = async (id, status) => {
-    await updateOrderStatus(id, status);
-    load();
+    if (status === 'cancelled' && !confirm('Cancel this order? It will move to the Returns tab.')) return;
+    try {
+      await updateOrderStatus(id, status);
+      load();
+    } catch (e) {
+      setError(e.response?.data?.detail || 'Failed to update order status');
+    }
   };
 
   const handleSendForcelog = async (id) => {
