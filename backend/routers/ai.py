@@ -47,5 +47,5 @@ def explain_error(
         )
         return {"explanation": resp.content[0].text}
 
-    except Exception as e:
-        raise HTTPException(500, f"AI request failed: {e}")
+    except Exception:
+        raise HTTPException(500, "AI request failed — please try again")
