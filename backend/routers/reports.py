@@ -252,12 +252,26 @@ def get_dashboard_stats(
         team_today.append({"name": name, **st})
     team_today.sort(key=lambda x: x["total"], reverse=True)
 
+    # Daily orders — last 7 days (always, for the trend line)
+    daily_orders = []
+    for i in range(6, -1, -1):
+        day = now - timedelta(days=i)
+        d_start = day.replace(hour=0, minute=0, second=0, microsecond=0)
+        d_end   = day.replace(hour=23, minute=59, second=59)
+        count = db.query(func.count(models.Order.id)).filter(
+            models.Order.user_id == uid,
+            models.Order.order_date >= d_start,
+            models.Order.order_date <= d_end,
+        ).scalar() or 0
+        daily_orders.append({"day": day.strftime("%a"), "orders": count})
+
     return {
         "current":      current,
         "previous":     previous,
         "has_previous": ps is not None,
         "clean_profit": clean_profit,
         "team_today":   team_today,
+        "daily_orders": daily_orders,
     }
 
 

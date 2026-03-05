@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { getDashboardStats, getReportSummary, getProducts, getMyStats, getSetting, setSetting, errorMessage } from '../api';
 
 // ── Translations ───────────────────────────────────────────────────────────
@@ -117,6 +118,7 @@ export default function Dashboard({ onNavigate, user, lang = 'en' }) {
   const isConfirmer = user?.role === 'confirmer';
 
   // Admin state
+  const [lowStockOpen, setLowStockOpen] = useState(true);
   const [period, setPeriod] = useState('today');
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
@@ -338,10 +340,13 @@ export default function Dashboard({ onNavigate, user, lang = 'en' }) {
         </div>
       </div>
 
-      {/* Low Stock Alerts */}
+      {/* Low Stock Alerts — collapsible */}
       {lowStockItems.length > 0 && (
         <div className="card" style={{ marginBottom: 16, border: '1px solid #f59e0b44' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <div
+            style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', userSelect: 'none' }}
+            onClick={() => setLowStockOpen(o => !o)}
+          >
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ fontSize: 18 }}>⚠️</span>
               <span style={{ fontWeight: 700, color: '#f59e0b', fontSize: 15 }}>{t.lowStock}</span>
@@ -349,32 +354,45 @@ export default function Dashboard({ onNavigate, user, lang = 'en' }) {
                 {lowStockItems.length}
               </span>
             </div>
-            <button onClick={() => onNavigate('stock')} className="btn btn-sm" style={{ borderColor: '#f59e0b', color: '#f59e0b', fontSize: 12 }}>
-              {t.addStock}
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              {lowStockOpen && (
+                <button
+                  onClick={e => { e.stopPropagation(); onNavigate('stock'); }}
+                  className="btn btn-sm"
+                  style={{ borderColor: '#f59e0b', color: '#f59e0b', fontSize: 12 }}
+                >
+                  {t.addStock}
+                </button>
+              )}
+              <span style={{ color: '#f59e0b', fontSize: 13, lineHeight: 1 }}>
+                {lowStockOpen ? '▲' : '▼'}
+              </span>
+            </div>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {lowStockItems.map((item, i) => (
-              <div key={i} style={{
-                display: 'flex', alignItems: 'center', gap: 10,
-                padding: '8px 12px', background: 'var(--bg)', borderRadius: 8,
-                border: `1px solid ${item.stock === 0 ? '#f8717133' : '#f59e0b33'}`,
-              }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <span style={{ fontWeight: 600, color: '#e2e8f0' }}>{item.product}</span>
-                  {item.variant && <span style={{ color: '#8892b0', marginLeft: 8, fontSize: 13 }}>{item.variant}</span>}
+          {lowStockOpen && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 12 }}>
+              {lowStockItems.map((item, i) => (
+                <div key={i} style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '8px 12px', background: 'var(--bg)', borderRadius: 8,
+                  border: `1px solid ${item.stock === 0 ? '#f8717133' : '#f59e0b33'}`,
+                }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <span style={{ fontWeight: 600, color: '#e2e8f0' }}>{item.product}</span>
+                    {item.variant && <span style={{ color: '#8892b0', marginLeft: 8, fontSize: 13 }}>{item.variant}</span>}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 20, flexShrink: 0, fontSize: 13 }}>
+                    <span style={{ color: '#8892b0' }}>
+                      {t.threshold}: <span style={{ color: '#e2e8f0' }}>{item.threshold}</span>
+                    </span>
+                    <span style={{ fontWeight: 700, color: item.stock === 0 ? '#f87171' : '#f59e0b', minWidth: 72, textAlign: 'right' }}>
+                      {item.stock === 0 ? t.outOfStock : `${item.stock} ${t.left}`}
+                    </span>
+                  </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 20, flexShrink: 0, fontSize: 13 }}>
-                  <span style={{ color: '#8892b0' }}>
-                    {t.threshold}: <span style={{ color: '#e2e8f0' }}>{item.threshold}</span>
-                  </span>
-                  <span style={{ fontWeight: 700, color: item.stock === 0 ? '#f87171' : '#f59e0b', minWidth: 72, textAlign: 'right' }}>
-                    {item.stock === 0 ? t.outOfStock : `${item.stock} ${t.left}`}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -402,6 +420,64 @@ export default function Dashboard({ onNavigate, user, lang = 'en' }) {
               </div>
             </div>
           </div>
+
+          {/* Charts — Orders Trend + Pipeline Funnel */}
+          {(() => {
+            const dailyOrders = stats?.daily_orders || [];
+            const total = (current.to_confirm ?? 0) + (current.in_delivery ?? 0) + (current.delivered ?? 0) + (current.returned ?? 0);
+            const sentToDelivery = (current.in_delivery ?? 0) + (current.delivered ?? 0) + (current.returned ?? 0);
+            const funnelRows = [
+              { label: t.toConfirm,  val: current.to_confirm ?? 0,  color: '#fbbf24', note: null },
+              { label: t.inDelivery, val: sentToDelivery,            color: '#60a5fa', note: null },
+              { label: t.delivered,  val: current.delivered ?? 0,   color: '#4ade80', note: null },
+              { label: t.returned,   val: current.returned ?? 0,    color: '#f87171', note: null },
+            ];
+            return (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
+                {/* Line chart — daily orders last 7 days */}
+                <div className="card">
+                  <div className="card-title" style={{ marginBottom: 16 }}>Orders — Last 7 Days</div>
+                  <ResponsiveContainer width="100%" height={160}>
+                    <LineChart data={dailyOrders} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+                      <XAxis dataKey="day" tick={{ fill: '#8892b0', fontSize: 12 }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fill: '#8892b0', fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
+                      <Tooltip
+                        contentStyle={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13 }}
+                        labelStyle={{ color: '#e2e8f0' }}
+                        itemStyle={{ color: '#00d48f' }}
+                      />
+                      <Line type="monotone" dataKey="orders" stroke="#00d48f" strokeWidth={2.5} dot={{ fill: '#00d48f', r: 4 }} activeDot={{ r: 6 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* Pipeline funnel */}
+                <div className="card">
+                  <div className="card-title" style={{ marginBottom: 16 }}>Order Pipeline</div>
+                  {total === 0 ? (
+                    <div style={{ color: '#8892b0', fontSize: 13 }}>No orders for this period.</div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                      {funnelRows.map(row => {
+                        const pct = total > 0 ? Math.round(row.val / total * 100) : 0;
+                        return (
+                          <div key={row.label}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5, fontSize: 13 }}>
+                              <span style={{ color: '#8892b0' }}>{row.label}</span>
+                              <span style={{ fontWeight: 600, color: row.color }}>{row.val} <span style={{ color: '#8892b0', fontWeight: 400 }}>({pct}%)</span></span>
+                            </div>
+                            <div style={{ background: 'var(--bg)', borderRadius: 999, height: 7, overflow: 'hidden' }}>
+                              <div style={{ height: '100%', borderRadius: 999, width: `${pct}%`, background: row.color, transition: 'width 0.4s ease' }} />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Daily Goal + Team Today */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
