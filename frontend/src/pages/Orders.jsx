@@ -334,8 +334,12 @@ export default function Orders() {
 
   const handleDelete = async (id) => {
     if (!confirm('Delete this order?')) return;
-    await deleteOrder(id);
-    load();
+    try {
+      await deleteOrder(id);
+      load();
+    } catch (e) {
+      setError(e.response?.data?.detail || 'Failed to delete order');
+    }
   };
 
   const handleRevertReturn = async (id) => {

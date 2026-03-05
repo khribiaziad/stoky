@@ -488,6 +488,9 @@ def delete_order(order_id: int, db: Session = Depends(get_db), user: models.User
             ).first()
             if variant:
                 variant.stock += item.quantity
+    # Null out FK references that have no cascade (prevents FK constraint errors)
+    db.query(models.BrokenStock).filter(models.BrokenStock.source_order_id == order_id).update({"source_order_id": None})
+    db.query(models.Lead).filter(models.Lead.order_id == order_id).update({"order_id": None})
     db.delete(order)
     db.commit()
     return {"success": True}
