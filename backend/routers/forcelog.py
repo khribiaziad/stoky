@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from database import get_db
 from auth import get_current_user
-import models, httpx, unicodedata, re
+import models, httpx, unicodedata, re, hmac, hashlib
 
 router = APIRouter(prefix="/forcelog", tags=["forcelog"])
 
@@ -81,12 +81,20 @@ def _normalize_phone_for_forcelog(phone: str) -> str:
     return p[:14]
 
 
-DELIVERED_KEYWORDS = ["livré", "livre", "delivered", "confirmé par livreur", "livraison effectuée"]
+DELIVERED_KEYWORDS = ["livré", "livre", "delivered", "confirmé par livreur", "livraison effectuée", "delivered"]
 CANCELLED_KEYWORDS = ["annulé", "annule", "retour", "refusé", "refuse", "cancelled", "retourné", "retourne", "echec", "échoué"]
+
+# Forcelog-specific uppercase statuses
+FORCELOG_DELIVERED = {"DELIVERED"}
+FORCELOG_CANCELLED = {"RETURNED", "CANCELLED", "REFUSED", "LOST"}
 
 
 def _map_status(raw: str) -> str | None:
     """Map a raw delivery-company status string to Stocky's order status."""
+    if raw in FORCELOG_DELIVERED:
+        return "delivered"
+    if raw in FORCELOG_CANCELLED:
+        return "cancelled"
     s = raw.lower()
     if any(k in s for k in DELIVERED_KEYWORDS):
         return "delivered"
@@ -274,3 +282,61 @@ def sync_all_forcelog(
 
     db.commit()
     return {"updated": len(updated), "orders": updated}
+
+
+@router.post("/webhook")
+async def forcelog_webhook(request: Request, db: Session = Depends(get_db)):
+    """Public webhook — Forcelog calls this when a parcel status changes."""
+    body = await request.body()
+
+    # Validate HMAC signature if a secret is configured for any store
+    # Forcelog sends one global webhook URL; we validate against the signature header
+    sig_header = request.headers.get("X-Forcelog-Signature", "")
+    if sig_header:
+        # Find the first store that has a webhook secret and matches
+        secrets = db.query(models.AppSettings).filter_by(key="forcelog_webhook_secret").all()
+        valid = False
+        for s in secrets:
+            if not s.value:
+                continue
+            expected = "sha256=" + hmac.new(s.value.encode(), body, hashlib.sha256).hexdigest()
+            if hmac.compare_digest(expected, sig_header):
+                valid = True
+                break
+        if secrets and not valid:
+            raise HTTPException(401, "Invalid webhook signature")
+
+    try:
+        import json
+        payload = json.loads(body)
+    except Exception:
+        return {"ok": True}
+
+    event = payload.get("event", "")
+    if event not in ("parcel.updated", "parcel.history", "parcel.created"):
+        return {"ok": True}
+
+    data = payload.get("data", {})
+    parcel_code = data.get("parcel_code")
+    status_raw = str(data.get("status") or "").strip()
+    secondary = str(data.get("secondary_status") or "").strip()
+
+    if not parcel_code:
+        return {"ok": True}
+
+    order = db.query(models.Order).filter(
+        models.Order.tracking_id == parcel_code
+    ).first()
+    if not order:
+        return {"ok": True}
+
+    if status_raw:
+        # Store combined status for display (e.g. "IN_PROGRESS — NO_ANSWER")
+        display = f"{status_raw} — {secondary}" if secondary else status_raw
+        order.delivery_status = display
+        mapped = _map_status(status_raw)
+        if mapped:
+            order.status = mapped
+
+    db.commit()
+    return {"ok": True}

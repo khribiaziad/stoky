@@ -215,6 +215,7 @@ export default function Settings({ user, theme, setTheme, lang, setLang, accent,
 
   // ── Forcelog ──
   const [forcelogKey,    setForcelogKey]    = useState('');
+  const [forcelogSecret, setForcelogSecret] = useState('');
   const [forcelogSaving, setForcelogSaving] = useState(false);
   const [forcelogSaved,  setForcelogSaved]  = useState(false);
 
@@ -233,8 +234,12 @@ export default function Settings({ user, theme, setTheme, lang, setLang, accent,
       });
     });
     // Load Forcelog settings
-    getSetting('forcelog_api_key').catch(() => ({ data: { value: '' } })).then(r => {
-      setForcelogKey(r.data?.value || '');
+    Promise.all([
+      getSetting('forcelog_api_key').catch(() => ({ data: { value: '' } })),
+      getSetting('forcelog_webhook_secret').catch(() => ({ data: { value: '' } })),
+    ]).then(([k, s]) => {
+      setForcelogKey(k.data?.value || '');
+      setForcelogSecret(s.data?.value || '');
     });
   }, [isAdmin]);
 
@@ -254,7 +259,10 @@ export default function Settings({ user, theme, setTheme, lang, setLang, accent,
 
   const handleSaveForcelog = async () => {
     setForcelogSaving(true);
-    await setSetting('forcelog_api_key', forcelogKey);
+    await Promise.all([
+      setSetting('forcelog_api_key', forcelogKey),
+      setSetting('forcelog_webhook_secret', forcelogSecret),
+    ]);
     setForcelogSaving(false);
     setForcelogSaved(true);
     setTimeout(() => setForcelogSaved(false), 2500);
@@ -1130,6 +1138,27 @@ Content-Type: application/json
             <div style={{ marginBottom: 18 }}>
               <input className="form-input" placeholder="Forcelog API Key"
                 value={forcelogKey} onChange={e => setForcelogKey(e.target.value)} />
+            </div>
+
+            <SubLabel text="Webhook Secret" />
+            <div style={{ marginBottom: 18 }}>
+              <input className="form-input" placeholder="Forcelog Webhook Secret"
+                value={forcelogSecret} onChange={e => setForcelogSecret(e.target.value)} />
+            </div>
+
+            <SubLabel text="Webhook URL — paste this in your Forcelog dashboard" />
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 18 }}>
+              <div style={{
+                flex: 1, padding: '9px 12px', background: 'var(--card-2)', borderRadius: 'var(--r-sm)',
+                fontFamily: 'monospace', fontSize: 12, color: 'var(--t1)',
+                wordBreak: 'break-all', border: '1px solid var(--border)',
+              }}>
+                {`${window.location.origin}/api/forcelog/webhook`}
+              </div>
+              <button className="btn btn-secondary btn-sm"
+                onClick={() => navigator.clipboard.writeText(`${window.location.origin}/api/forcelog/webhook`)}>
+                Copy
+              </button>
             </div>
 
             <button className="btn btn-primary" onClick={handleSaveForcelog} disabled={forcelogSaving}
