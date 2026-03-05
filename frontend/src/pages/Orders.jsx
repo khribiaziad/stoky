@@ -123,7 +123,13 @@ export default function Orders() {
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    // Silently sync delivery statuses in the background on page load
+    Promise.allSettled([syncAllForcelog(), syncAllOlivraison()])
+      .then(() => load())
+      .catch(() => {});
+  }, []);
 
   // Handle pickup PDF upload
   const handleManualOrder = async () => {
@@ -731,17 +737,24 @@ export default function Orders() {
                           onClick={() => setDetailOrder(o)}>
                           👁
                         </button>
-                        {o.tracking_id ? (
-                          <span
-                            title={`${o.delivery_provider === 'forcelog' ? 'Forcelog' : 'Olivraison'}: ${o.tracking_id}\nStatus: ${o.delivery_status || '—'}\nClick to copy`}
-                            onClick={() => navigator.clipboard.writeText(o.tracking_id)}
-                            style={{ fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 5, cursor: 'pointer',
-                              background: o.delivery_provider === 'forcelog' ? 'rgba(124,58,237,0.12)' : 'rgba(0,212,143,0.12)',
-                              color: o.delivery_provider === 'forcelog' ? '#7c3aed' : '#00d48f',
-                              border: `1px solid ${o.delivery_provider === 'forcelog' ? 'rgba(124,58,237,0.3)' : 'rgba(0,212,143,0.3)'}`,
-                              whiteSpace: 'nowrap', maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {o.delivery_provider === 'forcelog' ? '📦' : '🚚'} {o.delivery_status || o.tracking_id}
-                          </span>
+                        {o.tracking_id ? (() => {
+                          const ds = (o.delivery_status || '').toLowerCase();
+                          const isDelivered = ['livré','livre','delivered','confirmé par livreur'].some(k => ds.includes(k));
+                          const isCancelled = ['refus','retour','annul','echec','échou','cancelled'].some(k => ds.includes(k));
+                          const isTransit   = ['cours','transit','tentative','expédié','expedie','en route'].some(k => ds.includes(k));
+                          const color  = isDelivered ? '#4ade80' : isCancelled ? '#f87171' : isTransit ? '#facc15' : '#8892b0';
+                          const bg     = isDelivered ? 'rgba(74,222,128,0.1)' : isCancelled ? 'rgba(248,113,113,0.1)' : isTransit ? 'rgba(250,204,21,0.1)' : 'rgba(136,146,176,0.1)';
+                          return (
+                            <span
+                              title={`${o.delivery_provider === 'forcelog' ? 'Forcelog' : 'Olivraison'} · ${o.tracking_id}\nClick to copy tracking ID`}
+                              onClick={() => navigator.clipboard.writeText(o.tracking_id)}
+                              style={{ fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 5, cursor: 'pointer',
+                                background: bg, color, border: `1px solid ${color}33`,
+                                whiteSpace: 'nowrap', maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', display: 'inline-block' }}>
+                              {o.delivery_provider === 'forcelog' ? '📦' : '🚚'} {o.delivery_status || 'Envoyé'}
+                            </span>
+                          );
+                        })()
                         ) : o.status === 'pending' ? (
                           <>
                             <button

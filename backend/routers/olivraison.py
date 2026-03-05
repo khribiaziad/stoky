@@ -178,7 +178,6 @@ def sync_all_olivraison(
         models.Order.user_id == sid,
         models.Order.delivery_provider == "olivraison",
         models.Order.tracking_id.isnot(None),
-        models.Order.status == "pending",
     ).all()
 
     updated = []

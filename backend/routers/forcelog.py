@@ -250,7 +250,6 @@ def sync_all_forcelog(
         models.Order.user_id == sid,
         models.Order.delivery_provider == "forcelog",
         models.Order.tracking_id.isnot(None),
-        models.Order.status == "pending",
     ).all()
 
     updated = []
