@@ -312,11 +312,22 @@ export default function Dashboard({ onNavigate, user, lang = 'en' }) {
   }
 
   // ── Admin Dashboard ──────────────────────────────────────────────────────
-  const current   = stats?.current   || {};
-  const previous  = stats?.previous  || {};
-  const hasPrev   = stats?.has_previous ?? false;
-  const teamToday = stats?.team_today || [];
-  const cleanProfit = stats?.clean_profit ?? 0;
+  const current          = stats?.current          || {};
+  const previous         = stats?.previous         || {};
+  const hasPrev          = stats?.has_previous     ?? false;
+  const teamToday        = stats?.team_today        || [];
+  const cleanProfit      = stats?.clean_profit      ?? 0;
+  const inDeliveryAmount = stats?.in_delivery_amount ?? 0;
+
+  const total       = (current.to_confirm ?? 0) + (current.in_delivery ?? 0) + (current.delivered ?? 0) + (current.returned ?? 0);
+  const confirmed   = (current.in_delivery ?? 0) + (current.delivered ?? 0) + (current.returned ?? 0);
+  const confRate    = total > 0 ? Math.round(confirmed / total * 100) : null;
+  const retTotal    = (current.delivered ?? 0) + (current.returned ?? 0);
+  const returnRate  = retTotal > 0 ? Math.round((current.returned ?? 0) / retTotal * 100) : null;
+  const returnAlert = returnRate !== null && returnRate >= 30;
+
+  const sixHoursAgo = Date.now() - 6 * 60 * 60 * 1000;
+  const staleLeads  = pendingLeads.filter(l => new Date(l.created_at).getTime() < sixHoursAgo);
 
   const pct = dailyGoal > 0 ? (todayRevenue / dailyGoal) * 100 : 0;
   const clampedPct = Math.min(pct, 100);
@@ -419,6 +430,20 @@ export default function Dashboard({ onNavigate, user, lang = 'en' }) {
 
       {loading ? <div className="loading">Loading...</div> : (
         <>
+          {/* Return Rate Alert */}
+          {returnAlert && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16,
+              padding: '12px 16px', borderRadius: 10, background: '#f8717114', border: '1px solid #f8717144',
+            }}>
+              <span style={{ fontSize: 20 }}>⚠️</span>
+              <div>
+                <span style={{ fontWeight: 700, color: '#f87171' }}>High return rate — {returnRate}%</span>
+                <span style={{ color: '#8892b0', fontSize: 13, marginLeft: 8 }}>for the selected period</span>
+              </div>
+            </div>
+          )}
+
           {/* 4 KPI Cards + Clean Profit */}
           <div className="stat-grid" style={{ gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(5, 1fr)' }}>
             {kpiCards.map(card => (
@@ -437,6 +462,24 @@ export default function Dashboard({ onNavigate, user, lang = 'en' }) {
               <div className={`stat-value ${cleanProfit >= 0 ? 'green' : 'red'}`}>
                 {cleanProfit.toLocaleString()} MAD
               </div>
+            </div>
+          </div>
+
+          {/* Secondary metrics — Money in Transit + Confirmation Rate */}
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : '1fr 1fr', gap: 12, marginBottom: 16 }}>
+            <div className="stat-card" style={{ background: '#60a5fa0d', border: '1px solid #60a5fa22' }}>
+              <div className="stat-label">Money in Transit</div>
+              <div className="stat-value" style={{ color: '#60a5fa', fontSize: 22 }}>
+                {inDeliveryAmount.toLocaleString()} MAD
+              </div>
+              <div style={{ fontSize: 12, color: '#8892b0', marginTop: 4 }}>currently with delivery</div>
+            </div>
+            <div className="stat-card" style={{ background: confRate !== null && confRate < 50 ? '#f8717108' : '#4ade8008', border: `1px solid ${confRate !== null && confRate < 50 ? '#f8717122' : '#4ade8022'}` }}>
+              <div className="stat-label">Confirmation Rate</div>
+              <div className="stat-value" style={{ color: confRate === null ? '#8892b0' : confRate >= 70 ? '#4ade80' : confRate >= 50 ? '#fbbf24' : '#f87171' }}>
+                {confRate !== null ? `${confRate}%` : '—'}
+              </div>
+              <div style={{ fontSize: 12, color: '#8892b0', marginTop: 4 }}>of orders past confirmation</div>
             </div>
           </div>
 
@@ -461,6 +504,11 @@ export default function Dashboard({ onNavigate, user, lang = 'en' }) {
                         +{newToday} today
                       </span>
                     )}
+                    {staleLeads.length > 0 && (
+                      <span style={{ background: '#f8717122', color: '#f87171', borderRadius: 12, padding: '2px 10px', fontSize: 12, fontWeight: 700 }}>
+                        {staleLeads.length} stale 6h+
+                      </span>
+                    )}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     {leadsOpen && (
@@ -483,17 +531,19 @@ export default function Dashboard({ onNavigate, user, lang = 'en' }) {
                       const waPhone = digits.startsWith('0') ? '212' + digits.slice(1) : digits;
                       const items = lead.matched_items || lead.raw_items || [];
                       const itemsText = items.map(i => `${i.product_name} ×${i.quantity}`).join(', ') || '—';
-                      const isNew = new Date(lead.created_at).toDateString() === todayStr;
+                      const isNew   = new Date(lead.created_at).toDateString() === todayStr;
+                      const isStale = new Date(lead.created_at).getTime() < sixHoursAgo;
                       return (
                         <div key={lead.id} style={{
                           display: 'flex', alignItems: 'center', gap: 10,
                           padding: '9px 12px', background: 'var(--bg)', borderRadius: 8,
-                          border: `1px solid ${lead.status === 'unresponsive' ? '#6b728033' : '#a78bfa22'}`,
+                          border: `1px solid ${isStale ? '#f8717133' : lead.status === 'unresponsive' ? '#6b728033' : '#a78bfa22'}`,
                         }}>
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                               <span style={{ fontWeight: 600, color: '#e2e8f0', fontSize: 14 }}>{lead.customer_name}</span>
-                              {isNew && <span style={{ fontSize: 10, fontWeight: 700, color: '#f59e0b', background: '#f59e0b22', padding: '1px 6px', borderRadius: 99 }}>NEW</span>}
+                              {isStale && <span style={{ fontSize: 10, fontWeight: 700, color: '#f87171', background: '#f8717122', padding: '1px 6px', borderRadius: 99 }}>6H+</span>}
+                              {!isStale && isNew && <span style={{ fontSize: 10, fontWeight: 700, color: '#f59e0b', background: '#f59e0b22', padding: '1px 6px', borderRadius: 99 }}>NEW</span>}
                               {lead.status === 'unresponsive' && <span style={{ fontSize: 10, fontWeight: 700, color: '#6b7280', background: '#6b728022', padding: '1px 6px', borderRadius: 99 }}>NO ANSWER</span>}
                             </div>
                             <div style={{ fontSize: 12, color: '#8892b0', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
