@@ -755,7 +755,7 @@ export default function Orders() {
                             </span>
                           );
                         })()
-                        ) : o.status === 'pending' ? (
+                        : o.status === 'pending' ? (
                           <>
                             <button
                               className="btn btn-secondary btn-sm"
