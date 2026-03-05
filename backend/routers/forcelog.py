@@ -2,62 +2,70 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from database import get_db
 from auth import get_current_user
-import models, httpx
+import models, httpx, unicodedata, re
 
 router = APIRouter(prefix="/forcelog", tags=["forcelog"])
 
 FORCELOG_BASE = "https://api.forcelog.ma"
 
-# Map our normalized city names → Forcelog's exact city names
-FORCELOG_CITY_MAP = {
-    "casablanca": "Casablanca",
-    "mohammedia": "Mohammedia",
-    "sale": "Salé",
-    "salé": "Salé",
-    "rabat": "Rabat",
-    "temara": "Témara",
-    "témara": "Témara",
-    "kenitra": "Kénitra",
-    "kénitra": "Kénitra",
-    "marrakech": "Marrakech",
-    "fes": "Fès",
-    "fès": "Fès",
-    "meknes": "Meknès",
-    "meknès": "Meknès",
-    "agadir": "Agadir",
-    "tanger": "Tanger",
-    "tangier": "Tanger",
-    "tetouan": "Tétouan",
-    "tétouan": "Tétouan",
-    "oujda": "Oujda",
-    "el jadida": "El Jadida",
-    "safi": "Safi",
-    "beni mellal": "Beni Mellal",
-    "beni-mellal": "Beni Mellal",
-    "khouribga": "Khouribga",
-    "settat": "Settat",
-    "berrechid": "Berrechid",
-    "nador": "Nador",
-    "al hoceima": "Al Hoceima",
-    "larache": "Larache",
-    "ouarzazate": "Ouarzazate",
-    "errachidia": "Errachidia",
-    "laayoune": "Laâyoune",
-    "dakhla": "Dakhla",
-    "essaouira": "Essaouira",
-    "taza": "Taza",
-    "berkane": "Berkane",
-    "khemisset": "Khemisset",
-    "skhirat": "Skhirat",
-    "bouskoura": "Bouskoura",
-    "dar bouazza": "Dar Bouazza",
-    "ain sebaa": "Ain Sebaa",
-}
+# In-process cache for Forcelog city list (keyed by api_key)
+_city_cache: dict[str, list[str]] = {}
 
 
-def _normalize_city_for_forcelog(city: str) -> str:
-    """Map our city name to Forcelog's exact expected name."""
-    return FORCELOG_CITY_MAP.get(city.strip().lower(), city.strip())
+def _strip_accents(s: str) -> str:
+    """Lowercase + remove all diacritics: 'Salé' → 'sale'."""
+    return ''.join(
+        c for c in unicodedata.normalize('NFKD', s)
+        if not unicodedata.combining(c)
+    ).lower().strip()
+
+
+def _fetch_forcelog_cities(api_key: str) -> list[str]:
+    """Fetch and cache Forcelog's city name list."""
+    if api_key in _city_cache:
+        return _city_cache[api_key]
+    try:
+        r = httpx.get(
+            f"{FORCELOG_BASE}/customer/Cities/GetCities",
+            headers={"X-API-Key": api_key},
+            timeout=10,
+        )
+        if r.status_code == 200:
+            data = r.json()
+            # Handle both list-of-strings and list-of-dicts formats
+            raw = data.get("CITIES") or data.get("cities") or (data if isinstance(data, list) else [])
+            cities = []
+            for item in raw:
+                if isinstance(item, str):
+                    cities.append(item)
+                elif isinstance(item, dict):
+                    cities.append(item.get("NAME") or item.get("name") or item.get("CITY") or "")
+            _city_cache[api_key] = [c for c in cities if c]
+    except Exception:
+        pass
+    return _city_cache.get(api_key, [])
+
+
+def _match_city(our_city: str, api_key: str) -> str:
+    """
+    Find Forcelog's exact city name for our city.
+    1. Fetch Forcelog's city list.
+    2. Match by stripping accents from both sides.
+    3. Fall back to the original value if no match found.
+    """
+    city = our_city.strip()
+    if not city:
+        return city
+    needle = _strip_accents(city)
+    cities = _fetch_forcelog_cities(api_key)
+    for c in cities:
+        if _strip_accents(c) == needle:
+            return c
+    # Partial match (e.g. "El Jadida" inside "El Jadida Province")
+    for c in cities:
+        if needle in _strip_accents(c) or _strip_accents(c) in needle:
+            return c
+    return city  # unchanged — will still error, but at least we tried
 
 
 def _normalize_phone_for_forcelog(phone: str) -> str:
@@ -92,14 +100,9 @@ def get_forcelog_cities(
     api_key = _get_setting(db, "forcelog_api_key", sid)
     if not api_key:
         raise HTTPException(400, "Forcelog API key not configured")
-    r = httpx.get(
-        f"{FORCELOG_BASE}/customer/Cities/GetCities",
-        headers={"X-API-Key": api_key},
-        timeout=15,
-    )
-    if r.status_code >= 400:
-        raise HTTPException(400, f"Forcelog error: {r.text}")
-    return r.json()
+    _city_cache.pop(api_key, None)  # force refresh
+    cities = _fetch_forcelog_cities(api_key)
+    return {"cities": cities, "count": len(cities)}
 
 
 @router.post("/send/{order_id}")
@@ -139,7 +142,7 @@ def send_to_forcelog(
         "ORDER_NUM":      (order.caleo_id or str(order.id))[:20],
         "RECEIVER":       (order.customer_name or "")[:50],
         "PHONE":          _normalize_phone_for_forcelog(order.customer_phone or ""),
-        "CITY":           _normalize_city_for_forcelog(order.city or "")[:50],
+        "CITY":           _match_city(order.city or "", api_key)[:50],
         "ADDRESS":        (order.customer_address or order.city or "")[:100],
         "COMMENT":        (order.notes or "")[:100],
         "PRODUCT_NATURE": description[:100],
@@ -161,7 +164,7 @@ def send_to_forcelog(
 
     if result.get("RESULT") != "SUCCESS":
         msg = result.get('MESSAGE', 'Unknown error')
-        city_sent = _normalize_city_for_forcelog(order.city or "")
+        city_sent = _match_city(order.city or "", api_key)
         if "city" in msg.lower():
             msg += f" (sent: '{city_sent}', stored: '{order.city}')"
         raise HTTPException(400, f"Forcelog error: {msg}")
