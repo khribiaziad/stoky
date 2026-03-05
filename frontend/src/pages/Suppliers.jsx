@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getSuppliers, createSupplier, updateSupplier, deleteSupplier, getSupplierDetail, addSupplierPayment, deleteSupplierPayment, errorMessage } from '../api';
+import { validateAmount, validateRequired, fieldErrorStyle } from '../utils/validate';
 
 const PLATFORMS = ['Alibaba', 'AliExpress', 'Local', 'Wholesale', 'Direct', 'Other'];
 
@@ -19,6 +20,8 @@ export default function Suppliers() {
 
   const [paymentForm, setPaymentForm] = useState({ amount: '', date: new Date().toISOString().split('T')[0], note: '' });
   const [showPayment, setShowPayment] = useState(null); // supplier id
+  const [paymentFieldErrors, setPaymentFieldErrors] = useState({});
+  const [supplierFieldErrors, setSupplierFieldErrors] = useState({});
 
   const load = () => {
     getSuppliers().then(r => setSuppliers(r.data)).finally(() => setLoading(false));
@@ -62,7 +65,11 @@ export default function Suppliers() {
   };
 
   const handleSave = async () => {
-    if (!form.name.trim()) { setError('Supplier name is required'); return; }
+    const errs = {};
+    const nameErr = validateRequired(form.name, 'Supplier name');
+    if (nameErr) errs.name = nameErr;
+    if (Object.keys(errs).length) { setSupplierFieldErrors(errs); return; }
+    setSupplierFieldErrors({});
     try {
       if (editingSupplier) {
         await updateSupplier(editingSupplier.id, form);
@@ -84,7 +91,9 @@ export default function Suppliers() {
   };
 
   const handleAddPayment = async (supplierId) => {
-    if (!paymentForm.amount || parseFloat(paymentForm.amount) <= 0) { setError('Enter a valid amount'); return; }
+    const amtErr = validateAmount(paymentForm.amount);
+    if (amtErr) { setPaymentFieldErrors({ amount: amtErr }); return; }
+    setPaymentFieldErrors({});
     try {
       await addSupplierPayment(supplierId, { ...paymentForm, amount: parseFloat(paymentForm.amount) });
       setShowPayment(null);
@@ -235,6 +244,7 @@ export default function Suppliers() {
                                 <div className="form-group">
                                   <label className="form-label">Amount (MAD) *</label>
                                   <input className="form-input" type="number" placeholder="0" value={paymentForm.amount} onChange={e => setPaymentForm(f => ({...f, amount: e.target.value}))} />
+                                  {paymentFieldErrors.amount && <div style={fieldErrorStyle}>{paymentFieldErrors.amount}</div>}
                                 </div>
                                 <div className="form-group">
                                   <label className="form-label">Date</label>
@@ -300,6 +310,7 @@ export default function Suppliers() {
                 <div className="form-group">
                   <label className="form-label">Name *</label>
                   <input className="form-input" placeholder="e.g. Alibaba Store #1" value={form.name} onChange={e => setForm(f => ({...f, name: e.target.value}))} />
+                  {supplierFieldErrors.name && <div style={fieldErrorStyle}>{supplierFieldErrors.name}</div>}
                 </div>
                 <div className="form-group">
                   <label className="form-label">Platform</label>

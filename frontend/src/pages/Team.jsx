@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { BarChart2, TrendingUp, TrendingDown, Clock, Package, X } from 'lucide-react';
 import { getTeam, createTeamMember, deleteTeamMember, createConfirmerAccount, getMemberStats, toggleMemberAccount, errorMessage } from '../api';
 import ErrorExplain from '../components/ErrorExplain';
+import { validateRequired, validateAmount, fieldErrorStyle } from '../utils/validate';
 
 const PERIODS = [
   { value: 'this_month', label: 'This Month' },
@@ -29,12 +30,24 @@ export default function Team() {
     fixed_monthly: 0, per_order_rate: 0, is_confirmer: false,
     start_date: new Date().toISOString().split('T')[0],
   });
+  const [memberFieldErrors, setMemberFieldErrors] = useState({});
 
   const load = () => getTeam().then(r => setTeam(r.data));
 
   useEffect(() => { load(); }, []);
 
   const handleAddMember = async () => {
+    const errs = {};
+    const nameErr = validateRequired(memberForm.name, 'Name');
+    if (nameErr) errs.name = nameErr;
+    if ((memberForm.payment_type === 'monthly' || memberForm.payment_type === 'both') && !memberForm.fixed_monthly) {
+      errs.fixed_monthly = 'Monthly salary is required';
+    }
+    if ((memberForm.payment_type === 'per_order' || memberForm.payment_type === 'both') && !memberForm.per_order_rate) {
+      errs.per_order_rate = 'Per order rate is required';
+    }
+    if (Object.keys(errs).length) { setMemberFieldErrors(errs); return; }
+    setMemberFieldErrors({});
     try {
       await createTeamMember(memberForm);
       setShowAddMember(false);
@@ -135,12 +148,16 @@ export default function Team() {
 
       {/* Add Member Modal */}
       {showAddMember && (
-        <div className="modal-overlay" onClick={() => setShowAddMember(false)}>
+        <div className="modal-overlay" onClick={() => { setShowAddMember(false); setMemberFieldErrors({}); }}>
           <div className="modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header"><h2>Add Team Member</h2><button className="btn-icon" onClick={() => setShowAddMember(false)}>✕</button></div>
+            <div className="modal-header"><h2>Add Team Member</h2><button className="btn-icon" onClick={() => { setShowAddMember(false); setMemberFieldErrors({}); }}>✕</button></div>
             <div className="modal-body">
               <div className="form-grid-2">
-                <div className="form-group"><label className="form-label">Name *</label><input className="form-input" value={memberForm.name} onChange={e => setMemberForm({ ...memberForm, name: e.target.value })} /></div>
+                <div className="form-group">
+                  <label className="form-label">Name *</label>
+                  <input className="form-input" value={memberForm.name} onChange={e => setMemberForm({ ...memberForm, name: e.target.value })} />
+                  {memberFieldErrors.name && <div style={fieldErrorStyle}>{memberFieldErrors.name}</div>}
+                </div>
                 <div className="form-group"><label className="form-label">Role / Job Title</label><input className="form-input" placeholder="e.g. Packer" value={memberForm.role} onChange={e => setMemberForm({ ...memberForm, role: e.target.value })} /></div>
               </div>
               <div className="form-group">
@@ -160,10 +177,18 @@ export default function Team() {
               </div>
               <div className="form-grid-2">
                 {(memberForm.payment_type === 'monthly' || memberForm.payment_type === 'both') && (
-                  <div className="form-group"><label className="form-label">Monthly Salary (MAD)</label><input className="form-input" type="number" value={memberForm.fixed_monthly} onChange={e => setMemberForm({ ...memberForm, fixed_monthly: parseFloat(e.target.value) || 0 })} /></div>
+                  <div className="form-group">
+                    <label className="form-label">Monthly Salary (MAD)</label>
+                    <input className="form-input" type="number" value={memberForm.fixed_monthly} onChange={e => setMemberForm({ ...memberForm, fixed_monthly: parseFloat(e.target.value) || 0 })} />
+                    {memberFieldErrors.fixed_monthly && <div style={fieldErrorStyle}>{memberFieldErrors.fixed_monthly}</div>}
+                  </div>
                 )}
                 {(memberForm.payment_type === 'per_order' || memberForm.payment_type === 'both') && (
-                  <div className="form-group"><label className="form-label">Rate Per Order (MAD)</label><input className="form-input" type="number" value={memberForm.per_order_rate} onChange={e => setMemberForm({ ...memberForm, per_order_rate: parseFloat(e.target.value) || 0 })} /></div>
+                  <div className="form-group">
+                    <label className="form-label">Rate Per Order (MAD)</label>
+                    <input className="form-input" type="number" value={memberForm.per_order_rate} onChange={e => setMemberForm({ ...memberForm, per_order_rate: parseFloat(e.target.value) || 0 })} />
+                    {memberFieldErrors.per_order_rate && <div style={fieldErrorStyle}>{memberFieldErrors.per_order_rate}</div>}
+                  </div>
                 )}
               </div>
               <div className="form-group"><label className="form-label">Start Date</label><input className="form-input" type="date" value={memberForm.start_date} onChange={e => setMemberForm({ ...memberForm, start_date: e.target.value })} /></div>

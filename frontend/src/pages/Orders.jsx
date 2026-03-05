@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { getOrders, getProducts, getPacks, uploadPickupPDF, bulkCreateOrders, uploadReturnPDF, processReturns, updateOrderStatus, updateOrder, deleteOrder, updateOrderNotes, bulkUpdateOrderStatus, sendToOlivraison, sendToForcelog, getForcelogStatus, syncAllForcelog, syncAllOlivraison, errorMessage } from '../api';
 import ErrorExplain from '../components/ErrorExplain';
+import { validatePhone, validateAmount, numericOnly, fieldErrorStyle } from '../utils/validate';
 
 function downloadCSV(rows, filename) {
   const csv = rows.map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
@@ -84,6 +85,8 @@ export default function Orders() {
 
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [manualFieldErrors, setManualFieldErrors] = useState({});
+  const [editFieldErrors, setEditFieldErrors] = useState({});
   const [sendingOliv,    setSendingOliv]    = useState(null);
   const [sendingForce,   setSendingForce]   = useState(null);
   const [refreshingForce, setRefreshingForce] = useState(null);
@@ -135,8 +138,16 @@ export default function Orders() {
   // Handle pickup PDF upload
   const handleManualOrder = async () => {
     setError('');
-    if (!manualOrder.customer_name.trim()) { setError('Customer name is required'); return; }
-    if (!manualOrder.total_amount) { setError('Total amount is required'); return; }
+    const errs = {};
+    if (!manualOrder.customer_name.trim()) errs.customer_name = 'Customer name is required';
+    if (manualOrder.customer_phone) {
+      const phoneErr = validatePhone(manualOrder.customer_phone);
+      if (phoneErr) errs.customer_phone = phoneErr;
+    }
+    const amtErr = validateAmount(manualOrder.total_amount);
+    if (amtErr) errs.total_amount = amtErr;
+    if (Object.keys(errs).length) { setManualFieldErrors(errs); return; }
+    setManualFieldErrors({});
     const flatItems = manualItems
       .filter(item => item.variant_id)
       .map(item => ({ variant_id: parseInt(item.variant_id), quantity: parseInt(item.quantity) || 1 }));
@@ -463,8 +474,16 @@ export default function Orders() {
 
   const handleSaveEdit = async () => {
     setError('');
-    if (!editForm.customer_name.trim()) { setError('Customer name is required'); return; }
-    if (!editForm.total_amount) { setError('Total amount is required'); return; }
+    const errs = {};
+    if (!editForm.customer_name.trim()) errs.customer_name = 'Customer name is required';
+    if (editForm.customer_phone) {
+      const phoneErr = validatePhone(editForm.customer_phone);
+      if (phoneErr) errs.customer_phone = phoneErr;
+    }
+    const amtErr = validateAmount(editForm.total_amount);
+    if (amtErr) errs.total_amount = amtErr;
+    if (Object.keys(errs).length) { setEditFieldErrors(errs); return; }
+    setEditFieldErrors({});
     const flatItems = editItems
       .filter(i => i.variant_id)
       .map(i => ({ variant_id: parseInt(i.variant_id), quantity: parseInt(i.quantity) || 1 }));
@@ -494,6 +513,7 @@ export default function Orders() {
     // Pre-fill total with the delivery fee from the original order
     setExchangeTotal(order.expenses?.delivery_fee || 35);
     setError('');
+    setEditFieldErrors({});
   };
 
   const handleExchange = async () => {
@@ -941,11 +961,14 @@ export default function Orders() {
                   <label className="form-label">Customer Name *</label>
                   <input className="form-input" value={editForm.customer_name}
                     onChange={e => setEditForm({ ...editForm, customer_name: e.target.value })} />
+                  {editFieldErrors.customer_name && <div style={fieldErrorStyle}>{editFieldErrors.customer_name}</div>}
                 </div>
                 <div>
                   <label className="form-label">Phone</label>
                   <input className="form-input" placeholder="0600000000" value={editForm.customer_phone}
+                    onKeyDown={numericOnly}
                     onChange={e => setEditForm({ ...editForm, customer_phone: e.target.value })} />
+                  {editFieldErrors.customer_phone && <div style={fieldErrorStyle}>{editFieldErrors.customer_phone}</div>}
                 </div>
                 <div>
                   <label className="form-label">City</label>
@@ -961,6 +984,7 @@ export default function Orders() {
                   <label className="form-label">Total Amount (MAD) *</label>
                   <input className="form-input" type="number" min="0" value={editForm.total_amount}
                     onChange={e => setEditForm({ ...editForm, total_amount: e.target.value })} />
+                  {editFieldErrors.total_amount && <div style={fieldErrorStyle}>{editFieldErrors.total_amount}</div>}
                 </div>
               </div>
 
@@ -1320,11 +1344,14 @@ export default function Orders() {
                   <label className="form-label">Customer Name *</label>
                   <input className="form-input" placeholder="Full name" value={manualOrder.customer_name}
                     onChange={e => setManualOrder({ ...manualOrder, customer_name: e.target.value })} />
+                  {manualFieldErrors.customer_name && <div style={fieldErrorStyle}>{manualFieldErrors.customer_name}</div>}
                 </div>
                 <div>
                   <label className="form-label">Phone</label>
                   <input className="form-input" placeholder="0600000000" value={manualOrder.customer_phone}
+                    onKeyDown={numericOnly}
                     onChange={e => setManualOrder({ ...manualOrder, customer_phone: e.target.value })} />
+                  {manualFieldErrors.customer_phone && <div style={fieldErrorStyle}>{manualFieldErrors.customer_phone}</div>}
                 </div>
                 <div>
                   <label className="form-label">City</label>
@@ -1340,6 +1367,7 @@ export default function Orders() {
                   <label className="form-label">Total Amount (MAD) *</label>
                   <input className="form-input" type="number" min="0" placeholder="0.00" value={manualOrder.total_amount}
                     onChange={e => setManualOrder({ ...manualOrder, total_amount: e.target.value })} />
+                  {manualFieldErrors.total_amount && <div style={fieldErrorStyle}>{manualFieldErrors.total_amount}</div>}
                 </div>
               </div>
 

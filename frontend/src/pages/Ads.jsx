@@ -6,6 +6,7 @@ import {
   getAdCostPerOrder, getSetting, setSetting,
 } from '../api';
 import ErrorExplain from '../components/ErrorExplain';
+import { validateAmount, fieldErrorStyle } from '../utils/validate';
 
 // ── Predefined platform catalogue ──────────────────────────
 const PLATFORM_CATALOGUE = [
@@ -138,6 +139,7 @@ export default function Ads() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [campaignFieldErrors, setCampaignFieldErrors] = useState({});
 
   // Which platform cards are expanded
   const [expanded, setExpanded] = useState({});
@@ -240,6 +242,7 @@ export default function Ads() {
   const openNewCampaign = (platformId) => {
     setCampaignModal({ platformId });
     setCampaignForm({ daily_rate_usd: '', start_date: today(), end_date: '' });
+    setCampaignFieldErrors({});
     setError('');
   };
 
@@ -250,14 +253,15 @@ export default function Ads() {
       start_date: campaign.start_date.slice(0, 10),
       end_date: campaign.end_date ? campaign.end_date.slice(0, 10) : '',
     });
+    setCampaignFieldErrors({});
     setError('');
   };
 
   const saveCampaign = async () => {
     setError('');
-    if (!campaignForm.daily_rate_usd || parseFloat(campaignForm.daily_rate_usd) <= 0) {
-      setError('Enter a valid daily rate'); return;
-    }
+    const rateErr = validateAmount(campaignForm.daily_rate_usd);
+    if (rateErr) { setCampaignFieldErrors({ daily_rate_usd: rateErr }); return; }
+    setCampaignFieldErrors({});
     try {
       const payload = {
         platform_id: campaignModal.platformId,
@@ -654,6 +658,7 @@ export default function Ads() {
                 <input className="form-input" type="number" min="0" step="0.5" placeholder="e.g. 5"
                   value={campaignForm.daily_rate_usd}
                   onChange={e => setCampaignForm({ ...campaignForm, daily_rate_usd: e.target.value })} />
+                {campaignFieldErrors.daily_rate_usd && <div style={fieldErrorStyle}>{campaignFieldErrors.daily_rate_usd}</div>}
                 {campaignForm.daily_rate_usd && parseFloat(campaignForm.daily_rate_usd) > 0 && (
                   <div style={{ marginTop: 4, fontSize: 12, color: '#8892b0' }}>
                     ≈ {fmt(parseFloat(campaignForm.daily_rate_usd) * usdRate)} MAD/day

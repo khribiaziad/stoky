@@ -8,6 +8,7 @@ import {
   errorMessage,
 } from '../api';
 import ErrorExplain from '../components/ErrorExplain';
+import { validateAmount, validateRequired, fieldErrorStyle } from '../utils/validate';
 
 // ── Catalogues ───────────────────────────────────────────────
 const CATEGORIES = [
@@ -84,6 +85,8 @@ export default function Expenses() {
 
   const [error,   setError]   = useState('');
   const [success, setSuccess] = useState('');
+  const [expenseFieldErrors,    setExpenseFieldErrors]    = useState({});
+  const [withdrawalFieldErrors, setWithdrawalFieldErrors] = useState({});
 
   // Fixed expense filters
   const [filterType,   setFilterType]   = useState('all');
@@ -110,18 +113,24 @@ export default function Expenses() {
   useEffect(() => { load(); }, []);
 
   // ── Expense CRUD ──────────────────────────────────────────
-  const openNew  = () => { setEditingExpense(null); setExpenseForm(emptyExpense()); setError(''); setShowExpenseModal(true); };
+  const openNew  = () => { setEditingExpense(null); setExpenseForm(emptyExpense()); setError(''); setExpenseFieldErrors({}); setShowExpenseModal(true); };
   const openEdit = (e) => {
     setEditingExpense(e);
     setExpenseForm({ name: e.name, type: e.type, category: e.category || 'other', amount: String(e.amount), description: e.description || '', start_date: e.start_date ? e.start_date.slice(0,10) : todayStr() });
     setError('');
+    setExpenseFieldErrors({});
     setShowExpenseModal(true);
   };
 
   const saveExpense = async () => {
     setError('');
-    if (!expenseForm.name.trim()) { setError('Name is required'); return; }
-    if (!expenseForm.amount || parseFloat(expenseForm.amount) <= 0) { setError('Enter a valid amount'); return; }
+    const errs = {};
+    const nameErr = validateRequired(expenseForm.name, 'Name');
+    if (nameErr) errs.name = nameErr;
+    const amtErr = validateAmount(expenseForm.amount);
+    if (amtErr) errs.amount = amtErr;
+    if (Object.keys(errs).length) { setExpenseFieldErrors(errs); return; }
+    setExpenseFieldErrors({});
     const payload = { ...expenseForm, amount: parseFloat(expenseForm.amount) };
     try {
       editingExpense ? await updateFixedExpense(editingExpense.id, payload) : await createFixedExpense(payload);
@@ -137,7 +146,9 @@ export default function Expenses() {
   // ── Withdrawal CRUD ───────────────────────────────────────
   const handleAddWithdrawal = async () => {
     setError('');
-    if (!withdrawalForm.amount || parseFloat(withdrawalForm.amount) <= 0) { setError('Enter a valid amount'); return; }
+    const amtErr = validateAmount(withdrawalForm.amount);
+    if (amtErr) { setWithdrawalFieldErrors({ amount: amtErr }); return; }
+    setWithdrawalFieldErrors({});
     try {
       await createWithdrawal({ ...withdrawalForm, amount: parseFloat(withdrawalForm.amount) });
       setSuccess('Withdrawal recorded');
@@ -608,6 +619,7 @@ export default function Expenses() {
               <div className="form-group">
                 <label className="form-label">Name *</label>
                 <input className="form-input" placeholder="e.g. Office Rent, Caleo Subscription..." value={expenseForm.name} onChange={e => setExpenseForm({ ...expenseForm, name: e.target.value })} />
+                {expenseFieldErrors.name && <div style={fieldErrorStyle}>{expenseFieldErrors.name}</div>}
               </div>
               <div className="form-group">
                 <label className="form-label">Category</label>
@@ -642,6 +654,7 @@ export default function Expenses() {
                     )}
                   </label>
                   <input className="form-input" type="number" min="0" step="0.01" placeholder="0.00" value={expenseForm.amount} onChange={e => setExpenseForm({ ...expenseForm, amount: e.target.value })} />
+                  {expenseFieldErrors.amount && <div style={fieldErrorStyle}>{expenseFieldErrors.amount}</div>}
                 </div>
                 <div className="form-group">
                   <label className="form-label">Start Date</label>
@@ -674,6 +687,7 @@ export default function Expenses() {
               <div className="form-group">
                 <label className="form-label">Amount (MAD) *</label>
                 <input className="form-input" type="number" min="0" placeholder="0.00" value={withdrawalForm.amount} onChange={e => setWithdrawalForm({ ...withdrawalForm, amount: e.target.value })} />
+                {withdrawalFieldErrors.amount && <div style={fieldErrorStyle}>{withdrawalFieldErrors.amount}</div>}
               </div>
               <div className="form-group">
                 <label className="form-label">Description <span style={{ color: '#8892b0', fontWeight: 400 }}>(optional)</span></label>
