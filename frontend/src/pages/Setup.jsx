@@ -1,6 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Store, Globe, Truck, Check, ChevronRight, Copy } from 'lucide-react';
+import { Store, Globe, Truck, Check, ChevronRight, Copy, Languages } from 'lucide-react';
 import { updateStoreName, updateUsername, setSetting, getSetting } from '../api';
+
+const LANGUAGES = [
+  { code: 'en', label: 'English',  flag: '🇬🇧' },
+  { code: 'fr', label: 'Français', flag: '🇫🇷' },
+  { code: 'ar', label: 'العربية',  flag: '🇲🇦' },
+];
 
 const ECOM_PLATFORMS = [
   { id: 'youcan',      label: 'YouCan',       note: 'Paste a header JS script in your store' },
@@ -14,6 +20,7 @@ const DELIVERY_COMPANIES = [
 ];
 
 const STEPS = [
+  { id: 'language',  title: 'Language',             Icon: Languages },
   { id: 'identity',  title: 'Store Identity',       Icon: Store },
   { id: 'platforms', title: 'E-commerce Platforms', Icon: Globe },
   { id: 'delivery',  title: 'Delivery Company',     Icon: Truck },
@@ -41,13 +48,16 @@ function CopyBox({ value }) {
 export default function Setup({ user, onComplete }) {
   const origin = window.location.origin;
 
-  // completed steps: {identity: true, platforms: true, ...}
+  // completed steps: {language: true, identity: true, ...}
   const [done, setDone]         = useState({});
-  const [active, setActive]     = useState('identity');
+  const [active, setActive]     = useState('language');
   const [error, setError]       = useState('');
   const [saving, setSaving]     = useState(false);
 
-  // Step 1 — identity
+  // Step 1 — language
+  const [selLang, setSelLang] = useState(() => localStorage.getItem('app_lang') || 'en');
+
+  // Step 2 — identity
   const [username,  setUsername]  = useState(user?.username  || '');
   const [storeName, setStoreName] = useState(user?.store_name || '');
 
@@ -107,6 +117,12 @@ export default function Setup({ user, onComplete }) {
 
   // ── Step handlers ────────────────────────────────────────────
 
+  const handleLanguage = async () => {
+    localStorage.setItem('app_lang', selLang);
+    document.documentElement.setAttribute('dir', selLang === 'ar' ? 'rtl' : 'ltr');
+    await markDone('language');
+  };
+
   const handleIdentity = async () => {
     if (!username.trim() || !storeName.trim()) { setError('Both fields are required'); return; }
     setSaving(true); setError('');
@@ -158,6 +174,33 @@ export default function Setup({ user, onComplete }) {
   // ── Step content ─────────────────────────────────────────────
 
   const stepContent = {
+    language: (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <p style={{ fontSize: 14, color: 'var(--t2)', margin: 0 }}>
+          Choose the language you want to use in Stocky. You can change it anytime in Settings.
+        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {LANGUAGES.map(l => (
+            <div key={l.code}
+              onClick={() => setSelLang(l.code)}
+              style={{
+                padding: '14px 18px', borderRadius: 'var(--r-sm)', cursor: 'pointer', transition: 'all .15s',
+                border: `1.5px solid ${selLang === l.code ? 'var(--accent)' : 'var(--border)'}`,
+                background: selLang === l.code ? 'var(--accent-c)' : 'var(--card-2)',
+                display: 'flex', alignItems: 'center', gap: 14,
+              }}>
+              <span style={{ fontSize: 22 }}>{l.flag}</span>
+              <span style={{ fontSize: 15, fontWeight: selLang === l.code ? 700 : 500, color: 'var(--t1)' }}>{l.label}</span>
+              {selLang === l.code && <Check size={15} strokeWidth={2.5} style={{ color: 'var(--accent)', marginLeft: 'auto' }} />}
+            </div>
+          ))}
+        </div>
+        <button className="btn btn-primary" onClick={handleLanguage} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Check size={14} strokeWidth={2.5} /> Continue
+        </button>
+      </div>
+    ),
+
     identity: (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <p style={{ fontSize: 14, color: 'var(--t2)', margin: 0 }}>
@@ -274,7 +317,7 @@ export default function Setup({ user, onComplete }) {
     ),
   };
 
-  const unlockedFrom = done.identity ? 0 : 99;
+  const unlockedFrom = done.language ? 0 : 99;
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', padding: '40px 16px' }}>
@@ -293,7 +336,7 @@ export default function Setup({ user, onComplete }) {
           {STEPS.map((s, i) => {
             const isDone    = done[s.id];
             const isActive  = active === s.id;
-            const isLocked  = i > 0 && !done.identity;
+            const isLocked  = i > 0 && !done.language;
             return (
               <div
                 key={s.id}
