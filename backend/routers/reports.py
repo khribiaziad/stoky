@@ -157,6 +157,110 @@ def list_cities(db: Session = Depends(get_db), user: models.User = Depends(get_c
     return [{"id": c.id, "name": c.name, "delivery_fee": c.delivery_fee, "return_fee": c.return_fee, "is_casa": c.is_casa} for c in cities]
 
 
+def _prev_range(period, s, e, now):
+    """Return (prev_start, prev_end) for the period preceding (s, e)."""
+    if period == "today":
+        yesterday = now - timedelta(days=1)
+        return (
+            yesterday.replace(hour=0, minute=0, second=0, microsecond=0),
+            yesterday.replace(hour=23, minute=59, second=59),
+        )
+    if period == "last_7_days":
+        return (now - timedelta(days=14), now - timedelta(days=7))
+    if period == "this_week":
+        day = now.weekday()
+        start_of_week = (now - timedelta(days=day)).replace(hour=0, minute=0, second=0, microsecond=0)
+        prev_end = start_of_week - timedelta(seconds=1)
+        return (start_of_week - timedelta(days=7), prev_end)
+    if period == "this_month":
+        first_this = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        prev_end = first_this - timedelta(seconds=1)
+        prev_start = prev_end.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        return (prev_start, prev_end)
+    if s and e:
+        duration = e - s
+        return (s - duration - timedelta(seconds=1), s - timedelta(seconds=1))
+    return (None, None)
+
+
+@router.get("/dashboard")
+def get_dashboard_stats(
+    period: Optional[str] = None,
+    start: Optional[str] = None,
+    end: Optional[str] = None,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(get_current_user),
+):
+    """Operational snapshot: order counts for selected period + clean profit + team today."""
+    uid = get_store_id(user)
+    now = datetime.now()
+
+    if not period and not start:
+        period = "today"
+
+    s, e = parse_date_range(period, start, end)
+    if s is None: s = datetime(2000, 1, 1)
+    if e is None: e = now
+
+    def count_orders(s0, e0):
+        if s0 is None or e0 is None:
+            return {"to_confirm": 0, "in_delivery": 0, "delivered": 0, "returned": 0}
+        orders = db.query(models.Order).filter(
+            models.Order.user_id == uid,
+            models.Order.order_date >= s0,
+            models.Order.order_date <= e0,
+        ).all()
+        return {
+            "to_confirm": sum(1 for o in orders if o.status == "pending" and not o.tracking_id),
+            "in_delivery": sum(1 for o in orders if o.status == "pending" and o.tracking_id),
+            "delivered":   sum(1 for o in orders if o.status == "delivered"),
+            "returned":    sum(1 for o in orders if o.status == "cancelled"),
+        }
+
+    current = count_orders(s, e)
+    ps, pe = _prev_range(period, s, e, now)
+    previous = count_orders(ps, pe)
+
+    # Clean profit for selected period
+    gross   = calculate_gross_profit(db, s, e, uid)
+    team_c  = calculate_team_costs(db, s, e, uid)
+    fixed_c = calculate_fixed_expenses(db, s, e, uid)
+    ads_c   = calculate_facebook_ads(db, s, e, uid)
+    clean_profit = round(gross - team_c - fixed_c - ads_c, 2)
+
+    # Team performance: always today regardless of period
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    team_orders = db.query(models.Order).filter(
+        models.Order.user_id == uid,
+        models.Order.order_date >= today_start,
+        models.Order.uploaded_by.isnot(None),
+    ).all()
+
+    uploaders: dict = {}
+    for o in team_orders:
+        k = o.uploaded_by
+        if k not in uploaders:
+            uploaders[k] = {"total": 0, "delivered": 0, "returned": 0}
+        uploaders[k]["total"] += 1
+        if o.status == "delivered":   uploaders[k]["delivered"] += 1
+        elif o.status == "cancelled": uploaders[k]["returned"]  += 1
+
+    team_today = []
+    for uploader_id, st in uploaders.items():
+        uploader = db.query(models.User).filter(models.User.id == uploader_id).first()
+        name = uploader.username if uploader else f"User {uploader_id}"
+        team_today.append({"name": name, **st})
+    team_today.sort(key=lambda x: x["total"], reverse=True)
+
+    return {
+        "current":      current,
+        "previous":     previous,
+        "has_previous": ps is not None,
+        "clean_profit": clean_profit,
+        "team_today":   team_today,
+    }
+
+
 @router.get("/my-stats")
 def get_my_stats(
     period: Optional[str] = None,

@@ -261,7 +261,7 @@ export default function App() {
   const settingsProps = { user, theme, setTheme, lang, setLang, accent, setAccent, logo, setLogo, onStoreName: handleStoreName, onLogout: handleLogout };
 
   const pages = {
-    dashboard: <Dashboard onNavigate={navigate} user={user} />,
+    dashboard: <Dashboard onNavigate={navigate} user={user} lang={lang} />,
     orders:    <Orders user={user} />,
     leads:     <Leads />,
     suppliers: <Suppliers />,
