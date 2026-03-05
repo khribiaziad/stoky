@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { getDashboardStats, getReportSummary, getProducts, getMyStats, getSetting, setSetting, errorMessage } from '../api';
+import { getDashboardStats, getReportSummary, getProducts, getMyStats, getLeads, getSetting, setSetting, errorMessage } from '../api';
 
 // ── Translations ───────────────────────────────────────────────────────────
 const T = {
@@ -119,6 +119,8 @@ export default function Dashboard({ onNavigate, user, lang = 'en' }) {
 
   // Admin state
   const [lowStockOpen, setLowStockOpen] = useState(true);
+  const [pendingLeads, setPendingLeads] = useState([]);
+  const [leadsOpen, setLeadsOpen] = useState(true);
   const [period, setPeriod] = useState('today');
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
@@ -158,6 +160,11 @@ export default function Dashboard({ onNavigate, user, lang = 'en' }) {
   useEffect(() => {
     if (isConfirmer) return;
     if (period !== 'custom') loadStats(period, '', '');
+
+    getLeads().then(r => {
+      const actionable = r.data.filter(l => l.status === 'pending' || l.status === 'unresponsive');
+      setPendingLeads(actionable);
+    }).catch(() => {});
 
     getProducts().then(r => {
       const items = r.data.flatMap(p =>
@@ -420,6 +427,105 @@ export default function Dashboard({ onNavigate, user, lang = 'en' }) {
               </div>
             </div>
           </div>
+
+          {/* Pending Leads — collapsible */}
+          {pendingLeads.length > 0 && (() => {
+            const todayStr = new Date().toDateString();
+            const newToday = pendingLeads.filter(l => new Date(l.created_at).toDateString() === todayStr).length;
+            return (
+              <div className="card" style={{ marginBottom: 16, border: '1px solid #a78bfa44' }}>
+                <div
+                  style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', userSelect: 'none' }}
+                  onClick={() => setLeadsOpen(o => !o)}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 18 }}>📋</span>
+                    <span style={{ fontWeight: 700, color: '#a78bfa', fontSize: 15 }}>Pending Leads</span>
+                    <span style={{ background: '#a78bfa22', color: '#a78bfa', borderRadius: 12, padding: '2px 10px', fontSize: 12, fontWeight: 700 }}>
+                      {pendingLeads.length}
+                    </span>
+                    {newToday > 0 && (
+                      <span style={{ background: '#f59e0b22', color: '#f59e0b', borderRadius: 12, padding: '2px 10px', fontSize: 12, fontWeight: 700 }}>
+                        +{newToday} today
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {leadsOpen && (
+                      <button
+                        onClick={e => { e.stopPropagation(); onNavigate('leads'); }}
+                        className="btn btn-sm"
+                        style={{ borderColor: '#a78bfa', color: '#a78bfa', fontSize: 12 }}
+                      >
+                        View All
+                      </button>
+                    )}
+                    <span style={{ color: '#a78bfa', fontSize: 13 }}>{leadsOpen ? '▲' : '▼'}</span>
+                  </div>
+                </div>
+
+                {leadsOpen && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 12 }}>
+                    {pendingLeads.slice(0, 6).map(lead => {
+                      const digits = lead.customer_phone.replace(/\D/g, '');
+                      const waPhone = digits.startsWith('0') ? '212' + digits.slice(1) : digits;
+                      const items = lead.matched_items || lead.raw_items || [];
+                      const itemsText = items.map(i => `${i.product_name} ×${i.quantity}`).join(', ') || '—';
+                      const isNew = new Date(lead.created_at).toDateString() === todayStr;
+                      return (
+                        <div key={lead.id} style={{
+                          display: 'flex', alignItems: 'center', gap: 10,
+                          padding: '9px 12px', background: 'var(--bg)', borderRadius: 8,
+                          border: `1px solid ${lead.status === 'unresponsive' ? '#6b728033' : '#a78bfa22'}`,
+                        }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <span style={{ fontWeight: 600, color: '#e2e8f0', fontSize: 14 }}>{lead.customer_name}</span>
+                              {isNew && <span style={{ fontSize: 10, fontWeight: 700, color: '#f59e0b', background: '#f59e0b22', padding: '1px 6px', borderRadius: 99 }}>NEW</span>}
+                              {lead.status === 'unresponsive' && <span style={{ fontSize: 10, fontWeight: 700, color: '#6b7280', background: '#6b728022', padding: '1px 6px', borderRadius: 99 }}>NO ANSWER</span>}
+                            </div>
+                            <div style={{ fontSize: 12, color: '#8892b0', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {lead.customer_city && <span>{lead.customer_city} · </span>}{itemsText}
+                            </div>
+                          </div>
+                          {lead.total_amount > 0 && (
+                            <span style={{ fontSize: 13, fontWeight: 600, color: '#a78bfa', flexShrink: 0 }}>
+                              {lead.total_amount.toFixed(0)} MAD
+                            </span>
+                          )}
+                          <a
+                            href={`https://wa.me/${waPhone}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={e => e.stopPropagation()}
+                            style={{
+                              flexShrink: 0, width: 32, height: 32, borderRadius: '50%',
+                              background: '#25D36622', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              textDecoration: 'none', color: '#25D366',
+                            }}
+                            title={lead.customer_phone}
+                          >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                            </svg>
+                          </a>
+                        </div>
+                      );
+                    })}
+                    {pendingLeads.length > 6 && (
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        style={{ alignSelf: 'center', marginTop: 4 }}
+                        onClick={() => onNavigate('leads')}
+                      >
+                        +{pendingLeads.length - 6} more — View All
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {/* Charts — Orders Trend + Pipeline Funnel */}
           {(() => {
