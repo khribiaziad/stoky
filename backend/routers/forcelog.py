@@ -81,6 +81,20 @@ def _normalize_phone_for_forcelog(phone: str) -> str:
     return p[:14]
 
 
+DELIVERED_KEYWORDS = ["livré", "livre", "delivered", "confirmé par livreur", "livraison effectuée"]
+CANCELLED_KEYWORDS = ["annulé", "annule", "retour", "refusé", "refuse", "cancelled", "retourné", "retourne", "echec", "échoué"]
+
+
+def _map_status(raw: str) -> str | None:
+    """Map a raw delivery-company status string to Stocky's order status."""
+    s = raw.lower()
+    if any(k in s for k in DELIVERED_KEYWORDS):
+        return "delivered"
+    if any(k in s for k in CANCELLED_KEYWORDS):
+        return "cancelled"
+    return None  # still in transit / unknown → don't change order status
+
+
 def _get_store_id(user: models.User) -> int:
     return user.store_id if user.role == "confirmer" else user.id
 
@@ -213,11 +227,51 @@ def get_forcelog_status(
 
     if status_raw:
         order.delivery_status = status_raw
-        s = status_raw.lower()
-        if any(k in s for k in ["livré", "livre", "delivered"]):
-            order.status = "delivered"
-        elif any(k in s for k in ["annulé", "annule", "retour", "refusé"]):
-            order.status = "cancelled"
+        mapped = _map_status(status_raw)
+        if mapped:
+            order.status = mapped
         db.commit()
 
     return {"status": status_raw, "tracking_id": order.tracking_id, "delivery_status": status_raw}
+
+
+@router.post("/sync-all")
+def sync_all_forcelog(
+    db: Session = Depends(get_db),
+    user: models.User = Depends(get_current_user),
+):
+    """Refresh delivery status for all Forcelog orders that are still pending."""
+    sid = _get_store_id(user)
+    api_key = _get_setting(db, "forcelog_api_key", sid)
+    if not api_key:
+        raise HTTPException(400, "Forcelog API key not configured")
+
+    orders = db.query(models.Order).filter(
+        models.Order.user_id == sid,
+        models.Order.delivery_provider == "forcelog",
+        models.Order.tracking_id.isnot(None),
+        models.Order.status == "pending",
+    ).all()
+
+    updated = []
+    for order in orders:
+        try:
+            r = httpx.get(
+                f"{FORCELOG_BASE}/customer/Parcels/GetParcel",
+                params={"Code": order.tracking_id},
+                headers={"X-API-Key": api_key},
+                timeout=10,
+            )
+            if r.status_code == 200:
+                status_raw = r.json().get("PARCEL", {}).get("STATUS", "")
+                if status_raw:
+                    order.delivery_status = status_raw
+                    mapped = _map_status(status_raw)
+                    if mapped:
+                        order.status = mapped
+                    updated.append({"id": order.id, "caleo_id": order.caleo_id, "delivery_status": status_raw, "status": order.status})
+        except Exception:
+            continue
+
+    db.commit()
+    return {"updated": len(updated), "orders": updated}

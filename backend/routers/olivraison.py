@@ -150,11 +150,56 @@ async def olivraison_webhook(request: Request, db: Session = Depends(get_db)):
         order.delivery_status = status_raw
 
     # Map to Stocky order status
-    s = status_raw.lower()
-    if any(k in s for k in ["livré", "livre", "delivered", "confirmé par livreur"]):
-        order.status = "delivered"
-    elif any(k in s for k in ["annulé", "annule", "refusé", "refuse", "cancelled"]):
-        order.status = "cancelled"
+    from routers.forcelog import _map_status
+    mapped = _map_status(status_raw)
+    if mapped:
+        order.status = mapped
 
     db.commit()
     return {"ok": True}
+
+
+@router.post("/sync-all")
+def sync_all_olivraison(
+    db: Session = Depends(get_db),
+    user: models.User = Depends(get_current_user),
+):
+    """Refresh delivery status for all Olivraison orders that are still pending."""
+    from routers.forcelog import _map_status
+    sid = _get_store_id(user)
+    api_key = _get_setting(db, "olivraison_api_key", sid)
+    secret  = _get_setting(db, "olivraison_secret_key", sid)
+    if not api_key or not secret:
+        raise HTTPException(400, "Olivraison credentials not configured")
+
+    token = _get_token(sid, api_key, secret)
+
+    orders = db.query(models.Order).filter(
+        models.Order.user_id == sid,
+        models.Order.delivery_provider == "olivraison",
+        models.Order.tracking_id.isnot(None),
+        models.Order.status == "pending",
+    ).all()
+
+    updated = []
+    for order in orders:
+        try:
+            r = httpx.get(
+                f"{OLIVRAISON_BASE}/package/{order.tracking_id}",
+                headers={"Authorization": f"Bearer {token}"},
+                timeout=10,
+            )
+            if r.status_code == 200:
+                data = r.json()
+                status_raw = str(data.get("status") or data.get("statut") or "").strip()
+                if status_raw:
+                    order.delivery_status = status_raw
+                    mapped = _map_status(status_raw)
+                    if mapped:
+                        order.status = mapped
+                    updated.append({"id": order.id, "caleo_id": order.caleo_id, "delivery_status": status_raw, "status": order.status})
+        except Exception:
+            continue
+
+    db.commit()
+    return {"updated": len(updated), "orders": updated}

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { getOrders, getProducts, getPacks, uploadPickupPDF, bulkCreateOrders, uploadReturnPDF, processReturns, updateOrderStatus, updateOrder, deleteOrder, updateOrderNotes, bulkUpdateOrderStatus, sendToOlivraison, sendToForcelog, getForcelogStatus } from '../api';
+import { getOrders, getProducts, getPacks, uploadPickupPDF, bulkCreateOrders, uploadReturnPDF, processReturns, updateOrderStatus, updateOrder, deleteOrder, updateOrderNotes, bulkUpdateOrderStatus, sendToOlivraison, sendToForcelog, getForcelogStatus, syncAllForcelog, syncAllOlivraison } from '../api';
 
 function downloadCSV(rows, filename) {
   const csv = rows.map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
@@ -280,6 +280,22 @@ export default function Orders() {
     }
   };
 
+  const [syncing, setSyncing] = useState(false);
+  const handleSyncAll = async () => {
+    setSyncing(true);
+    setError('');
+    try {
+      const [fl, ol] = await Promise.allSettled([syncAllForcelog(), syncAllOlivraison()]);
+      const flCount = fl.status === 'fulfilled' ? fl.value.data.updated : 0;
+      const olCount = ol.status === 'fulfilled' ? ol.value.data.updated : 0;
+      setSuccess(`Synced: ${flCount} Forcelog + ${olCount} Olivraison orders updated`);
+      load();
+    } catch (e) {
+      setError(e.response?.data?.detail || 'Sync failed');
+    }
+    setSyncing(false);
+  };
+
   const handleSendForcelog = async (id) => {
     setSendingForce(id);
     try {
@@ -535,6 +551,7 @@ export default function Orders() {
               {uploading ? '⏳ Parsing...' : '📤 Upload Pickup PDF'}
             </button>
             <button className="btn btn-secondary" onClick={exportCSV} title="Export visible orders to CSV">⬇ Export CSV</button>
+            <button className="btn btn-secondary" onClick={handleSyncAll} disabled={syncing} title="Refresh delivery status from Forcelog & Olivraison">{syncing ? '⏳ Syncing...' : '🔄 Sync Status'}</button>
           </> : <>
             <button className="btn btn-secondary" style={{ borderColor: '#f87171', color: '#f87171' }} onClick={() => { setError(''); setShowManualReturn(true); }}>↩ Create Return</button>
             <button className="btn btn-secondary" onClick={() => returnRef.current.click()} disabled={uploading}>
