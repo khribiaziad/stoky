@@ -1,4 +1,5 @@
 import os
+import traceback
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from auth import get_current_user
@@ -47,5 +48,7 @@ def explain_error(
         )
         return {"explanation": resp.content[0].text}
 
-    except Exception:
+    except Exception as e:
+        print(f"[AI] explain-error failed: {type(e).__name__}: {e}")
+        traceback.print_exc()
         raise HTTPException(500, "AI request failed — please try again")
