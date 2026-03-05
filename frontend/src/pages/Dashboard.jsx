@@ -112,9 +112,21 @@ function Delta({ now, prev, label }) {
   );
 }
 
+// ── Mobile detection ───────────────────────────────────────────────────────
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
+  return isMobile;
+}
+
 // ── Main Component ─────────────────────────────────────────────────────────
 export default function Dashboard({ onNavigate, user, lang = 'en' }) {
   const t = T[lang] || T.en;
+  const isMobile = useIsMobile();
   const isConfirmer = user?.role === 'confirmer';
 
   // Admin state
@@ -318,12 +330,12 @@ export default function Dashboard({ onNavigate, user, lang = 'en' }) {
 
   return (
     <div>
-      <div className="page-header">
+      <div className="page-header" style={isMobile ? { flexDirection: 'column', alignItems: 'flex-start', gap: 10 } : {}}>
         <h1 className="page-title">{t.title}</h1>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', width: isMobile ? '100%' : 'auto' }}>
           <select
             className="form-input"
-            style={{ width: 'auto', padding: '6px 12px' }}
+            style={{ width: isMobile ? '100%' : 'auto', padding: '6px 12px' }}
             value={period}
             onChange={e => setPeriod(e.target.value)}
           >
@@ -333,10 +345,10 @@ export default function Dashboard({ onNavigate, user, lang = 'en' }) {
           </select>
           {period === 'custom' && (
             <>
-              <input className="form-input" type="date" style={{ width: 'auto' }}
+              <input className="form-input" type="date" style={{ width: isMobile ? '100%' : 'auto' }}
                 value={customStart} onChange={e => setCustomStart(e.target.value)} />
               <span style={{ color: '#8892b0' }}>{t.to}</span>
-              <input className="form-input" type="date" style={{ width: 'auto' }}
+              <input className="form-input" type="date" style={{ width: isMobile ? '100%' : 'auto' }}
                 value={customEnd} onChange={e => setCustomEnd(e.target.value)} />
               <button className="btn btn-primary btn-sm"
                 onClick={() => loadStats('custom', customStart, customEnd)}>
@@ -408,7 +420,7 @@ export default function Dashboard({ onNavigate, user, lang = 'en' }) {
       {loading ? <div className="loading">Loading...</div> : (
         <>
           {/* 4 KPI Cards + Clean Profit */}
-          <div className="stat-grid" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
+          <div className="stat-grid" style={{ gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(5, 1fr)' }}>
             {kpiCards.map(card => (
               <div key={card.key} className="stat-card">
                 <div className="stat-label">{card.label}</div>
@@ -488,7 +500,7 @@ export default function Dashboard({ onNavigate, user, lang = 'en' }) {
                               {lead.customer_city && <span>{lead.customer_city} · </span>}{itemsText}
                             </div>
                           </div>
-                          {lead.total_amount > 0 && (
+                          {lead.total_amount > 0 && !isMobile && (
                             <span style={{ fontSize: 13, fontWeight: 600, color: '#a78bfa', flexShrink: 0 }}>
                               {lead.total_amount.toFixed(0)} MAD
                             </span>
@@ -553,7 +565,7 @@ export default function Dashboard({ onNavigate, user, lang = 'en' }) {
               { label: t.returned,   val: current.returned ?? 0,    color: '#f87171', note: null },
             ];
             return (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16, marginBottom: 24 }}>
                 {/* Line chart — daily orders last 7 days */}
                 <div className="card">
                   <div className="card-title" style={{ marginBottom: 16 }}>Orders — Last 7 Days</div>
@@ -600,7 +612,7 @@ export default function Dashboard({ onNavigate, user, lang = 'en' }) {
           })()}
 
           {/* Daily Goal + Team Today */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16, marginBottom: 24 }}>
 
             {/* Daily Revenue Goal — always today */}
             <div className="card">
