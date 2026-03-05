@@ -95,37 +95,25 @@ def _extract_order_id(text: str) -> str:
 
 
 def _extract_phone(text: str) -> str:
-    """Extract a Moroccan phone number from text.
+    """Extract the customer's Moroccan phone number from text.
 
-    Searches the recipient section first to avoid returning the sender's phone,
-    which is the same on every page and often appears before the customer's number.
+    Collects ALL valid Moroccan phone numbers on the page. If there is more
+    than one, the sender's number is usually first (header) and the customer's
+    is last — so return the last distinct number found.
     """
-    # Narrow down to the recipient section when possible
-    dest_section = re.search(
-        r'(?:destinataire|client|b[ée]n[ée]ficiaire|recipient|المستلم).*?(?=exp[ée]diteur|envoyeur|$)',
-        text, re.IGNORECASE | re.DOTALL
-    )
-    search_text = dest_section.group(0) if dest_section else text
-
-    # Try labeled field in recipient section first, then full text
-    for search in ([search_text, text] if dest_section else [text]):
-        labeled = re.search(
-            r'(?:t[ée]l(?:[ée]phone)?|phone|mobile|portable|gsm|هاتف|رقم(?:\s+الهاتف)?|tel)\s*[:#\s]?\s*(\+?[\d\s\.\-]{9,16})',
-            search, re.IGNORECASE
-        )
-        if labeled:
-            phone = re.sub(r'[\s\.\-]', '', labeled.group(1))
-            if re.match(r'^(\+?212|00212)?[067]\d{8}$', phone):
-                return phone
-
-    # Raw Moroccan phone — prefer within recipient section
-    for search in ([search_text, text] if dest_section else [text]):
-        clean = re.sub(r'[\s\.\-]', '', search)
-        m = re.search(r'(\+?212[67]\d{8}|00212[67]\d{8}|0[67]\d{8})', clean)
-        if m:
-            return m.group(1)
-
-    return ""
+    clean = re.sub(r'[\s\.\-]', '', text)
+    phones = re.findall(r'(\+?212[67]\d{8}|00212[67]\d{8}|0[67]\d{8})', clean)
+    if not phones:
+        return ""
+    # Deduplicate while preserving order
+    seen = []
+    for p in phones:
+        if p not in seen:
+            seen.append(p)
+    # If there is only one unique number it must be the customer's.
+    # If there are multiple, the sender's repeats on every page (first hit);
+    # the customer's unique number is the last distinct one.
+    return seen[-1]
 
 
 def _extract_amount(text: str) -> float:
