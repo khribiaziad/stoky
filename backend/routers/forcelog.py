@@ -160,7 +160,11 @@ def send_to_forcelog(
     result = data.get("ADD-PARCEL", {})
 
     if result.get("RESULT") != "SUCCESS":
-        raise HTTPException(400, f"Forcelog error: {result.get('MESSAGE', 'Unknown error')}")
+        msg = result.get('MESSAGE', 'Unknown error')
+        city_sent = _normalize_city_for_forcelog(order.city or "")
+        if "city" in msg.lower():
+            msg += f" (sent: '{city_sent}', stored: '{order.city}')"
+        raise HTTPException(400, f"Forcelog error: {msg}")
 
     tracking_number = (result.get("NEW-PARCEL") or {}).get("TRACKING_NUMBER")
 
