@@ -6,7 +6,7 @@ import {
 import {
   getPlatformStats, getPlatformGrowth, getPlatformStores, createPlatformStore,
   updateStoreStatus, updateStoreSubscription, updateStoreNotes, resetStorePassword,
-  getStorePayments, addStorePayment, deletePayment,
+  getStorePayments, addStorePayment, deletePayment, deleteStore,
   getPlatformSettings, savePlatformSetting,
 } from '../api';
 
@@ -199,7 +199,7 @@ function CreateStoreModal({ onClose, onCreated }) {
 
 // ── Store Drawer ──────────────────────────────────────────────────────────────
 
-function StoreDrawer({ store, onClose, onUpdate }) {
+function StoreDrawer({ store, onClose, onUpdate, onDelete }) {
   const [tab, setTab] = useState('overview');
   const [sub, setSub] = useState(store.subscription);
   const [notes, setNotes] = useState(store.subscription.notes || '');
@@ -264,6 +264,12 @@ function StoreDrawer({ store, onClose, onUpdate }) {
       setNewPwd('');
       alert('Password reset successfully');
     } finally { setResetting(false); }
+  };
+
+  const handleDelete = async () => {
+    if (!window.confirm(`Delete "${store.store_name}" and ALL its data? This cannot be undone.`)) return;
+    await deleteStore(store.id);
+    onDelete(store.id);
   };
 
   const handleAddPayment = async () => {
@@ -429,6 +435,9 @@ function StoreDrawer({ store, onClose, onUpdate }) {
                     {resetting ? '…' : 'Reset'}
                   </button>
                 </div>
+                <button className="btn btn-danger btn-sm" style={{ width: '100%', marginTop: 4 }} onClick={handleDelete}>
+                  <Trash2 size={13} strokeWidth={1.75} /> Delete Store & All Data
+                </button>
               </div>
             </>
           )}
@@ -557,6 +566,12 @@ export default function Platform({ onLogout }) {
   };
 
   const handleStoreCreated = () => { load(); };
+
+  const handleStoreDelete = (storeId) => {
+    setStores(prev => prev.filter(s => s.id !== storeId));
+    setSelectedStore(null);
+    getPlatformStats().then(r => setStats(r.data));
+  };
 
   const now = new Date();
   const filtered = stores.filter(s => {
@@ -692,6 +707,7 @@ export default function Platform({ onLogout }) {
           store={selectedStore}
           onClose={() => setSelectedStore(null)}
           onUpdate={handleStoreUpdate}
+          onDelete={handleStoreDelete}
         />
       )}
 

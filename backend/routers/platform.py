@@ -151,6 +151,68 @@ def reset_password(store_id: int, data: ResetPasswordInput, db: Session = Depend
     return {"success": True}
 
 
+@router.delete("/stores/{store_id}")
+def delete_store(store_id: int, db: Session = Depends(get_db), _: models.User = Depends(require_super_admin)):
+    store = db.query(models.User).filter(models.User.id == store_id, models.User.role == "admin").first()
+    if not store:
+        raise HTTPException(status_code=404, detail="Store not found")
+
+    # Delete all data belonging to this store in dependency order
+    db.query(models.Notification).filter_by(user_id=store_id).delete()
+    db.query(models.Lead).filter_by(store_id=store_id).delete()
+    db.query(models.AppSettings).filter_by(user_id=store_id).delete()
+    db.query(models.StoreApiKey).filter_by(user_id=store_id).delete()
+    db.query(models.FacebookAd).filter_by(user_id=store_id).delete()
+    db.query(models.AdPlatform).filter_by(user_id=store_id).delete()
+    db.query(models.Withdrawal).filter_by(user_id=store_id).delete()
+    db.query(models.FixedExpense).filter_by(user_id=store_id).delete()
+    db.query(models.StockArrival).filter_by(user_id=store_id).delete()
+
+    # Orders + their items/expenses
+    order_ids = [o.id for o in db.query(models.Order.id).filter_by(user_id=store_id).all()]
+    if order_ids:
+        db.query(models.OrderExpense).filter(models.OrderExpense.order_id.in_(order_ids)).delete(synchronize_session=False)
+        db.query(models.OrderItem).filter(models.OrderItem.order_id.in_(order_ids)).delete(synchronize_session=False)
+    db.query(models.Order).filter_by(user_id=store_id).delete()
+
+    # Products + variants + packs
+    product_ids = [p.id for p in db.query(models.Product.id).filter_by(user_id=store_id).all()]
+    if product_ids:
+        variant_ids = [v.id for v in db.query(models.Variant.id).filter(models.Variant.product_id.in_(product_ids)).all()]
+        if variant_ids:
+            db.query(models.BrokenStock).filter(models.BrokenStock.variant_id.in_(variant_ids)).delete(synchronize_session=False)
+        db.query(models.Variant).filter(models.Variant.product_id.in_(product_ids)).delete(synchronize_session=False)
+    db.query(models.Product).filter_by(user_id=store_id).delete()
+
+    pack_ids = [p.id for p in db.query(models.Pack.id).filter_by(user_id=store_id).all()]
+    if pack_ids:
+        preset_ids = [pr.id for pr in db.query(models.PackPreset.id).filter(models.PackPreset.pack_id.in_(pack_ids)).all()]
+        if preset_ids:
+            db.query(models.PackPresetItem).filter(models.PackPresetItem.preset_id.in_(preset_ids)).delete(synchronize_session=False)
+        db.query(models.PackPreset).filter(models.PackPreset.pack_id.in_(pack_ids)).delete(synchronize_session=False)
+    db.query(models.Pack).filter_by(user_id=store_id).delete()
+
+    db.query(models.City).filter_by(user_id=store_id).delete()
+    db.query(models.TeamMember).filter_by(user_id=store_id).delete()
+
+    # Suppliers + payments
+    supplier_ids = [s.id for s in db.query(models.Supplier.id).filter_by(user_id=store_id).all()]
+    if supplier_ids:
+        db.query(models.SupplierPayment).filter(models.SupplierPayment.supplier_id.in_(supplier_ids)).delete(synchronize_session=False)
+    db.query(models.Supplier).filter_by(user_id=store_id).delete()
+
+    # Confirmer sub-accounts
+    db.query(models.User).filter_by(store_id=store_id, role="confirmer").delete()
+
+    # Subscription + payments
+    db.query(models.Payment).filter_by(store_id=store_id).delete()
+    db.query(models.Subscription).filter_by(store_id=store_id).delete()
+
+    db.delete(store)
+    db.commit()
+    return {"success": True}
+
+
 # ── Subscription ──────────────────────────────────────────────────────────────
 
 class UpdateSubscriptionInput(BaseModel):

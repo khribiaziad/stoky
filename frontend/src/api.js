@@ -184,6 +184,7 @@ export const updateStoreStatus       = (storeId, isApproved) => api.patch(`/plat
 export const updateStoreSubscription = (storeId, data) => api.patch(`/platform/stores/${storeId}/subscription`, data);
 export const updateStoreNotes        = (storeId, data) => api.patch(`/platform/stores/${storeId}/notes`, data);
 export const resetStorePassword      = (storeId, newPassword) => api.post(`/platform/stores/${storeId}/reset-password`, { new_password: newPassword });
+export const deleteStore             = (storeId) => api.delete(`/platform/stores/${storeId}`);
 export const getStorePayments        = (storeId) => api.get(`/platform/stores/${storeId}/payments`);
 export const addStorePayment         = (storeId, data) => api.post(`/platform/stores/${storeId}/payments`, data);
 export const deletePayment           = (paymentId) => api.delete(`/platform/payments/${paymentId}`);
