@@ -14,7 +14,7 @@ const T = {
       { value: 'custom',      label: 'Custom Range' },
     ],
     to: 'to', apply: 'Apply',
-    toConfirm: 'To Confirm', inDelivery: 'In Delivery',
+    toConfirm: 'To Confirm', awaitingPickup: 'Awaiting Pickup', inDelivery: 'In Delivery',
     delivered: 'Delivered', returned: 'Returned',
     cleanProfit: 'Clean Profit',
     vsPrev: 'vs prev',
@@ -44,7 +44,7 @@ const T = {
       { value: 'custom',      label: 'Plage personnalisée' },
     ],
     to: 'au', apply: 'Appliquer',
-    toConfirm: 'À confirmer', inDelivery: 'En livraison',
+    toConfirm: 'À confirmer', awaitingPickup: 'En attente ramassage', inDelivery: 'En livraison',
     delivered: 'Livrées', returned: 'Retours',
     cleanProfit: 'Bénéfice net',
     vsPrev: 'vs précédent',
@@ -74,7 +74,7 @@ const T = {
       { value: 'custom',      label: 'نطاق مخصص' },
     ],
     to: 'إلى', apply: 'تطبيق',
-    toConfirm: 'للتأكيد', inDelivery: 'قيد التوصيل',
+    toConfirm: 'للتأكيد', awaitingPickup: 'في انتظار الاستلام', inDelivery: 'قيد التوصيل',
     delivered: 'تم التوصيل', returned: 'مرتجعات',
     cleanProfit: 'الربح الصافي',
     vsPrev: 'مقارنة بالسابق',
@@ -320,8 +320,8 @@ export default function Dashboard({ onNavigate, user, lang = 'en' }) {
   const cleanProfit      = stats?.clean_profit      ?? 0;
   const inDeliveryAmount = stats?.in_delivery_amount ?? 0;
 
-  const total       = (current.to_confirm ?? 0) + (current.in_delivery ?? 0) + (current.delivered ?? 0) + (current.returned ?? 0);
-  const confirmed   = (current.in_delivery ?? 0) + (current.delivered ?? 0) + (current.returned ?? 0);
+  const total       = (current.to_confirm ?? 0) + (current.awaiting_pickup ?? 0) + (current.in_delivery ?? 0) + (current.delivered ?? 0) + (current.returned ?? 0);
+  const confirmed   = (current.awaiting_pickup ?? 0) + (current.in_delivery ?? 0) + (current.delivered ?? 0) + (current.returned ?? 0);
   const confRate    = total > 0 ? Math.round(confirmed / total * 100) : null;
   const retTotal    = (current.delivered ?? 0) + (current.returned ?? 0);
   const returnRate  = retTotal > 0 ? Math.round((current.returned ?? 0) / retTotal * 100) : null;
@@ -334,10 +334,11 @@ export default function Dashboard({ onNavigate, user, lang = 'en' }) {
   const clampedPct = Math.min(pct, 100);
 
   const kpiCards = [
-    { label: t.toConfirm,  key: 'to_confirm',  color: '#fbbf24' },
-    { label: t.inDelivery, key: 'in_delivery',  color: '#60a5fa' },
-    { label: t.delivered,  key: 'delivered',    color: '#4ade80' },
-    { label: t.returned,   key: 'returned',     color: '#f87171' },
+    { label: t.toConfirm,      key: 'to_confirm',      color: '#fbbf24' },
+    { label: t.awaitingPickup, key: 'awaiting_pickup',  color: '#fb923c' },
+    { label: t.inDelivery,     key: 'in_delivery',      color: '#60a5fa' },
+    { label: t.delivered,      key: 'delivered',        color: '#4ade80' },
+    { label: t.returned,       key: 'returned',         color: '#f87171' },
   ];
 
   return (
@@ -607,13 +608,13 @@ export default function Dashboard({ onNavigate, user, lang = 'en' }) {
           {/* Charts — Orders Trend + Pipeline Funnel */}
           {(() => {
             const dailyOrders = stats?.daily_orders || [];
-            const total = (current.to_confirm ?? 0) + (current.in_delivery ?? 0) + (current.delivered ?? 0) + (current.returned ?? 0);
-            const sentToDelivery = (current.in_delivery ?? 0) + (current.delivered ?? 0) + (current.returned ?? 0);
+            const total = (current.to_confirm ?? 0) + (current.awaiting_pickup ?? 0) + (current.in_delivery ?? 0) + (current.delivered ?? 0) + (current.returned ?? 0);
             const funnelRows = [
-              { label: t.toConfirm,  val: current.to_confirm ?? 0,  color: '#fbbf24', note: null },
-              { label: t.inDelivery, val: sentToDelivery,            color: '#60a5fa', note: null },
-              { label: t.delivered,  val: current.delivered ?? 0,   color: '#4ade80', note: null },
-              { label: t.returned,   val: current.returned ?? 0,    color: '#f87171', note: null },
+              { label: t.toConfirm,      val: current.to_confirm      ?? 0, color: '#fbbf24', note: null },
+              { label: t.awaitingPickup, val: current.awaiting_pickup  ?? 0, color: '#fb923c', note: null },
+              { label: t.inDelivery,     val: current.in_delivery      ?? 0, color: '#60a5fa', note: null },
+              { label: t.delivered,      val: current.delivered        ?? 0, color: '#4ade80', note: null },
+              { label: t.returned,       val: current.returned         ?? 0, color: '#f87171', note: null },
             ];
             return (
               <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16, marginBottom: 24 }}>

@@ -211,10 +211,11 @@ def get_dashboard_stats(
             models.Order.order_date <= e0,
         ).all()
         return {
-            "to_confirm": sum(1 for o in orders if o.status == "pending" and not o.tracking_id),
-            "in_delivery": sum(1 for o in orders if o.status == "pending" and o.tracking_id),
-            "delivered":   sum(1 for o in orders if o.status == "delivered"),
-            "returned":    sum(1 for o in orders if o.status == "cancelled"),
+            "to_confirm":      sum(1 for o in orders if o.status == "pending" and not o.tracking_id),
+            "awaiting_pickup": sum(1 for o in orders if o.status == "pending" and o.tracking_id and (not o.delivery_status or o.delivery_status == "Envoyé")),
+            "in_delivery":     sum(1 for o in orders if o.status == "pending" and o.tracking_id and o.delivery_status and o.delivery_status != "Envoyé"),
+            "delivered":       sum(1 for o in orders if o.status == "delivered"),
+            "returned":        sum(1 for o in orders if o.status == "cancelled"),
         }
 
     current = count_orders(s, e)
