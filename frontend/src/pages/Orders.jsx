@@ -797,24 +797,22 @@ export default function Orders() {
                           );
                         })()
                         : o.status === 'pending' ? (
-                          <>
-                            <button
-                              className="btn btn-secondary btn-sm"
-                              title="Send to Olivraison"
-                              style={{ color: '#00d48f', fontSize: 13 }}
-                              disabled={sendingOliv === o.id}
-                              onClick={() => handleSendOlivraison(o.id)}>
-                              {sendingOliv === o.id ? '…' : '🚚'}
-                            </button>
-                            <button
-                              className="btn btn-secondary btn-sm"
-                              title="Send to Forcelog"
-                              style={{ color: '#7c3aed', fontSize: 13 }}
-                              disabled={sendingForce === o.id}
-                              onClick={() => handleSendForcelog(o.id)}>
-                              {sendingForce === o.id ? '…' : '📦'}
-                            </button>
-                          </>
+                          <select
+                            className="btn btn-secondary btn-sm"
+                            style={{ cursor: 'pointer', fontSize: 12, paddingRight: 4 }}
+                            disabled={sendingOliv === o.id || sendingForce === o.id}
+                            value=""
+                            onChange={e => {
+                              const v = e.target.value;
+                              if (v === 'olivraison') handleSendOlivraison(o.id);
+                              if (v === 'forcelog')   handleSendForcelog(o.id);
+                            }}>
+                            <option value="" disabled>
+                              {sendingOliv === o.id || sendingForce === o.id ? 'Sending…' : 'Send to…'}
+                            </option>
+                            <option value="olivraison">🚚 Olivraison</option>
+                            <option value="forcelog">📦 Forcelog</option>
+                          </select>
                         ) : null}
                         <button
                           className="btn btn-secondary btn-sm"
