@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { getOrders, getProducts, getPacks, uploadPickupPDF, bulkCreateOrders, uploadReturnPDF, processReturns, updateOrderStatus, updateOrder, deleteOrder, updateOrderNotes, bulkUpdateOrderStatus, sendToOlivraison, sendToForcelog, getForcelogStatus, syncAllForcelog, syncAllOlivraison, errorMessage } from '../api';
+import { getOrders, getProducts, getPacks, uploadPickupPDF, bulkCreateOrders, uploadReturnPDF, processReturns, updateOrderStatus, updateOrder, deleteOrder, updateOrderNotes, bulkUpdateOrderStatus, sendToOlivraison, sendToForcelog, getForcelogStatus, syncAllForcelog, syncAllOlivraison, requestOlivRamassage, requestForcelogRamassage, errorMessage } from '../api';
 import ErrorExplain from '../components/ErrorExplain';
 import { validatePhone, validateAmount, numericOnly, fieldErrorStyle } from '../utils/validate';
 
@@ -91,6 +91,11 @@ export default function Orders() {
   const [sendingForce,   setSendingForce]   = useState(null);
   const [refreshingForce, setRefreshingForce] = useState(null);
 
+  // Ramassage
+  const [showRamassage,    setShowRamassage]    = useState(false);
+  const [ramassageResult,  setRamassageResult]  = useState(null);
+  const [ramassageLoading, setRamassageLoading] = useState(false);
+
   const pickupRef = useRef();
   const returnRef = useRef();
 
@@ -151,7 +156,7 @@ export default function Orders() {
     const flatItems = manualItems
       .filter(item => item.variant_id)
       .map(item => ({ variant_id: parseInt(item.variant_id), quantity: parseInt(item.quantity) || 1 }));
-    if (flatItems.length === 0) { setError('Add at least one product'); return; }
+    if (flatItems.length === 0) { setManualFieldErrors(e => ({ ...e, products: 'Add at least one product' })); return; }
     try {
       await bulkCreateOrders([{ ...manualOrder, total_amount: parseFloat(manualOrder.total_amount), items: flatItems, expenses: manualExpenses }]);
       setSuccess('Order created successfully!');
@@ -312,6 +317,20 @@ export default function Orders() {
       setError(errorMessage(e));
     }
     setSyncing(false);
+  };
+
+  const handleRamassage = async () => {
+    setRamassageLoading(true);
+    setRamassageResult(null);
+    const result = { oliv: null, force: null };
+    const [oRes, fRes] = await Promise.allSettled([
+      requestOlivRamassage(),
+      requestForcelogRamassage(),
+    ]);
+    result.oliv  = oRes.status  === 'fulfilled' ? oRes.value.data  : { error: errorMessage(oRes.reason) };
+    result.force = fRes.status  === 'fulfilled' ? fRes.value.data  : { error: errorMessage(fRes.reason) };
+    setRamassageResult(result);
+    setRamassageLoading(false);
   };
 
   const handleSendForcelog = async (id) => {
@@ -487,7 +506,7 @@ export default function Orders() {
     const flatItems = editItems
       .filter(i => i.variant_id)
       .map(i => ({ variant_id: parseInt(i.variant_id), quantity: parseInt(i.quantity) || 1 }));
-    if (flatItems.length === 0) { setError('Add at least one product'); return; }
+    if (flatItems.length === 0) { setEditFieldErrors(e => ({ ...e, products: 'Add at least one product' })); return; }
     try {
       await updateOrder(editOrder.id, {
         ...editForm,
@@ -577,8 +596,9 @@ export default function Orders() {
             <button className="btn btn-secondary" onClick={() => pickupRef.current.click()} disabled={uploading}>
               {uploading ? '⏳ Parsing...' : '📤 Upload Pickup PDF'}
             </button>
+            <button className="btn btn-secondary" onClick={() => { setRamassageResult(null); setShowRamassage(true); }} title="Request courier pickup">📦 Ramassage</button>
             <button className="btn btn-secondary" onClick={exportCSV} title="Export visible orders to CSV">⬇ Export CSV</button>
-            <button className="btn btn-secondary" onClick={handleSyncAll} disabled={syncing} title="Refresh delivery status from Forcelog & Olivraison">{syncing ? '⏳ Syncing...' : '🔄 Sync Status'}</button>
+            <button className="btn btn-secondary" onClick={handleSyncAll} disabled={syncing} title="Refresh delivery status from Forcelog & Olivraison" style={{ padding: '0 12px', fontSize: 18 }}>{syncing ? '⏳' : '⟳'}</button>
           </> : <>
             <button className="btn btn-secondary" style={{ borderColor: '#f87171', color: '#f87171' }} onClick={() => { setError(''); setShowManualReturn(true); }}>↩ Create Return</button>
             <button className="btn btn-secondary" onClick={() => returnRef.current.click()} disabled={uploading}>
@@ -990,6 +1010,7 @@ export default function Orders() {
 
               <div style={{ marginBottom: 16 }}>
                 <label className="form-label">Products</label>
+                {editFieldErrors.products && <div style={fieldErrorStyle}>{editFieldErrors.products}</div>}
                 {editItems.map((item, j) => (
                   <div key={j} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
                     <select className="form-input" style={{ flex: 1 }} value={item.variant_id}
@@ -1373,6 +1394,7 @@ export default function Orders() {
 
               <div style={{ marginBottom: 16 }}>
                 <label className="form-label">Products</label>
+                {manualFieldErrors.products && <div style={fieldErrorStyle}>{manualFieldErrors.products}</div>}
                 {manualItems.map((item, j) => (
                   <div key={j} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
                     <select className="form-input" style={{ flex: 1 }} value={item.variant_id}
@@ -1678,6 +1700,70 @@ export default function Orders() {
             <div className="modal-footer">
               <button className="btn btn-secondary" onClick={() => setReturnOrders(null)}>Cancel</button>
               <button className="btn btn-danger" onClick={handleProcessReturns}>Confirm Returns</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Ramassage Modal */}
+      {showRamassage && (
+        <div className="modal-overlay" onClick={() => setShowRamassage(false)}>
+          <div className="modal" style={{ maxWidth: 480 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>📦 Ramassage — Request Pickup</h2>
+            </div>
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <p style={{ fontSize: 13, color: 'var(--t2)', margin: 0 }}>
+                Requests a courier pickup for all your in-delivery orders (orders with a tracking number).
+              </p>
+
+              {ramassageResult ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {/* Olivraison result */}
+                  <div style={{ padding: '12px 14px', borderRadius: 'var(--r-sm)', background: 'var(--card-2)', border: `1px solid ${ramassageResult.oliv?.error ? '#f87171' : '#00d48f44'}` }}>
+                    <div style={{ fontWeight: 600, marginBottom: 4 }}>Olivraison</div>
+                    {ramassageResult.oliv?.error ? (
+                      <span style={{ color: '#f87171', fontSize: 13 }}>{ramassageResult.oliv.error}</span>
+                    ) : (
+                      <div style={{ fontSize: 13, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        <span style={{ color: '#4ade80' }}>✓ {ramassageResult.oliv.count} orders requested</span>
+                        {ramassageResult.oliv.sticker_url && (
+                          <a href={ramassageResult.oliv.sticker_url} target="_blank" rel="noreferrer"
+                            style={{ color: 'var(--accent)', textDecoration: 'underline' }}>
+                            ⬇ Download Sticker PDF
+                          </a>
+                        )}
+                        {ramassageResult.oliv.slip_url && (
+                          <a href={ramassageResult.oliv.slip_url} target="_blank" rel="noreferrer"
+                            style={{ color: 'var(--accent)', textDecoration: 'underline' }}>
+                            ⬇ Download Slip PDF
+                          </a>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Forcelog result */}
+                  <div style={{ padding: '12px 14px', borderRadius: 'var(--r-sm)', background: 'var(--card-2)', border: `1px solid ${ramassageResult.force?.error ? '#f87171' : '#00d48f44'}` }}>
+                    <div style={{ fontWeight: 600, marginBottom: 4 }}>Forcelog</div>
+                    {ramassageResult.force?.error ? (
+                      <span style={{ color: '#f87171', fontSize: 13 }}>{ramassageResult.force.error}</span>
+                    ) : (
+                      <span style={{ color: '#4ade80', fontSize: 13 }}>✓ {ramassageResult.force.count} orders requested</span>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <p style={{ fontSize: 13, color: 'var(--t2)', margin: 0 }}>
+                  Click "Request Pickup" to notify Olivraison and Forcelog to come pick up your packages.
+                </p>
+              )}
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setShowRamassage(false)}>Close</button>
+              <button className="btn btn-primary" onClick={handleRamassage} disabled={ramassageLoading}>
+                {ramassageLoading ? '⏳ Requesting...' : '📦 Request Pickup'}
+              </button>
             </div>
           </div>
         </div>

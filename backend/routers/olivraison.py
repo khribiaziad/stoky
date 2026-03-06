@@ -167,6 +167,48 @@ async def olivraison_webhook(request: Request, db: Session = Depends(get_db)):
     return {"ok": True}
 
 
+@router.post("/ramassage")
+def request_ramassage(
+    db: Session = Depends(get_db),
+    user: models.User = Depends(get_current_user),
+):
+    sid = _get_store_id(user)
+    api_key = _get_setting(db, "olivraison_api_key", sid)
+    secret  = _get_setting(db, "olivraison_secret_key", sid)
+    if not api_key or not secret:
+        raise HTTPException(400, "Olivraison credentials not configured — go to Settings → Olivraison")
+
+    # In-delivery = pending status with a tracking ID assigned
+    orders = db.query(models.Order).filter(
+        models.Order.user_id == sid,
+        models.Order.delivery_provider == "olivraison",
+        models.Order.status == "pending",
+        models.Order.tracking_id.isnot(None),
+    ).all()
+
+    if not orders:
+        raise HTTPException(400, "No in-delivery Olivraison orders found for ramassage")
+
+    tracking_ids = [o.tracking_id for o in orders]
+    token = _get_token(sid, api_key, secret)
+
+    with httpx.Client() as client:
+        r = client.post(
+            f"{OLIVRAISON_BASE}/pickup",
+            json={"packages": tracking_ids},
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=20,
+        )
+        r.raise_for_status()
+        data = r.json()
+
+    return {
+        "count": len(tracking_ids),
+        "sticker_url": data.get("stickerFilePath"),
+        "slip_url": data.get("sipFilePath"),
+    }
+
+
 @router.post("/sync-all")
 def sync_all_olivraison(
     db: Session = Depends(get_db),

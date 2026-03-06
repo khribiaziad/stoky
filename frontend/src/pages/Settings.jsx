@@ -214,8 +214,11 @@ export default function Settings({ user, theme, setTheme, lang, setLang, accent,
   const [olivSaved, setOlivSaved]   = useState(false);
 
   // ── Forcelog ──
-  const [forcelogKey,    setForcelogKey]    = useState('');
-  const [forcelogSecret, setForcelogSecret] = useState('');
+  const [forcelogKey,           setForcelogKey]           = useState('');
+  const [forcelogSecret,        setForcelogSecret]        = useState('');
+  const [forcelogPickupPhone,   setForcelogPickupPhone]   = useState('');
+  const [forcelogPickupCity,    setForcelogPickupCity]    = useState('');
+  const [forcelogPickupAddress, setForcelogPickupAddress] = useState('');
   const [forcelogSaving, setForcelogSaving] = useState(false);
   const [forcelogSaved,  setForcelogSaved]  = useState(false);
 
@@ -237,9 +240,15 @@ export default function Settings({ user, theme, setTheme, lang, setLang, accent,
     Promise.all([
       getSetting('forcelog_api_key').catch(() => ({ data: { value: '' } })),
       getSetting('forcelog_webhook_secret').catch(() => ({ data: { value: '' } })),
-    ]).then(([k, s]) => {
+      getSetting('forcelog_pickup_phone').catch(() => ({ data: { value: '' } })),
+      getSetting('forcelog_pickup_city').catch(() => ({ data: { value: '' } })),
+      getSetting('forcelog_pickup_address').catch(() => ({ data: { value: '' } })),
+    ]).then(([k, s, ph, ct, addr]) => {
       setForcelogKey(k.data?.value || '');
       setForcelogSecret(s.data?.value || '');
+      setForcelogPickupPhone(ph.data?.value || '');
+      setForcelogPickupCity(ct.data?.value || '');
+      setForcelogPickupAddress(addr.data?.value || '');
     });
   }, [isAdmin]);
 
@@ -260,8 +269,11 @@ export default function Settings({ user, theme, setTheme, lang, setLang, accent,
   const handleSaveForcelog = async () => {
     setForcelogSaving(true);
     await Promise.all([
-      setSetting('forcelog_api_key', forcelogKey),
+      setSetting('forcelog_api_key',        forcelogKey),
       setSetting('forcelog_webhook_secret', forcelogSecret),
+      setSetting('forcelog_pickup_phone',   forcelogPickupPhone),
+      setSetting('forcelog_pickup_city',    forcelogPickupCity),
+      setSetting('forcelog_pickup_address', forcelogPickupAddress),
     ]);
     setForcelogSaving(false);
     setForcelogSaved(true);
@@ -1159,6 +1171,27 @@ Content-Type: application/json
                 onClick={() => navigator.clipboard.writeText(`${window.location.origin}/api/forcelog/webhook`)}>
                 Copy
               </button>
+            </div>
+
+            <SubLabel text="Pickup Address (your store)" />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 18 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div>
+                  <label className="form-label">City</label>
+                  <input className="form-input" placeholder="e.g. Casablanca"
+                    value={forcelogPickupCity} onChange={e => setForcelogPickupCity(e.target.value)} />
+                </div>
+                <div>
+                  <label className="form-label">Phone</label>
+                  <input className="form-input" placeholder="+212..."
+                    value={forcelogPickupPhone} onChange={e => setForcelogPickupPhone(e.target.value)} />
+                </div>
+              </div>
+              <div>
+                <label className="form-label">Street Address</label>
+                <input className="form-input" placeholder="e.g. 12 Rue Mohammed V"
+                  value={forcelogPickupAddress} onChange={e => setForcelogPickupAddress(e.target.value)} />
+              </div>
             </div>
 
             <button className="btn btn-primary" onClick={handleSaveForcelog} disabled={forcelogSaving}

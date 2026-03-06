@@ -243,6 +243,48 @@ def get_forcelog_status(
     return {"status": status_raw, "tracking_id": order.tracking_id, "delivery_status": status_raw}
 
 
+@router.post("/ramassage")
+def request_ramassage(
+    db: Session = Depends(get_db),
+    user: models.User = Depends(get_current_user),
+):
+    sid = _get_store_id(user)
+    api_key = _get_setting(db, "forcelog_api_key", sid)
+    if not api_key:
+        raise HTTPException(400, "Forcelog API key not configured")
+
+    phone   = _get_setting(db, "forcelog_pickup_phone",   sid) or ""
+    city    = _get_setting(db, "forcelog_pickup_city",    sid) or ""
+    address = _get_setting(db, "forcelog_pickup_address", sid) or ""
+
+    if not phone or not city or not address:
+        raise HTTPException(400, "Forcelog pickup address not configured — go to Settings → Forcelog")
+
+    orders = db.query(models.Order).filter(
+        models.Order.user_id == sid,
+        models.Order.delivery_provider == "forcelog",
+        models.Order.status == "pending",
+        models.Order.tracking_id.isnot(None),
+    ).all()
+
+    if not orders:
+        raise HTTPException(400, "No in-delivery Forcelog orders found for ramassage")
+
+    stickers = [o.tracking_id for o in orders]
+
+    with httpx.Client() as client:
+        r = client.post(
+            f"{FORCELOG_BASE}/customer/Pickups/CreateRequest",
+            json={"PHONE": phone, "CITY": city, "ADDRESS": address,
+                  "COMMENT": "", "STICKERS": stickers},
+            headers={"X-API-Key": api_key},
+            timeout=20,
+        )
+        r.raise_for_status()
+
+    return {"count": len(stickers)}
+
+
 @router.post("/sync-all")
 def sync_all_forcelog(
     db: Session = Depends(get_db),

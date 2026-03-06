@@ -88,8 +88,10 @@ export const deleteOrder = (id) => api.delete(`/orders/${id}`);
 export const sendToOlivraison    = (id) => api.post(`/olivraison/send/${id}`);
 export const sendToForcelog      = (id) => api.post(`/forcelog/send/${id}`);
 export const getForcelogStatus   = (id) => api.get(`/forcelog/status/${id}`);
-export const syncAllForcelog     = () => api.post('/forcelog/sync-all');
-export const syncAllOlivraison   = () => api.post('/olivraison/sync-all');
+export const syncAllForcelog       = () => api.post('/forcelog/sync-all');
+export const syncAllOlivraison     = () => api.post('/olivraison/sync-all');
+export const requestOlivRamassage  = () => api.post('/olivraison/ramassage');
+export const requestForcelogRamassage = () => api.post('/forcelog/ramassage');
 
 // Team
 export const getTeam = () => api.get('/team');
