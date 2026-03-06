@@ -253,13 +253,15 @@ def get_dashboard_stats(
         team_today.append({"name": name, **st})
     team_today.sort(key=lambda x: x["total"], reverse=True)
 
-    # Money in transit: current snapshot — all in-delivery orders regardless of period
+    # Money with couriers: current snapshot — all orders at delivery companies regardless of period
     in_transit_orders = db.query(models.Order).filter(
         models.Order.user_id == uid,
         models.Order.status == "pending",
         models.Order.tracking_id.isnot(None),
     ).all()
     in_delivery_amount = round(sum(o.total_amount or 0 for o in in_transit_orders), 2)
+    oliv_amount  = round(sum(o.total_amount or 0 for o in in_transit_orders if o.delivery_provider == "olivraison"), 2)
+    force_amount = round(sum(o.total_amount or 0 for o in in_transit_orders if o.delivery_provider == "forcelog"), 2)
 
     # Daily orders — last 7 days (always, for the trend line)
     daily_orders = []
@@ -282,6 +284,8 @@ def get_dashboard_stats(
         "team_today":   team_today,
         "daily_orders":      daily_orders,
         "in_delivery_amount": in_delivery_amount,
+        "oliv_amount":        oliv_amount,
+        "force_amount":       force_amount,
     }
 
 

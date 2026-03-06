@@ -319,6 +319,8 @@ export default function Dashboard({ onNavigate, user, lang = 'en' }) {
   const teamToday        = stats?.team_today        || [];
   const cleanProfit      = stats?.clean_profit      ?? 0;
   const inDeliveryAmount = stats?.in_delivery_amount ?? 0;
+  const olivAmount       = stats?.oliv_amount        ?? 0;
+  const forceAmount      = stats?.force_amount       ?? 0;
 
   const total       = (current.to_confirm ?? 0) + (current.awaiting_pickup ?? 0) + (current.in_delivery ?? 0) + (current.delivered ?? 0) + (current.returned ?? 0);
   const confirmed   = (current.awaiting_pickup ?? 0) + (current.in_delivery ?? 0) + (current.delivered ?? 0) + (current.returned ?? 0);
@@ -470,11 +472,15 @@ export default function Dashboard({ onNavigate, user, lang = 'en' }) {
           {/* Secondary metrics — Money in Transit + Confirmation Rate */}
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : '1fr 1fr', gap: 12, marginBottom: 16 }}>
             <div className="stat-card" style={{ background: '#60a5fa0d', border: '1px solid #60a5fa22' }}>
-              <div className="stat-label">Money in Transit</div>
+              <div className="stat-label">Money with Couriers</div>
               <div className="stat-value" style={{ color: '#60a5fa', fontSize: 22 }}>
                 {inDeliveryAmount.toLocaleString()} MAD
               </div>
-              <div style={{ fontSize: 12, color: '#8892b0', marginTop: 4 }}>currently with delivery</div>
+              <div style={{ display: 'flex', gap: 10, marginTop: 6, flexWrap: 'wrap' }}>
+                {olivAmount > 0 && <span style={{ fontSize: 12, color: '#8892b0' }}>🚚 {olivAmount.toLocaleString()}</span>}
+                {forceAmount > 0 && <span style={{ fontSize: 12, color: '#8892b0' }}>📦 {forceAmount.toLocaleString()}</span>}
+                {olivAmount === 0 && forceAmount === 0 && <span style={{ fontSize: 12, color: '#8892b0' }}>no orders in transit</span>}
+              </div>
             </div>
             <div className="stat-card" style={{ background: confRate !== null && confRate < 50 ? '#f8717108' : '#4ade8008', border: `1px solid ${confRate !== null && confRate < 50 ? '#f8717122' : '#4ade8022'}` }}>
               <div className="stat-label">Confirmation Rate</div>
