@@ -288,12 +288,15 @@ async def import_excel(
         size = parse_size(size_val, raw_name)
         color = str(color_val).strip() if color_val else None
 
+        unit_price = (total / qty) if qty and total else total
         item = models.OrderItem(
             order_id=order.id,
             product_name=canonical or raw_name,
             size=size,
             color=color,
             quantity=qty,
+            unit_cost=85.0,
+            unit_price=unit_price,
         )
         db.add(item)
 
