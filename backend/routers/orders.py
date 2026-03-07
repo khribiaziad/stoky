@@ -152,6 +152,15 @@ def list_orders(
     order_count  = base.filter(models.Order.status != "cancelled").count()
     return_count = base.filter(models.Order.status == "cancelled").count()
 
+    # Per-status counts for filter buttons
+    from sqlalchemy import func as _func
+    status_counts = {
+        row.status: row.cnt
+        for row in db.query(models.Order.status, _func.count(models.Order.id).label("cnt"))
+                      .filter(models.Order.user_id == sid)
+                      .group_by(models.Order.status).all()
+    }
+
     # Apply tab + status filter
     if tab == "returns":
         query = base.filter(models.Order.status == "cancelled")
@@ -187,6 +196,7 @@ def list_orders(
         "pages": max(1, (total + limit - 1) // limit),
         "order_count": order_count,
         "return_count": return_count,
+        "status_counts": status_counts,
     }
 
 

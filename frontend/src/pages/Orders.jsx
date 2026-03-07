@@ -49,6 +49,7 @@ export default function Orders() {
   const [totalPages, setTotalPages] = useState(1);
   const [orderCount, setOrderCount] = useState(0);
   const [returnCount, setReturnCount] = useState(0);
+  const [statusCounts, setStatusCounts] = useState({});
   const [products, setProducts] = useState([]);
   const [packs, setPacks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -170,6 +171,7 @@ export default function Orders() {
         setTotalPages(o.data.pages);
         setOrderCount(o.data.order_count);
         setReturnCount(o.data.return_count);
+        setStatusCounts(o.data.status_counts || {});
         setProducts(p.data);
         setPacks(pk.data);
       })
@@ -683,16 +685,31 @@ export default function Orders() {
       {/* Filters */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 16, alignItems: 'center' }}>
         {activeTab === 'orders' && [
-          { value: 'all',             label: 'All' },
-          { value: 'pending',         label: 'Pending' },
-          { value: 'awaiting_pickup', label: 'Awaiting Pickup' },
-          { value: 'in_delivery',     label: 'In Delivery' },
-          { value: 'delivered',       label: 'Delivered' },
-        ].map(({ value, label }) => (
-          <button key={value} className={`btn btn-sm ${filter === value ? 'btn-primary' : 'btn-secondary'}`} onClick={() => { setFilter(value); setPage(1); load({ p: 1, f: value, t: activeTab }); }}>
-            {label}
-          </button>
-        ))}
+          { value: 'all',             label: 'All',             countKey: null },
+          { value: 'pending',         label: 'Pending',         countKey: 'pending' },
+          { value: 'awaiting_pickup', label: 'Awaiting Pickup', countKey: 'awaiting_pickup' },
+          { value: 'in_delivery',     label: 'In Delivery',     countKey: 'in_delivery' },
+          { value: 'delivered',       label: 'Delivered',       countKey: 'delivered' },
+        ].map(({ value, label, countKey }) => {
+          const count = countKey ? (statusCounts[countKey] || 0) : orderCount;
+          return (
+            <button key={value}
+              className={`btn ${filter === value ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ fontSize: 13, padding: '6px 14px', display: 'flex', alignItems: 'center', gap: 6 }}
+              onClick={() => { setFilter(value); setPage(1); load({ p: 1, f: value, t: activeTab }); }}>
+              {label}
+              {count > 0 && (
+                <span style={{
+                  fontSize: 11, fontWeight: 700, padding: '1px 7px', borderRadius: 20,
+                  background: filter === value ? 'rgba(255,255,255,0.25)' : 'rgba(0,212,143,0.15)',
+                  color: filter === value ? '#fff' : 'var(--accent)',
+                }}>
+                  {count}
+                </span>
+              )}
+            </button>
+          );
+        })}
         <div className="search-bar" style={{ marginLeft: activeTab === 'returns' ? 0 : 'auto' }}>
           <span>🔍</span>
           <input placeholder="Search by name, CMD, city, or phone..." value={search} onChange={e => setSearch(e.target.value)} />
