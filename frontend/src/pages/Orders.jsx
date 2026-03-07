@@ -20,6 +20,10 @@ const STATUS_BADGE = {
 
 export default function Orders() {
   const [orders, setOrders] = useState([]);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [orderCount, setOrderCount] = useState(0);
+  const [returnCount, setReturnCount] = useState(0);
   const [products, setProducts] = useState([]);
   const [packs, setPacks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -126,17 +130,32 @@ export default function Orders() {
     }));
   };
 
-  const load = () => {
-    Promise.all([getOrders(), getProducts(), getPacks()])
-      .then(([o, p, pk]) => { setOrders(o.data); setProducts(p.data); setPacks(pk.data); })
+  const buildParams = (overrides = {}) => {
+    const { p = page, f = filter, t = activeTab } = overrides;
+    const params = { page: p, limit: 100, tab: t };
+    if (t === 'orders' && f !== 'all') params.status = f;
+    return params;
+  };
+
+  const load = (overrides = {}) => {
+    setLoading(true);
+    Promise.all([getOrders(buildParams(overrides)), getProducts(), getPacks()])
+      .then(([o, p, pk]) => {
+        setOrders(o.data.orders);
+        setTotalPages(o.data.pages);
+        setOrderCount(o.data.order_count);
+        setReturnCount(o.data.return_count);
+        setProducts(p.data);
+        setPacks(pk.data);
+      })
       .finally(() => setLoading(false));
   };
 
   useEffect(() => {
-    load();
+    load({ p: page, f: filter, t: activeTab });
     // Silently sync delivery statuses in the background on page load
     Promise.allSettled([syncAllForcelog(), syncAllOlivraison()])
-      .then(() => load())
+      .then(() => load({ p: page, f: filter, t: activeTab }))
       .catch(() => {});
   }, []);
 
@@ -571,16 +590,9 @@ export default function Orders() {
     o.city?.toLowerCase().includes(search.toLowerCase()) ||
     o.customer_phone?.includes(search);
 
-  // Orders tab: pending + delivered only
-  const filtered = orders
-    .filter(o => o.status !== 'cancelled')
-    .filter(o => filter === 'all' || o.status === filter)
-    .filter(searchMatch);
-
-  // Returns tab: cancelled orders
-  const filteredReturns = orders
-    .filter(o => o.status === 'cancelled')
-    .filter(searchMatch);
+  // Orders are already filtered server-side; just apply local search
+  const filtered = orders.filter(searchMatch);
+  const filteredReturns = orders.filter(searchMatch);
 
   if (loading) return <div className="loading">Loading orders...</div>;
 
@@ -610,9 +622,9 @@ export default function Orders() {
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 0, marginBottom: 16, borderBottom: '1px solid var(--border)' }}>
-        {[{ id: 'orders', label: `Orders (${orders.filter(o => o.status !== 'cancelled').length})` },
-          { id: 'returns', label: `Returns (${orders.filter(o => o.status === 'cancelled').length})` }].map(tab => (
-          <button key={tab.id} onClick={() => { setActiveTab(tab.id); setSearch(''); setFilter('all'); setSelectedIds(new Set()); }}
+        {[{ id: 'orders', label: `Orders (${orderCount})` },
+          { id: 'returns', label: `Returns (${returnCount})` }].map(tab => (
+          <button key={tab.id} onClick={() => { setActiveTab(tab.id); setSearch(''); setFilter('all'); setSelectedIds(new Set()); setPage(1); load({ p: 1, f: 'all', t: tab.id }); }}
             style={{
               background: 'none', border: 'none', padding: '10px 20px', cursor: 'pointer',
               fontSize: 14, fontWeight: 600,
@@ -631,7 +643,7 @@ export default function Orders() {
       {/* Filters */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 16, alignItems: 'center' }}>
         {activeTab === 'orders' && ['all', 'pending', 'delivered'].map(s => (
-          <button key={s} className={`btn btn-sm ${filter === s ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setFilter(s)}>
+          <button key={s} className={`btn btn-sm ${filter === s ? 'btn-primary' : 'btn-secondary'}`} onClick={() => { setFilter(s); setPage(1); load({ p: 1, f: s, t: activeTab }); }}>
             {s.charAt(0).toUpperCase() + s.slice(1)}
           </button>
         ))}
@@ -844,6 +856,26 @@ export default function Orders() {
           </div>
         )}
       </div>}
+
+      {/* Pagination */}
+      {activeTab === 'orders' && totalPages > 1 && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: 16 }}>
+          <button className="btn btn-secondary btn-sm" disabled={page <= 1}
+            onClick={() => { const p = page - 1; setPage(p); load({ p, f: filter, t: activeTab }); }}>← Prev</button>
+          <span style={{ fontSize: 13, color: 'var(--t2)' }}>Page {page} of {totalPages}</span>
+          <button className="btn btn-secondary btn-sm" disabled={page >= totalPages}
+            onClick={() => { const p = page + 1; setPage(p); load({ p, f: filter, t: activeTab }); }}>Next →</button>
+        </div>
+      )}
+      {activeTab === 'returns' && totalPages > 1 && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: 16 }}>
+          <button className="btn btn-secondary btn-sm" disabled={page <= 1}
+            onClick={() => { const p = page - 1; setPage(p); load({ p, f: filter, t: activeTab }); }}>← Prev</button>
+          <span style={{ fontSize: 13, color: 'var(--t2)' }}>Page {page} of {totalPages}</span>
+          <button className="btn btn-secondary btn-sm" disabled={page >= totalPages}
+            onClick={() => { const p = page + 1; setPage(p); load({ p, f: filter, t: activeTab }); }}>Next →</button>
+        </div>
+      )}
 
       {/* Order Detail Modal */}
       {detailOrder && (() => {

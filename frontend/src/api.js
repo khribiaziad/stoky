@@ -66,7 +66,7 @@ export const deleteArrival = (id) => api.delete(`/stock/arrivals/${id}`);
 export const adjustStock = (variantId, stock) => api.put(`/stock/variants/${variantId}/stock`, { stock });
 
 // Orders
-export const getOrders = (status) => api.get('/orders', { params: status ? { status } : {} });
+export const getOrders = (params = {}) => api.get('/orders', { params });
 export const getOrder = (id) => api.get(`/orders/${id}`);
 export const uploadPickupPDF = (file) => {
   const form = new FormData();

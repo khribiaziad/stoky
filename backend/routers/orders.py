@@ -137,32 +137,57 @@ def serialize_order(order: models.Order, user_map: dict = None, member_map: dict
 @router.get("")
 def list_orders(
     status: Optional[str] = None,
+    tab: Optional[str] = "orders",   # "orders" (non-cancelled) | "returns" (cancelled)
+    page: int = 1,
+    limit: int = 100,
     db: Session = Depends(get_db),
     user: models.User = Depends(get_current_user),
 ):
     sid = get_store_id(user)
-    query = (
-        db.query(models.Order)
+    base = db.query(models.Order).filter(models.Order.user_id == sid)
+    if user.role == "confirmer":
+        base = base.filter(models.Order.uploaded_by == user.id)
+
+    # Tab counts (always computed so labels stay accurate)
+    order_count  = base.filter(models.Order.status != "cancelled").count()
+    return_count = base.filter(models.Order.status == "cancelled").count()
+
+    # Apply tab + status filter
+    if tab == "returns":
+        query = base.filter(models.Order.status == "cancelled")
+    elif status and status not in ("all",):
+        query = base.filter(models.Order.status == status)
+    else:
+        query = base.filter(models.Order.status != "cancelled")
+
+    total = query.count()
+
+    orders = (
+        query
         .options(
             joinedload(models.Order.items),
             joinedload(models.Order.expenses),
         )
-        .filter(models.Order.user_id == sid)
         .order_by(models.Order.order_date.desc())
+        .offset((page - 1) * limit)
+        .limit(limit)
+        .all()
     )
-    if user.role == "confirmer":
-        query = query.filter(models.Order.uploaded_by == user.id)
-    if status:
-        query = query.filter(models.Order.status == status)
-    orders = query.all()
 
-    # Bulk-fetch uploaders and confirmers in 2 queries instead of N×2
+    # Bulk-fetch uploaders and confirmers in 2 queries
     uploader_ids = {o.uploaded_by for o in orders if o.uploaded_by}
     member_ids   = {o.confirmed_by for o in orders if o.confirmed_by}
     user_map   = {u.id: u.username for u in db.query(models.User).filter(models.User.id.in_(uploader_ids)).all()} if uploader_ids else {}
     member_map = {m.id: m.name   for m in db.query(models.TeamMember).filter(models.TeamMember.id.in_(member_ids)).all()} if member_ids else {}
 
-    return [serialize_order(o, user_map, member_map) for o in orders]
+    return {
+        "orders": [serialize_order(o, user_map, member_map) for o in orders],
+        "total": total,
+        "page": page,
+        "pages": max(1, (total + limit - 1) // limit),
+        "order_count": order_count,
+        "return_count": return_count,
+    }
 
 
 @router.post("/bulk-status")
