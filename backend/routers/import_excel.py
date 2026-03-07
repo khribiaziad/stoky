@@ -200,6 +200,8 @@ async def import_excel(
                     product_id=product.id,
                     size=size,
                     color=color,
+                    buying_price=85.0,
+                    selling_price=float(pd["price"]),
                     stock=0,
                 )
                 db.add(variant)
