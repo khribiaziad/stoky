@@ -8,7 +8,7 @@ from database import engine, get_db
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 import models
-from routers import products, stock, orders, team, expenses, reports, packs, auth as auth_router, cities as cities_router, platform as platform_router, leads as leads_router, suppliers as suppliers_router, olivraison as olivraison_router, youcan as youcan_router, woocommerce as woocommerce_router, shopify as shopify_router, forcelog as forcelog_router, notifications as notifications_router, ai as ai_router
+from routers import products, stock, orders, team, expenses, reports, packs, auth as auth_router, cities as cities_router, platform as platform_router, leads as leads_router, suppliers as suppliers_router, olivraison as olivraison_router, youcan as youcan_router, woocommerce as woocommerce_router, shopify as shopify_router, forcelog as forcelog_router, notifications as notifications_router, ai as ai_router, import_excel as import_excel_router
 from auth import get_current_user
 from seed_cities import seed
 
@@ -160,6 +160,7 @@ app.include_router(packs.router, prefix="/api")
 app.include_router(auth_router.router, prefix="/api")
 app.include_router(cities_router.router, prefix="/api")
 app.include_router(platform_router.router, prefix="/api")
+app.include_router(import_excel_router.router, prefix="/api")
 app.include_router(leads_router.router, prefix="/api")
 app.include_router(suppliers_router.router, prefix="/api")
 app.include_router(olivraison_router.router, prefix="/api")

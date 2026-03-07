@@ -6,7 +6,7 @@ import {
 import {
   getPlatformStats, getPlatformGrowth, getPlatformStores, createPlatformStore,
   updateStoreStatus, updateStoreSubscription, updateStoreNotes, resetStorePassword,
-  getStorePayments, addStorePayment, deletePayment, deleteStore,
+  getStorePayments, addStorePayment, deletePayment, deleteStore, importStoreExcel,
   getPlatformSettings, savePlatformSetting,
 } from '../api';
 
@@ -272,6 +272,26 @@ function StoreDrawer({ store, onClose, onUpdate, onDelete }) {
     onDelete(store.id);
   };
 
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState(null);
+  const importRef = useRef(null);
+
+  const handleImportExcel = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setImporting(true);
+    setImportResult(null);
+    try {
+      const res = await importStoreExcel(store.id, file);
+      setImportResult(res.data);
+    } catch (err) {
+      setImportResult({ error: err.response?.data?.detail || 'Import failed' });
+    } finally {
+      setImporting(false);
+      e.target.value = '';
+    }
+  };
+
   const handleAddPayment = async () => {
     if (!newPay.amount) return;
     const res = await addStorePayment(store.id, { ...newPay, amount: parseFloat(newPay.amount), date: new Date(newPay.date).toISOString() });
@@ -438,6 +458,29 @@ function StoreDrawer({ store, onClose, onUpdate, onDelete }) {
                 <button className="btn btn-danger btn-sm" style={{ width: '100%', marginTop: 4 }} onClick={handleDelete}>
                   <Trash2 size={13} strokeWidth={1.75} /> Delete Store & All Data
                 </button>
+
+                {/* Excel import */}
+                <input ref={importRef} type="file" accept=".xlsx" style={{ display: 'none' }} onChange={handleImportExcel} />
+                <button className="btn btn-secondary btn-sm" style={{ width: '100%' }}
+                  onClick={() => importRef.current.click()} disabled={importing}>
+                  {importing ? '⏳ Importing…' : '📥 Import Excel (Orders)'}
+                </button>
+                {importResult && (
+                  <div style={{ fontSize: 12, padding: '8px 10px', borderRadius: 8, background: 'var(--card-2)', border: `1px solid ${importResult.error ? '#f87171' : '#4ade8044'}` }}>
+                    {importResult.error ? (
+                      <span style={{ color: '#f87171' }}>{importResult.error}</span>
+                    ) : (
+                      <>
+                        <div style={{ color: '#4ade80' }}>✓ {importResult.created_orders} orders imported</div>
+                        <div style={{ color: '#8892b0' }}>{importResult.skipped_orders} skipped (already exist)</div>
+                        <div style={{ color: '#8892b0' }}>{importResult.products_created} products created</div>
+                        {importResult.unmatched_product_names > 0 && (
+                          <div style={{ color: '#fbbf24' }}>⚠ {importResult.unmatched_product_names} unrecognized product names</div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
             </>
           )}
