@@ -1,7 +1,7 @@
 import os
 import shutil
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime
@@ -83,10 +83,9 @@ def get_city_fees(city_name: str, db: Session):
     return 35.0, 7.0, False
 
 
-def serialize_order(order: models.Order, db: Session) -> dict:
-    items = []
-    for item in order.items:
-        items.append({
+def serialize_order(order: models.Order, user_map: dict = None, member_map: dict = None) -> dict:
+    items = [
+        {
             "id": item.id,
             "variant_id": item.variant_id,
             "product_name": item.product_name,
@@ -94,7 +93,9 @@ def serialize_order(order: models.Order, db: Session) -> dict:
             "color": item.color,
             "quantity": item.quantity,
             "unit_cost": item.unit_cost,
-        })
+        }
+        for item in order.items
+    ]
 
     expenses = None
     if order.expenses:
@@ -108,19 +109,8 @@ def serialize_order(order: models.Order, db: Session) -> dict:
             "product_broken": order.expenses.product_broken,
         }
 
-    # Resolve uploader name
-    uploaded_by_name = None
-    if order.uploaded_by:
-        uploader = db.query(models.User).filter(models.User.id == order.uploaded_by).first()
-        if uploader:
-            uploaded_by_name = uploader.username
-
-    # Resolve confirmer name
-    confirmed_by_name = None
-    if order.confirmed_by:
-        member = db.query(models.TeamMember).filter(models.TeamMember.id == order.confirmed_by).first()
-        if member:
-            confirmed_by_name = member.name
+    uploaded_by_name = (user_map or {}).get(order.uploaded_by)
+    confirmed_by_name = (member_map or {}).get(order.confirmed_by)
 
     return {
         "id": order.id,
@@ -134,6 +124,7 @@ def serialize_order(order: models.Order, db: Session) -> dict:
         "notes": order.notes,
         "tracking_id": order.tracking_id,
         "delivery_status": order.delivery_status,
+        "delivery_provider": getattr(order, "delivery_provider", None),
         "order_date": order.order_date.isoformat() if order.order_date else None,
         "created_at": order.created_at.isoformat() if order.created_at else None,
         "uploaded_by": uploaded_by_name,
@@ -150,14 +141,28 @@ def list_orders(
     user: models.User = Depends(get_current_user),
 ):
     sid = get_store_id(user)
-    query = db.query(models.Order).filter(models.Order.user_id == sid).order_by(models.Order.order_date.desc())
-    # Confirmers only see their own uploaded orders
+    query = (
+        db.query(models.Order)
+        .options(
+            joinedload(models.Order.items),
+            joinedload(models.Order.expenses),
+        )
+        .filter(models.Order.user_id == sid)
+        .order_by(models.Order.order_date.desc())
+    )
     if user.role == "confirmer":
         query = query.filter(models.Order.uploaded_by == user.id)
     if status:
         query = query.filter(models.Order.status == status)
     orders = query.all()
-    return [serialize_order(o, db) for o in orders]
+
+    # Bulk-fetch uploaders and confirmers in 2 queries instead of N×2
+    uploader_ids = {o.uploaded_by for o in orders if o.uploaded_by}
+    member_ids   = {o.confirmed_by for o in orders if o.confirmed_by}
+    user_map   = {u.id: u.username for u in db.query(models.User).filter(models.User.id.in_(uploader_ids)).all()} if uploader_ids else {}
+    member_map = {m.id: m.name   for m in db.query(models.TeamMember).filter(models.TeamMember.id.in_(member_ids)).all()} if member_ids else {}
+
+    return [serialize_order(o, user_map, member_map) for o in orders]
 
 
 @router.post("/bulk-status")
@@ -192,7 +197,7 @@ def get_order(order_id: int, db: Session = Depends(get_db), user: models.User = 
     order = db.query(models.Order).filter(models.Order.id == order_id, models.Order.user_id == sid).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
-    return serialize_order(order, db)
+    return serialize_order(order)
 
 
 @router.post("/upload-pickup")
@@ -239,7 +244,7 @@ async def upload_return_pdf(file: UploadFile = File(...), db: Session = Depends(
     for cmd_id in cmd_ids:
         order = db.query(models.Order).filter(models.Order.caleo_id == cmd_id).first()
         if order:
-            matched.append(serialize_order(order, db))
+            matched.append(serialize_order(order))
         else:
             unmatched.append(cmd_id)
 
@@ -471,7 +476,7 @@ def update_order(order_id: int, data: OrderUpdateInput, db: Session = Depends(ge
 
     db.commit()
     db.refresh(order)
-    return serialize_order(order, db)
+    return serialize_order(order)
 
 
 @router.delete("/{order_id}")
