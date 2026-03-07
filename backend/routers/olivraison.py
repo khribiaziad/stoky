@@ -178,16 +178,15 @@ def request_ramassage(
     if not api_key or not secret:
         raise HTTPException(400, "Olivraison credentials not configured — go to Settings → Olivraison")
 
-    # In-delivery = pending status with a tracking ID assigned
     orders = db.query(models.Order).filter(
         models.Order.user_id == sid,
         models.Order.delivery_provider == "olivraison",
-        models.Order.status == "pending",
+        models.Order.status.in_(["pending", "awaiting_pickup"]),
         models.Order.tracking_id.isnot(None),
     ).all()
 
     if not orders:
-        raise HTTPException(400, "No in-delivery Olivraison orders found for ramassage")
+        raise HTTPException(400, "No Olivraison orders ready for pickup")
 
     tracking_ids = [o.tracking_id for o in orders]
     token = _get_token(sid, api_key, secret)
@@ -201,6 +200,10 @@ def request_ramassage(
         )
         r.raise_for_status()
         data = r.json()
+
+    for o in orders:
+        o.status = "awaiting_pickup"
+    db.commit()
 
     return {
         "count": len(tracking_ids),

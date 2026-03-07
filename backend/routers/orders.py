@@ -193,7 +193,7 @@ def list_orders(
 @router.post("/bulk-status")
 def bulk_update_status(data: BulkStatusInput, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
     sid = get_store_id(user)
-    if data.status not in ("pending", "delivered", "cancelled"):
+    if data.status not in ("pending", "awaiting_pickup", "in_delivery", "delivered", "cancelled"):
         raise HTTPException(status_code=400, detail="Invalid status")
     orders = db.query(models.Order).filter(
         models.Order.id.in_(data.order_ids),
@@ -203,6 +203,20 @@ def bulk_update_status(data: BulkStatusInput, db: Session = Depends(get_db), use
         order.status = data.status
     db.commit()
     return {"success": True, "count": len(orders)}
+
+
+@router.post("/confirm-pickup")
+def confirm_pickup(db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
+    """Move all awaiting_pickup orders to in_delivery (courier has collected them)."""
+    sid = get_store_id(user)
+    orders = db.query(models.Order).filter(
+        models.Order.user_id == sid,
+        models.Order.status == "awaiting_pickup",
+    ).all()
+    for o in orders:
+        o.status = "in_delivery"
+    db.commit()
+    return {"confirmed": len(orders)}
 
 
 @router.patch("/{order_id}/notes")

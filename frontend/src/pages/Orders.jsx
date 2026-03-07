@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { getOrders, getProducts, getPacks, uploadPickupPDF, bulkCreateOrders, uploadReturnPDF, processReturns, updateOrderStatus, updateOrder, deleteOrder, updateOrderNotes, bulkUpdateOrderStatus, sendToOlivraison, sendToForcelog, getForcelogStatus, syncAllForcelog, syncAllOlivraison, requestOlivRamassage, requestForcelogRamassage, errorMessage } from '../api';
+import { getOrders, getProducts, getPacks, uploadPickupPDF, bulkCreateOrders, uploadReturnPDF, processReturns, updateOrderStatus, updateOrder, deleteOrder, updateOrderNotes, bulkUpdateOrderStatus, sendToOlivraison, sendToForcelog, getForcelogStatus, syncAllForcelog, syncAllOlivraison, requestOlivRamassage, requestForcelogRamassage, confirmPickup, errorMessage } from '../api';
 import ErrorExplain from '../components/ErrorExplain';
 import { validatePhone, validateAmount, numericOnly, fieldErrorStyle } from '../utils/validate';
 
@@ -12,10 +12,35 @@ function downloadCSV(rows, filename) {
   URL.revokeObjectURL(url);
 }
 
-const STATUS_BADGE = {
-  pending: 'badge-yellow',
-  delivered: 'badge-green',
-  cancelled: 'badge-red',
+const STATUS_LABEL = {
+  pending: 'Pending',
+  awaiting_pickup: 'Awaiting Pickup',
+  in_delivery: 'In Delivery',
+  delivered: 'Delivered',
+  cancelled: 'Cancelled',
+};
+
+const statusStyle = (o) => {
+  if (o.delivery_status) {
+    const ds = o.delivery_status.toLowerCase();
+    if (['livr', 'deliver'].some(k => ds.includes(k)))
+      return { background: 'rgba(74,222,128,0.15)', color: '#4ade80' };
+    if (['annul', 'retour', 'cancel', 'refus', 'echec', 'échou', 'lost'].some(k => ds.includes(k)))
+      return { background: 'rgba(248,113,113,0.15)', color: '#f87171' };
+    if (['appel', 'call', 'vocal', 'injoign', 'réponse', 'reponse', 'sms', 'whatsapp'].some(k => ds.includes(k)))
+      return { background: 'rgba(251,146,60,0.15)', color: '#fb923c' };
+    if (['route', 'transit', 'ramassage', 'pickup', 'expédi', 'expedi', 'reporté', 'reporte'].some(k => ds.includes(k)))
+      return { background: 'rgba(96,165,250,0.15)', color: '#60a5fa' };
+    return { background: 'rgba(100,116,139,0.15)', color: '#94a3b8' };
+  }
+  const S = {
+    pending:         { background: 'rgba(250,204,21,0.15)',  color: '#facc15' },
+    awaiting_pickup: { background: 'rgba(251,146,60,0.15)',  color: '#fb923c' },
+    in_delivery:     { background: 'rgba(96,165,250,0.15)',  color: '#60a5fa' },
+    delivered:       { background: 'rgba(74,222,128,0.15)',  color: '#4ade80' },
+    cancelled:       { background: 'rgba(248,113,113,0.15)', color: '#f87171' },
+  };
+  return S[o.status] || { background: 'rgba(100,116,139,0.15)', color: '#94a3b8' };
 };
 
 export default function Orders() {
@@ -312,11 +337,22 @@ export default function Orders() {
     }
   };
 
-  const handleStatusChange = async (id, status) => {
-    if (status === 'cancelled' && !confirm('Cancel this order? It will move to the Returns tab.')) return;
+  const handleStatusChange = async (id, newStatus) => {
+    if (newStatus === 'cancelled' && !confirm('Cancel this order?')) return;
+    setOrders(prev => prev.map(o => o.id === id ? { ...o, status: newStatus } : o));
     try {
-      await updateOrderStatus(id, status);
-      load();
+      await updateOrderStatus(id, newStatus);
+    } catch (e) {
+      setError(errorMessage(e));
+      load({ p: page, f: filter, t: activeTab });
+    }
+  };
+
+  const handleConfirmPickup = async () => {
+    try {
+      const res = await confirmPickup();
+      setSuccess(`${res.data.confirmed} orders confirmed as picked up — moved to In Delivery`);
+      load({ p: page, f: filter, t: activeTab });
     } catch (e) {
       setError(errorMessage(e));
     }
@@ -350,6 +386,7 @@ export default function Orders() {
     result.force = fRes.status  === 'fulfilled' ? fRes.value.data  : { error: errorMessage(fRes.reason) };
     setRamassageResult(result);
     setRamassageLoading(false);
+    load({ p: page, f: filter, t: activeTab });
   };
 
   const handleSendForcelog = async (id) => {
@@ -608,7 +645,10 @@ export default function Orders() {
             <button className="btn btn-secondary" onClick={() => pickupRef.current.click()} disabled={uploading}>
               {uploading ? '⏳ Parsing...' : '📤 Upload Pickup PDF'}
             </button>
-            <button className="btn btn-secondary" onClick={() => { setRamassageResult(null); setShowRamassage(true); }} title="Request courier pickup">📦 Ramassage</button>
+            <button className="btn btn-secondary" onClick={() => { setRamassageResult(null); setShowRamassage(true); }} title="Request courier pickup">📦 Request Pickup</button>
+            {filter === 'awaiting_pickup' && (
+              <button className="btn btn-secondary" onClick={handleConfirmPickup} style={{ borderColor: '#60a5fa', color: '#60a5fa' }} title="Courier has arrived and collected packages">✓ Confirm Pickup</button>
+            )}
             <button className="btn btn-secondary" onClick={exportCSV} title="Export visible orders to CSV">⬇ Export CSV</button>
             <button className="btn btn-secondary" onClick={handleSyncAll} disabled={syncing} title="Refresh delivery status from Forcelog & Olivraison" style={{ padding: '0 12px', fontSize: 18 }}>{syncing ? '⏳' : '⟳'}</button>
           </> : <>
@@ -642,9 +682,15 @@ export default function Orders() {
 
       {/* Filters */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 16, alignItems: 'center' }}>
-        {activeTab === 'orders' && ['all', 'pending', 'delivered'].map(s => (
-          <button key={s} className={`btn btn-sm ${filter === s ? 'btn-primary' : 'btn-secondary'}`} onClick={() => { setFilter(s); setPage(1); load({ p: 1, f: s, t: activeTab }); }}>
-            {s.charAt(0).toUpperCase() + s.slice(1)}
+        {activeTab === 'orders' && [
+          { value: 'all',             label: 'All' },
+          { value: 'pending',         label: 'Pending' },
+          { value: 'awaiting_pickup', label: 'Awaiting Pickup' },
+          { value: 'in_delivery',     label: 'In Delivery' },
+          { value: 'delivered',       label: 'Delivered' },
+        ].map(({ value, label }) => (
+          <button key={value} className={`btn btn-sm ${filter === value ? 'btn-primary' : 'btn-secondary'}`} onClick={() => { setFilter(value); setPage(1); load({ p: 1, f: value, t: activeTab }); }}>
+            {label}
           </button>
         ))}
         <div className="search-bar" style={{ marginLeft: activeTab === 'returns' ? 0 : 'auto' }}>
@@ -768,16 +814,23 @@ export default function Orders() {
                         : <span style={{ color: '#8892b0', fontSize: 12 }}>—</span>}
                     </td>
                     <td>
-                      <select
-                        className="form-input"
-                        style={{ width: 'auto', padding: '4px 8px', fontSize: 11 }}
-                        value={o.status}
-                        onChange={e => handleStatusChange(o.id, e.target.value)}
-                      >
-                        <option value="pending">Pending</option>
-                        <option value="delivered">Delivered</option>
-                        <option value="cancelled">Cancelled</option>
-                      </select>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 110 }}>
+                        <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 12,
+                          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 140,
+                          ...statusStyle(o) }}>
+                          {o.delivery_status || STATUS_LABEL[o.status] || o.status}
+                        </span>
+                        <select
+                          style={{ fontSize: 10, padding: '2px 4px', background: 'transparent',
+                            border: '1px solid var(--border)', borderRadius: 4, color: 'var(--t2)', cursor: 'pointer' }}
+                          value={['awaiting_pickup','in_delivery'].includes(o.status) ? 'pending' : o.status}
+                          onChange={e => handleStatusChange(o.id, e.target.value)}
+                        >
+                          <option value="pending">Pending</option>
+                          <option value="delivered">Delivered</option>
+                          <option value="cancelled">Cancelled</option>
+                        </select>
+                      </div>
                     </td>
                     <td style={{ color: '#8892b0', fontSize: 12 }}>
                       {o.order_date ? new Date(o.order_date).toLocaleDateString() : '—'}
@@ -790,25 +843,16 @@ export default function Orders() {
                           onClick={() => setDetailOrder(o)}>
                           👁
                         </button>
-                        {o.tracking_id ? (() => {
-                          const ds = (o.delivery_status || '').toLowerCase();
-                          const isDelivered = ['livré','livre','delivered','confirmé par livreur'].some(k => ds.includes(k));
-                          const isCancelled = ['refus','retour','annul','echec','échou','cancelled'].some(k => ds.includes(k));
-                          const isTransit   = ['cours','transit','tentative','expédié','expedie','en route'].some(k => ds.includes(k));
-                          const color  = isDelivered ? '#4ade80' : isCancelled ? '#f87171' : isTransit ? '#facc15' : '#8892b0';
-                          const bg     = isDelivered ? 'rgba(74,222,128,0.1)' : isCancelled ? 'rgba(248,113,113,0.1)' : isTransit ? 'rgba(250,204,21,0.1)' : 'rgba(136,146,176,0.1)';
-                          return (
+                        {o.tracking_id ? (
                             <span
-                              title={`${o.delivery_provider === 'forcelog' ? 'Forcelog' : 'Olivraison'} · ${o.tracking_id}\nClick to copy tracking ID`}
+                              title={`${o.tracking_id} — click to copy`}
                               onClick={() => navigator.clipboard.writeText(o.tracking_id)}
-                              style={{ fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 5, cursor: 'pointer',
-                                background: bg, color, border: `1px solid ${color}33`,
-                                whiteSpace: 'nowrap', maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', display: 'inline-block' }}>
-                              {o.delivery_provider === 'forcelog' ? '📦' : '🚚'} {o.delivery_status || 'Envoyé'}
+                              style={{ fontSize: 11, padding: '3px 8px', borderRadius: 5, cursor: 'pointer',
+                                background: 'rgba(100,116,139,0.12)', color: 'var(--t2)', border: '1px solid var(--border)',
+                                whiteSpace: 'nowrap', display: 'inline-block' }}>
+                              {o.delivery_provider === 'forcelog' ? '📦' : '🚚'} Sent to {o.delivery_provider === 'forcelog' ? 'Forcelog' : 'Olivraison'}
                             </span>
-                          );
-                        })()
-                        : o.status === 'pending' ? (
+                        ) : !o.tracking_id ? (
                           <select
                             className="btn btn-secondary btn-sm"
                             style={{ cursor: 'pointer', fontSize: 12, paddingRight: 4 }}
@@ -923,7 +967,9 @@ export default function Orders() {
                   </div>
                   <div style={{ flex: 1, background: 'var(--bg)', borderRadius: 8, padding: '10px 14px', textAlign: 'center' }}>
                     <div style={{ fontSize: 11, color: 'var(--t3)', marginBottom: 3 }}>STATUS</div>
-                    <span className={`badge ${STATUS_BADGE[o.status] || ''}`} style={{ fontSize: 12 }}>{o.status}</span>
+                    <span style={{ fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 12, ...statusStyle(o) }}>
+                      {o.delivery_status || STATUS_LABEL[o.status] || o.status}
+                    </span>
                   </div>
                   <div style={{ flex: 1, background: 'var(--bg)', borderRadius: 8, padding: '10px 14px', textAlign: 'center' }}>
                     <div style={{ fontSize: 11, color: 'var(--t3)', marginBottom: 3 }}>DATE</div>
@@ -1506,7 +1552,7 @@ export default function Orders() {
               </div>
               <div style={{ maxHeight: 280, overflowY: 'auto', marginBottom: 16, border: '1px solid #2d3248', borderRadius: 8 }}>
                 {orders
-                  .filter(o => o.status === 'pending' && (!returnSearch || o.caleo_id.toLowerCase().includes(returnSearch.toLowerCase()) || o.customer_name?.toLowerCase().includes(returnSearch.toLowerCase())))
+                  .filter(o => ['pending','awaiting_pickup','in_delivery'].includes(o.status) && (!returnSearch || o.caleo_id.toLowerCase().includes(returnSearch.toLowerCase()) || o.customer_name?.toLowerCase().includes(returnSearch.toLowerCase())))
                   .slice(0, 50)
                   .map(o => (
                     <div key={o.id}
@@ -1516,7 +1562,7 @@ export default function Orders() {
                       <div style={{ marginTop: 2 }}>{o.customer_name} · <span style={{ color: '#8892b0' }}>{o.city}</span> · <strong style={{ color: '#60a5fa' }}>{o.total_amount} MAD</strong></div>
                     </div>
                   ))}
-                {orders.filter(o => o.status === 'pending').length === 0 && (
+                {orders.filter(o => ['pending','awaiting_pickup','in_delivery'].includes(o.status)).length === 0 && (
                   <div style={{ padding: 20, textAlign: 'center', color: '#8892b0' }}>No pending orders found</div>
                 )}
               </div>

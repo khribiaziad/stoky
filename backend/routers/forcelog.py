@@ -81,8 +81,11 @@ def _normalize_phone_for_forcelog(phone: str) -> str:
     return p[:14]
 
 
-DELIVERED_KEYWORDS = ["livré", "livre", "delivered", "confirmé par livreur", "livraison effectuée", "delivered"]
-CANCELLED_KEYWORDS = ["annulé", "annule", "retour", "refusé", "refuse", "cancelled", "retourné", "retourne", "echec", "échoué"]
+DELIVERED_KEYWORDS  = ["livré", "livre", "delivered", "confirmé par livreur", "livraison effectuée"]
+CANCELLED_KEYWORDS  = ["annulé", "annule", "retour", "refusé", "refuse", "cancelled", "retourné", "retourne", "echec", "échoué"]
+IN_DELIVERY_KEYWORDS = ["appel", "call", "en route", "enroute", "route", "transit", "ramassage",
+                         "pickup", "tentative", "expédié", "expedie", "injoignable", "vocal",
+                         "sms", "whatsapp", "réponse", "reponse", "reporté", "reporte"]
 
 # Forcelog-specific uppercase statuses
 FORCELOG_DELIVERED = {"DELIVERED"}
@@ -100,7 +103,9 @@ def _map_status(raw: str) -> str | None:
         return "delivered"
     if any(k in s for k in CANCELLED_KEYWORDS):
         return "cancelled"
-    return None  # still in transit / unknown → don't change order status
+    if any(k in s for k in IN_DELIVERY_KEYWORDS):
+        return "in_delivery"
+    return None  # unknown → don't change
 
 
 def _get_store_id(user: models.User) -> int:
@@ -263,12 +268,12 @@ def request_ramassage(
     orders = db.query(models.Order).filter(
         models.Order.user_id == sid,
         models.Order.delivery_provider == "forcelog",
-        models.Order.status == "pending",
+        models.Order.status.in_(["pending", "awaiting_pickup"]),
         models.Order.tracking_id.isnot(None),
     ).all()
 
     if not orders:
-        raise HTTPException(400, "No in-delivery Forcelog orders found for ramassage")
+        raise HTTPException(400, "No Forcelog orders ready for pickup")
 
     stickers = [o.tracking_id for o in orders]
 
@@ -281,6 +286,10 @@ def request_ramassage(
             timeout=20,
         )
         r.raise_for_status()
+
+    for o in orders:
+        o.status = "awaiting_pickup"
+    db.commit()
 
     return {"count": len(stickers)}
 
