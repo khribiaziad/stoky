@@ -8,6 +8,7 @@ import {
   updateStoreStatus, updateStoreSubscription, updateStoreNotes, resetStorePassword,
   getStorePayments, addStorePayment, deletePayment,
   getPlatformSettings, savePlatformSetting, getStoreStorage,
+  deleteStore, importStoreExcel, errorMessage,
 } from '../../api';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -142,7 +143,7 @@ function CreateStoreModal({ onClose, onCreated }) {
 
 // ── Store Drawer ──────────────────────────────────────────────────────────────
 
-function StoreDrawer({ store, onClose, onUpdate }) {
+function StoreDrawer({ store, onClose, onUpdate, onDelete }) {
   const [tab, setTab]                   = useState('overview');
   const [sub, setSub]                   = useState(store.subscription);
   const [notes, setNotes]               = useState(store.subscription.notes || '');
@@ -156,6 +157,10 @@ function StoreDrawer({ store, onClose, onUpdate }) {
   const [togglingStatus, setTogglingStatus] = useState(false);
   const [storeApproved, setStoreApproved]   = useState(store.is_approved);
   const [savingSub, setSavingSub]           = useState(false);
+  const [deleting, setDeleting]             = useState(false);
+  const [importing, setImporting]           = useState(false);
+  const [importResult, setImportResult]     = useState(null);
+  const importRef                           = useRef(null);
   const notesTimer = useRef(null);
 
   const days = daysUntil(sub.end_date);
@@ -227,6 +232,36 @@ function StoreDrawer({ store, onClose, onUpdate }) {
       savePlatformSetting('price_annual',  settings.price_annual),
     ]);
     alert('Pricing saved');
+  };
+
+  const handleDelete = async () => {
+    if (!window.confirm(`Delete "${store.store_name}" and ALL its data? This cannot be undone.`)) return;
+    setDeleting(true);
+    try {
+      await deleteStore(store.id);
+      onDelete(store.id);
+      onClose();
+    } catch (e) {
+      alert(errorMessage(e));
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleImportExcel = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImporting(true);
+    setImportResult(null);
+    try {
+      const res = await importStoreExcel(store.id, file);
+      setImportResult(res.data);
+    } catch (e) {
+      setImportResult({ error: errorMessage(e) });
+    } finally {
+      setImporting(false);
+      e.target.value = '';
+    }
   };
 
   const TABS = ['overview', 'storage', 'payments', 'settings'];
@@ -368,6 +403,36 @@ function StoreDrawer({ store, onClose, onUpdate }) {
                     {resetting ? '…' : 'Reset'}
                   </button>
                 </div>
+
+                {/* Import Excel */}
+                <input ref={importRef} type="file" accept=".xlsx" style={{ display: 'none' }} onChange={handleImportExcel} />
+                <button className="btn btn-secondary btn-sm" style={{ width: '100%' }}
+                  onClick={() => importRef.current.click()} disabled={importing}>
+                  {importing ? '⏳ Importing…' : '📥 Import Excel (Orders)'}
+                </button>
+                {importResult && (
+                  <div style={{ background: importResult.error ? 'rgba(239,68,68,0.1)' : 'rgba(0,212,143,0.1)',
+                    border: `1px solid ${importResult.error ? 'rgba(239,68,68,0.3)' : 'rgba(0,212,143,0.3)'}`,
+                    borderRadius: 8, padding: '10px 12px', fontSize: 12 }}>
+                    {importResult.error ? (
+                      <span style={{ color: '#f87171' }}>Error: {importResult.error}</span>
+                    ) : (
+                      <>
+                        <div style={{ color: '#00d48f', fontWeight: 600 }}>✓ Import complete</div>
+                        <div style={{ color: 'var(--text-muted)', marginTop: 4 }}>
+                          {importResult.created_orders} orders created · {importResult.skipped_orders} skipped
+                          {importResult.unmatched_product_names > 0 && ` · ${importResult.unmatched_product_names} unmatched products`}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* Delete Store */}
+                <button className="btn btn-sm" style={{ width: '100%', background: 'rgba(239,68,68,0.1)', color: '#f87171', border: '1px solid rgba(239,68,68,0.3)' }}
+                  onClick={handleDelete} disabled={deleting}>
+                  {deleting ? '⏳ Deleting…' : '🗑 Delete Store & All Data'}
+                </button>
               </div>
             </>
           )}
@@ -491,6 +556,10 @@ export default function PlatformStores() {
 
   useEffect(() => { load(); }, []);
 
+  const handleStoreDelete = (storeId) => {
+    setStores(prev => prev.filter(s => s.id !== storeId));
+  };
+
   const handleStoreUpdate = (storeId, changes) => {
     setStores(prev => prev.map(s => s.id === storeId
       ? { ...s, ...changes, subscription: { ...s.subscription, ...(changes.subscription || {}) } }
@@ -610,6 +679,7 @@ export default function PlatformStores() {
           store={selectedStore}
           onClose={() => setSelectedStore(null)}
           onUpdate={handleStoreUpdate}
+          onDelete={handleStoreDelete}
         />
       )}
 
