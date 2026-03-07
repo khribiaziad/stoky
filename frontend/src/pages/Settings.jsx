@@ -207,6 +207,7 @@ export default function Settings({ user, theme, setTheme, lang, setLang, accent,
   const [apiKey, setApiKey]           = useState('');
   const [rotatingKey, setRotatingKey] = useState(false);
   const [copied, setCopied]           = useState(false);
+  const [scriptCopied, setScriptCopied] = useState(false);
 
   // ── Olivraison ──
   const [oliv, setOliv] = useState({ api_key: '', secret_key: '', pickup_city: '', pickup_street: '', pickup_phone: '' });
@@ -303,6 +304,91 @@ export default function Settings({ user, theme, setTheme, lang, setLang, accent,
   const youcanWebhookUrl = apiKey
     ? `${window.location.origin}/api/youcan/webhook?api_key=${apiKey}`
     : '';
+
+  const youcanScript = apiKey ? `<script>
+(function () {
+  var WEBHOOK = '${window.location.origin}/api/leads/inbound?api_key=${apiKey}';
+
+  function captureInputs() {
+    var d = {};
+    document.querySelectorAll('input, select, textarea').forEach(function (el) {
+      if (!el.value || !el.value.trim()) return;
+      [el.name, el.id, el.placeholder, el.getAttribute('autocomplete')].forEach(function (k) {
+        if (k && k.trim()) d[k.toLowerCase().replace(/\\s+/g, '-')] = el.value.trim();
+      });
+      if (el.type === 'tel') d['_phone'] = el.value.trim();
+      if (el.type === 'email') d['_email'] = el.value.trim();
+    });
+    if (Object.keys(d).length >= 2) localStorage.setItem('_sq', JSON.stringify(d));
+  }
+
+  function sendLead(path) {
+    var ref = (path.split('/orders/')[1] || window.location.search || '').replace('?', '');
+    var saved = {};
+    try { saved = JSON.parse(localStorage.getItem('_sq') || '{}'); } catch (e) {}
+    function get(keys) {
+      for (var i = 0; i < keys.length; i++) {
+        var v = saved[keys[i]] || saved[keys[i].toLowerCase()];
+        if (v) return v;
+      }
+      return '';
+    }
+    var firstName = get(['first_name', 'firstname', 'given-name', 'prenom']);
+    var lastName  = get(['last_name', 'lastname', 'family-name', 'nom']);
+    var phone     = get(['phone', '_phone', 'telephone', 'tel', 'mobile']);
+    var email     = get(['email', '_email']);
+    var city      = get(['city', 'ville']);
+    var address   = get(['address', 'address1', 'adresse', 'address-line1']);
+    var fullName  = (firstName + ' ' + lastName).trim() || get(['name']);
+    if (!phone && !fullName) return;
+    function scrapeItems() {
+      var items = [];
+      document.querySelectorAll('ul.items li .item').forEach(function (el) {
+        var nameEl = el.querySelector('span.name');
+        var qtyEl  = el.querySelector('span.quantity');
+        if (nameEl) {
+          var qty = qtyEl ? parseInt(qtyEl.innerText.replace(/\\D/g, '')) || 1 : 1;
+          items.push({ product_name: nameEl.innerText.trim(), quantity: qty });
+        }
+      });
+      return items.length ? items : [{ product_name: 'YouCan order', quantity: 1 }];
+    }
+    fetch(WEBHOOK, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        customer_name:    fullName || 'Unknown',
+        customer_phone:   phone,
+        customer_email:   email || null,
+        customer_city:    city || null,
+        customer_address: address || null,
+        notes:            'YouCan #' + ref,
+        items:            scrapeItems(),
+        website:          ''
+      })
+    });
+  }
+
+  function checkRoute(path) {
+    path = path || window.location.pathname;
+    if (path.includes('/checkout') && !path.includes('/thankyou')) {
+      setInterval(captureInputs, 1000);
+      document.addEventListener('submit', captureInputs, true);
+      document.addEventListener('click', function (e) {
+        if (e.target.closest('button, [type=submit]')) setTimeout(captureInputs, 300);
+      }, true);
+    }
+    if (path.includes('/checkout/thankyou') || path.match(/\\/orders\\/[a-z0-9-]+/)) {
+      sendLead(path);
+    }
+  }
+
+  window.addEventListener('load', function () { checkRoute(); });
+  var _push = history.pushState;
+  history.pushState = function (s, t, url) { _push.apply(this, arguments); if (url) checkRoute(url.toString()); };
+  window.addEventListener('popstate', function () { checkRoute(); });
+})();
+<\/script>` : '';
 
   const wooWebhookUrl = apiKey
     ? `${window.location.origin}/api/woocommerce/webhook?api_key=${apiKey}`
@@ -1212,36 +1298,41 @@ Content-Type: application/json
           <div className="card">
             <SectionHeader Icon={Link} title="YouCan Integration" />
             <p style={{ fontSize: 13, color: 'var(--t2)', marginBottom: 18 }}>
-              Connect your YouCan store to Stocky. New orders will automatically appear as leads.
+              Captures customer info from the YouCan checkout page and sends it to Stocky as a lead.
             </p>
 
-            <SubLabel text="Step 1 — Copy your webhook URL" />
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 18 }}>
-              <div style={{
-                flex: 1, padding: '9px 12px', background: 'var(--card-2)', borderRadius: 'var(--r-sm)',
-                border: '1px solid var(--border)', fontFamily: 'monospace', fontSize: 12,
-                color: 'var(--t1)', wordBreak: 'break-all', lineHeight: 1.5,
+            <SubLabel text="Step 1 — Copy the script" />
+            <div style={{ position: 'relative', marginBottom: 18 }}>
+              <pre style={{
+                background: 'var(--card-2)', border: '1px solid var(--border)',
+                borderRadius: 'var(--r-sm)', padding: '12px 14px',
+                fontSize: 11, fontFamily: 'monospace', color: 'var(--t2)',
+                overflowX: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-all',
+                maxHeight: 160, overflow: 'auto', margin: 0,
               }}>
-                {youcanWebhookUrl || 'Loading…'}
-              </div>
+                {youcanScript || 'Loading…'}
+              </pre>
               <button
-                className="btn btn-secondary btn-sm"
-                onClick={() => handleCopy(youcanWebhookUrl)}
-                disabled={!youcanWebhookUrl}
-                style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}
+                className="btn btn-primary btn-sm"
+                onClick={() => {
+                  navigator.clipboard.writeText(youcanScript).then(() => {
+                    setScriptCopied(true);
+                    setTimeout(() => setScriptCopied(false), 2000);
+                  });
+                }}
+                disabled={!youcanScript}
+                style={{ position: 'absolute', top: 8, right: 8, display: 'flex', alignItems: 'center', gap: 5 }}
               >
-                <Copy size={13} strokeWidth={2} />
-                {copied ? 'Copied!' : 'Copy'}
+                <Copy size={12} strokeWidth={2} />
+                {scriptCopied ? 'Copied!' : 'Copy Script'}
               </button>
             </div>
 
             <SubLabel text="Step 2 — Paste it in YouCan" />
             <ol style={{ fontSize: 13, color: 'var(--t2)', lineHeight: 2, paddingLeft: 18, marginBottom: 0 }}>
               <li>Go to your <strong style={{ color: 'var(--t1)' }}>YouCan dashboard</strong></li>
-              <li>Open <strong style={{ color: 'var(--t1)' }}>Settings → Webhooks</strong></li>
-              <li>Click <strong style={{ color: 'var(--t1)' }}>Add Webhook</strong></li>
-              <li>Paste the URL above and select event <strong style={{ color: 'var(--accent)' }}>order.create</strong></li>
-              <li>Save — done! New orders will flow into Stocky automatically.</li>
+              <li>Open <strong style={{ color: 'var(--t1)' }}>Themes → Edit theme → Custom Scripts</strong></li>
+              <li>Paste the script above and save — done!</li>
             </ol>
           </div>
 
