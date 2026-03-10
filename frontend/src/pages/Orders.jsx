@@ -55,7 +55,7 @@ export default function Orders() {
   const [products, setProducts] = useState([]);
   const [packs, setPacks] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('all');
+  const [filter, setFilter] = useState('pending');
   const [search, setSearch] = useState('');
 
   // PDF upload states
@@ -207,10 +207,10 @@ export default function Orders() {
   };
 
   useEffect(() => {
-    load({ p: page, f: filter, t: activeTab });
+    load({ p: 1, f: 'pending', t: 'orders', dr: 'today' });
     // Silently sync delivery statuses in the background on page load
     Promise.allSettled([syncAllForcelog(), syncAllOlivraison()])
-      .then(() => load({ p: page, f: filter, t: activeTab }))
+      .then(() => load({ p: 1, f: 'pending', t: 'orders', dr: 'today' }))
       .catch(() => {});
   }, []);
 
@@ -691,7 +691,7 @@ export default function Orders() {
       <div style={{ display: 'flex', gap: 0, marginBottom: 16, borderBottom: '1px solid var(--border)' }}>
         {[{ id: 'orders', label: `Orders (${orderCount})` },
           { id: 'returns', label: `Returns (${returnCount})` }].map(tab => (
-          <button key={tab.id} onClick={() => { setActiveTab(tab.id); setSearch(''); setFilter('all'); setSelectedIds(new Set()); setPage(1); load({ p: 1, f: 'all', t: tab.id }); }}
+          <button key={tab.id} onClick={() => { setActiveTab(tab.id); setSearch(''); setFilter('pending'); setSelectedIds(new Set()); setPage(1); load({ p: 1, f: 'pending', t: tab.id }); }}
             style={{
               background: 'none', border: 'none', padding: '10px 20px', cursor: 'pointer',
               fontSize: 14, fontWeight: 600,
@@ -710,12 +710,12 @@ export default function Orders() {
       {/* Filters */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 16, alignItems: 'center', flexWrap: 'wrap' }}>
         {activeTab === 'orders' && [
-          { value: 'all',             label: 'All',             countKey: null },
           { value: 'pending',         label: 'Pending',         countKey: 'pending' },
           { value: 'awaiting_pickup', label: 'Awaiting Pickup', countKey: 'awaiting_pickup' },
           { value: 'in_delivery',     label: 'In Delivery',     countKey: 'in_delivery' },
           { value: 'reported',        label: 'Reported',        countKey: 'reported' },
           { value: 'delivered',       label: 'Delivered',       countKey: 'delivered' },
+          { value: 'all',             label: 'All',             countKey: null },
         ].map(({ value, label, countKey }) => {
           const count = countKey ? (statusCounts[countKey] || 0) : orderCount;
           return (
