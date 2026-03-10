@@ -283,9 +283,9 @@ def inbound_lead(
     raw_items = [{"product_name": i.product_name, "quantity": i.quantity} for i in data.items]
     matched, total = _match_items(raw_items, store_id, db)
 
-    # Auto-extract city from address if no city provided
+    # Auto-extract city from address (always tries, DB match wins over form value)
     city = data.customer_city
-    if not city and data.customer_address:
+    if data.customer_address:
         all_cities = db.query(models.City).all()
         addr_lower = data.customer_address.lower()
         for c in all_cities:

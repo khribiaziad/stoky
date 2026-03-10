@@ -76,9 +76,9 @@ async def youcan_webhook(
 
     matched, matched_total = _match_items(raw_items, store_id, db)
 
-    # Auto-extract city from address if no city provided
+    # Auto-extract city from address (always tries, DB match wins over form value)
     resolved_city = city or region
-    if not resolved_city and address:
+    if address:
         all_cities = db.query(models.City).all()
         addr_lower = address.lower()
         for c in all_cities:
