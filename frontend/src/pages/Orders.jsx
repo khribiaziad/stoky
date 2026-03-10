@@ -124,6 +124,10 @@ export default function Orders() {
   const [ramassageResult,  setRamassageResult]  = useState(null);
   const [ramassageLoading, setRamassageLoading] = useState(false);
 
+  // Date range selectors
+  const [dateRange,     setDateRange]     = useState('all'); // for order_date (non-reported)
+  const [reportedRange, setReportedRange] = useState('all'); // for reported_date (reported tab)
+
 
   const pickupRef = useRef();
   const returnRef = useRef();
@@ -155,10 +159,35 @@ export default function Orders() {
     }));
   };
 
+  const getDateBounds = (range, future = false) => {
+    if (!range || range === 'all') return {};
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const fmt = d => d.toISOString().slice(0, 10);
+    if (range === 'today') return { from: fmt(today), to: fmt(today) };
+    if (range === 'week') {
+      if (future) { const e = new Date(today); e.setDate(today.getDate() + 7); return { from: fmt(today), to: fmt(e) }; }
+      const s = new Date(today); s.setDate(today.getDate() - 7); return { from: fmt(s), to: fmt(today) };
+    }
+    if (range === 'month') {
+      if (future) { const e = new Date(today.getFullYear(), today.getMonth() + 1, 0); return { from: fmt(today), to: fmt(e) }; }
+      const s = new Date(today.getFullYear(), today.getMonth(), 1); return { from: fmt(s), to: fmt(today) };
+    }
+    return {};
+  };
+
   const buildParams = (overrides = {}) => {
-    const { p = page, f = filter, t = activeTab } = overrides;
+    const { p = page, f = filter, t = activeTab, dr = dateRange, rr = reportedRange } = overrides;
     const params = { page: p, limit: 100, tab: t };
     if (t === 'orders' && f !== 'all') params.status = f;
+    if (f === 'reported') {
+      const { from, to } = getDateBounds(rr, true);
+      if (from) params.reported_from = from;
+      if (to) params.reported_to = to;
+    } else {
+      const { from, to } = getDateBounds(dr, false);
+      if (from) params.date_from = from;
+      if (to) params.date_to = to;
+    }
     return params;
   };
 
@@ -679,7 +708,7 @@ export default function Orders() {
       {success && <div className="alert alert-success">{success} <button style={{ float: 'right', background: 'none', border: 'none', color: 'inherit', cursor: 'pointer' }} onClick={() => setSuccess('')}>✕</button></div>}
 
       {/* Filters */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 16, alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: 10, marginBottom: 16, alignItems: 'center', flexWrap: 'wrap' }}>
         {activeTab === 'orders' && [
           { value: 'all',             label: 'All',             countKey: null },
           { value: 'pending',         label: 'Pending',         countKey: 'pending' },
@@ -707,9 +736,36 @@ export default function Orders() {
             </button>
           );
         })}
-        <div className="search-bar" style={{ marginLeft: activeTab === 'returns' ? 0 : 'auto' }}>
-          <span>🔍</span>
-          <input placeholder="Search by name, CMD, city, or phone..." value={search} onChange={e => setSearch(e.target.value)} />
+
+        {/* Right group: date range selector + search */}
+        <div style={{ display: 'flex', gap: 8, marginLeft: 'auto', alignItems: 'center', flexWrap: 'wrap' }}>
+          {/* Date range selector — orders tab only */}
+          {activeTab === 'orders' && (() => {
+            const isReported = filter === 'reported';
+            const current = isReported ? reportedRange : dateRange;
+            const accentColor = isReported ? '#a855f7' : undefined;
+            return (
+              <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                {isReported && <span style={{ fontSize: 12, color: '#a855f7', whiteSpace: 'nowrap' }}>Scheduled:</span>}
+                {[{ value: 'all', label: 'All' }, { value: 'today', label: 'Today' }, { value: 'week', label: 'Week' }, { value: 'month', label: 'Month' }].map(r => (
+                  <button key={r.value}
+                    className={`btn btn-sm ${current === r.value ? 'btn-primary' : 'btn-secondary'}`}
+                    style={{ fontSize: 11, padding: '4px 10px', ...(current === r.value && accentColor ? { background: accentColor, borderColor: accentColor } : {}) }}
+                    onClick={() => {
+                      if (isReported) { setReportedRange(r.value); load({ rr: r.value }); }
+                      else { setDateRange(r.value); load({ dr: r.value }); }
+                    }}>
+                    {r.label}
+                  </button>
+                ))}
+              </div>
+            );
+          })()}
+
+          <div className="search-bar">
+            <span>🔍</span>
+            <input placeholder="Search by name, CMD, city, or phone..." value={search} onChange={e => setSearch(e.target.value)} />
+          </div>
         </div>
       </div>
 

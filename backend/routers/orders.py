@@ -141,6 +141,10 @@ def list_orders(
     tab: Optional[str] = "orders",   # "orders" (non-cancelled) | "returns" (cancelled)
     page: int = 1,
     limit: int = 100,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    reported_from: Optional[str] = None,
+    reported_to: Optional[str] = None,
     db: Session = Depends(get_db),
     user: models.User = Depends(get_current_user),
 ):
@@ -169,6 +173,30 @@ def list_orders(
         query = base.filter(models.Order.status == status)
     else:
         query = base.filter(models.Order.status != "cancelled")
+
+    # Apply date filters
+    if date_from:
+        try:
+            query = query.filter(models.Order.order_date >= datetime.fromisoformat(date_from))
+        except ValueError:
+            pass
+    if date_to:
+        try:
+            dt = datetime.fromisoformat(date_to).replace(hour=23, minute=59, second=59)
+            query = query.filter(models.Order.order_date <= dt)
+        except ValueError:
+            pass
+    if reported_from:
+        try:
+            query = query.filter(models.Order.reported_date >= datetime.fromisoformat(reported_from))
+        except ValueError:
+            pass
+    if reported_to:
+        try:
+            rt = datetime.fromisoformat(reported_to).replace(hour=23, minute=59, second=59)
+            query = query.filter(models.Order.reported_date <= rt)
+        except ValueError:
+            pass
 
     total = query.count()
 
