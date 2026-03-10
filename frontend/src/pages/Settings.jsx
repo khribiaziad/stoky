@@ -308,51 +308,55 @@ export default function Settings({ user, theme, setTheme, lang, setLang, accent,
   const youcanScript = apiKey ? `<script>
 (function () {
   var WEBHOOK = '${window.location.origin}/api/leads/inbound?api_key=${apiKey}';
+  var _sent = false;
+  var _cache = {};
 
+  // ── 1. Capture all visible inputs into cache ──────────────────────────────
   function captureInputs() {
-    var d = {};
     document.querySelectorAll('input, select, textarea').forEach(function (el) {
       if (!el.value || !el.value.trim()) return;
       [el.name, el.id, el.placeholder, el.getAttribute('autocomplete')].forEach(function (k) {
-        if (k && k.trim()) d[k.toLowerCase().replace(/\\s+/g, '-')] = el.value.trim();
+        if (k && k.trim()) _cache[k.toLowerCase().replace(/\\s+/g, '-')] = el.value.trim();
       });
-      if (el.type === 'tel') d['_phone'] = el.value.trim();
-      if (el.type === 'email') d['_email'] = el.value.trim();
+      if (el.type === 'tel')   _cache['_phone'] = el.value.trim();
+      if (el.type === 'email') _cache['_email'] = el.value.trim();
     });
-    if (Object.keys(d).length >= 2) localStorage.setItem('_sq', JSON.stringify(d));
+    if (Object.keys(_cache).length >= 2) localStorage.setItem('_sq', JSON.stringify(_cache));
   }
 
-  function sendLead(path) {
-    var ref = (path.split('/orders/')[1] || window.location.search || '').replace('?', '');
-    var saved = {};
-    try { saved = JSON.parse(localStorage.getItem('_sq') || '{}'); } catch (e) {}
-    function get(keys) {
-      for (var i = 0; i < keys.length; i++) {
-        var v = saved[keys[i]] || saved[keys[i].toLowerCase()];
-        if (v) return v;
-      }
-      return '';
+  function get(keys, extra) {
+    var saved = extra || {};
+    try { saved = Object.assign({}, JSON.parse(localStorage.getItem('_sq') || '{}'), _cache, extra || {}); } catch (e) {}
+    for (var i = 0; i < keys.length; i++) {
+      var v = saved[keys[i]] || saved[keys[i].toLowerCase()];
+      if (v) return v;
     }
-    var firstName = get(['first_name', 'firstname', 'given-name', 'prenom']);
-    var lastName  = get(['last_name', 'lastname', 'family-name', 'nom']);
-    var phone     = get(['phone', '_phone', 'telephone', 'tel', 'mobile']);
-    var email     = get(['email', '_email']);
-    var city      = get(['city', 'ville']);
-    var address   = get(['address', 'address1', 'adresse', 'address-line1']);
-    var fullName  = (firstName + ' ' + lastName).trim() || get(['name']);
+    return '';
+  }
+
+  function scrapeItems() {
+    var items = [];
+    document.querySelectorAll('ul.items li .item, .cart-item, .order-item').forEach(function (el) {
+      var nameEl = el.querySelector('span.name, .item-name, .product-name');
+      var qtyEl  = el.querySelector('span.quantity, .item-qty, .quantity');
+      if (nameEl) items.push({ product_name: nameEl.innerText.trim(), quantity: qtyEl ? parseInt(qtyEl.innerText.replace(/\\D/g, '')) || 1 : 1 });
+    });
+    return items.length ? items : [{ product_name: 'YouCan order', quantity: 1 }];
+  }
+
+  // ── 2. Send lead (deduped) ────────────────────────────────────────────────
+  function sendLead(ref, extra) {
+    if (_sent) return;
+    captureInputs();
+    var firstName = get(['first_name', 'firstname', 'given-name', 'prenom'], extra);
+    var lastName  = get(['last_name',  'lastname',  'family-name', 'nom'],   extra);
+    var phone     = get(['phone', '_phone', 'telephone', 'tel', 'mobile'],   extra);
+    var email     = get(['email', '_email'],                                   extra);
+    var city      = get(['city', 'ville'],                                     extra);
+    var address   = get(['address', 'address1', 'adresse', 'address-line1', 'street', 'rue', 'shipping-address', 'line1', 'first_line', 'shipping_address'], extra);
+    var fullName  = (firstName + ' ' + lastName).trim() || get(['name'],     extra);
     if (!phone && !fullName) return;
-    function scrapeItems() {
-      var items = [];
-      document.querySelectorAll('ul.items li .item').forEach(function (el) {
-        var nameEl = el.querySelector('span.name');
-        var qtyEl  = el.querySelector('span.quantity');
-        if (nameEl) {
-          var qty = qtyEl ? parseInt(qtyEl.innerText.replace(/\\D/g, '')) || 1 : 1;
-          items.push({ product_name: nameEl.innerText.trim(), quantity: qty });
-        }
-      });
-      return items.length ? items : [{ product_name: 'YouCan order', quantity: 1 }];
-    }
+    _sent = true;
     fetch(WEBHOOK, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -362,27 +366,83 @@ export default function Settings({ user, theme, setTheme, lang, setLang, accent,
         customer_email:   email || null,
         customer_city:    city || null,
         customer_address: address || null,
-        notes:            'YouCan #' + ref,
+        notes:            'YouCan' + (ref ? ' #' + ref : ''),
         items:            scrapeItems(),
         website:          ''
       })
     });
   }
 
+  // ── 3. Intercept fetch (popup AJAX orders) ────────────────────────────────
+  var _origFetch = window.fetch;
+  window.fetch = function (input, init) {
+    var url = (typeof input === 'string' ? input : (input || {}).url) || '';
+    var method = ((init || {}).method || 'GET').toUpperCase();
+    if (method === 'POST' && /order|checkout|purchase/i.test(url)) {
+      try {
+        var body = JSON.parse((init || {}).body || '{}');
+        var c = body.customer || body.shipping || body;
+        var sa = body.shipping_address || body.address || {};
+        var extra = {
+          'first_name': c.first_name, 'last_name': c.last_name, 'name': c.name,
+          '_phone': c.phone || c.telephone || sa.phone,
+          'city':    c.city || sa.city || sa.region,
+          'address': c.address || c.address1 || sa.address1 || sa.first_line || sa.street || [sa.first_line, sa.second_line].filter(Boolean).join(', '),
+        };
+        setTimeout(function () { sendLead('ajax', extra); }, 500);
+      } catch (e) {}
+    }
+    return _origFetch.apply(this, arguments);
+  };
+
+  // ── 4. Intercept XHR (popup AJAX orders) ─────────────────────────────────
+  var _oOpen = XMLHttpRequest.prototype.open;
+  var _oSend = XMLHttpRequest.prototype.send;
+  XMLHttpRequest.prototype.open = function (m, u) { this._m = m; this._u = u; return _oOpen.apply(this, arguments); };
+  XMLHttpRequest.prototype.send = function (body) {
+    if (this._m === 'POST' && /order|checkout|purchase/i.test(this._u)) {
+      try {
+        var d = JSON.parse(body || '{}');
+        var c = d.customer || d.shipping || d;
+        var sa2 = d.shipping_address || d.address || {};
+        var extra = { 'first_name': c.first_name, 'last_name': c.last_name, '_phone': c.phone || c.telephone || sa2.phone, 'city': c.city || sa2.city, 'address': c.address || c.address1 || sa2.address1 || sa2.first_line || sa2.street };
+        setTimeout(function () { sendLead('xhr', extra); }, 500);
+      } catch (e) {}
+    }
+    return _oSend.apply(this, arguments);
+  };
+
+  // ── 5. Always capture inputs (polling + events) ───────────────────────────
+  setInterval(captureInputs, 2000);
+  document.addEventListener('input',  captureInputs, true);
+  document.addEventListener('change', captureInputs, true);
+  document.addEventListener('click',  function (e) { if (e.target.closest('button, [type=submit]')) setTimeout(captureInputs, 300); }, true);
+  document.addEventListener('submit', function ()   { captureInputs(); setTimeout(function () { sendLead('form'); }, 600); }, true);
+
+  // ── 6. MutationObserver — catches popup success messages ─────────────────
+  var _obs = new MutationObserver(function (mutations) {
+    var path = window.location.pathname;
+    if (path.includes('/thankyou') || path.includes('/thank-you') || path.match(/\\/orders\\/[a-z0-9-]+/)) {
+      sendLead((path.split('/orders/')[1] || '').replace('?', ''));
+    }
+    mutations.forEach(function (m) {
+      m.addedNodes.forEach(function (node) {
+        if (node.nodeType !== 1) return;
+        if (/merci|thank you|commande confirm|order confirm/i.test(node.innerText || '')) {
+          setTimeout(function () { sendLead('popup-confirm'); }, 300);
+        }
+      });
+    });
+  });
+  _obs.observe(document.body, { childList: true, subtree: true });
+
+  // ── 7. SPA route changes ──────────────────────────────────────────────────
   function checkRoute(path) {
     path = path || window.location.pathname;
-    if (path.includes('/checkout') && !path.includes('/thankyou')) {
-      setInterval(captureInputs, 1000);
-      document.addEventListener('submit', captureInputs, true);
-      document.addEventListener('click', function (e) {
-        if (e.target.closest('button, [type=submit]')) setTimeout(captureInputs, 300);
-      }, true);
-    }
     if (path.includes('/checkout/thankyou') || path.match(/\\/orders\\/[a-z0-9-]+/)) {
-      sendLead(path);
+      sendLead((path.split('/orders/')[1] || '').replace('?', ''));
     }
   }
-
   window.addEventListener('load', function () { checkRoute(); });
   var _push = history.pushState;
   history.pushState = function (s, t, url) { _push.apply(this, arguments); if (url) checkRoute(url.toString()); };
