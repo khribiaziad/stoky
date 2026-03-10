@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { getOrders, getProducts, getPacks, uploadPickupPDF, bulkCreateOrders, uploadReturnPDF, processReturns, updateOrderStatus, updateOrder, deleteOrder, updateOrderNotes, bulkUpdateOrderStatus, sendToOlivraison, sendToForcelog, getForcelogStatus, syncAllForcelog, syncAllOlivraison, requestOlivRamassage, requestForcelogRamassage, confirmPickup, errorMessage } from '../api';
+import { getOrders, getProducts, getPacks, uploadPickupPDF, bulkCreateOrders, uploadReturnPDF, processReturns, updateOrderStatus, updateOrder, deleteOrder, bulkUpdateOrderStatus, sendToOlivraison, sendToForcelog, getForcelogStatus, syncAllForcelog, syncAllOlivraison, requestOlivRamassage, requestForcelogRamassage, confirmPickup, errorMessage } from '../api';
 import ErrorExplain from '../components/ErrorExplain';
 import { validatePhone, validateAmount, numericOnly, fieldErrorStyle } from '../utils/validate';
 
@@ -94,10 +94,6 @@ export default function Orders() {
 
   // Detail popup
   const [detailOrder, setDetailOrder] = useState(null);
-
-  // Notes modal
-  const [notesOrder, setNotesOrder] = useState(null);
-  const [notesDraft, setNotesDraft] = useState('');
 
   // Edit order modal
   const [editOrder, setEditOrder] = useState(null);
@@ -522,23 +518,6 @@ export default function Orders() {
     downloadCSV(rows, `orders_${new Date().toISOString().slice(0, 10)}.csv`);
   };
 
-  // ── Notes ─────────────────────────────────────────────────────────────────
-  const openNotes = (order) => {
-    setNotesOrder(order);
-    setNotesDraft(order.notes || '');
-  };
-
-  const handleSaveNotes = async () => {
-    try {
-      await updateOrderNotes(notesOrder.id, notesDraft);
-      setOrders(prev => prev.map(o => o.id === notesOrder.id ? { ...o, notes: notesDraft } : o));
-      setNotesOrder(null);
-      setSuccess('Notes saved');
-    } catch (e) {
-      setError(errorMessage(e));
-    }
-  };
-
   // ── Edit order ────────────────────────────────────────────────────────────────
   const openEdit = (order) => {
     setEditOrder(order);
@@ -914,13 +893,6 @@ export default function Orders() {
                           onClick={() => openExchange(o)}>
                           ↔
                         </button>
-                        <button
-                          className="btn btn-secondary btn-sm"
-                          title={o.notes ? 'View/Edit notes' : 'Add note'}
-                          style={{ color: o.notes ? '#f59e0b' : undefined }}
-                          onClick={() => openNotes(o)}>
-                          {o.notes ? '📝' : '✎'}
-                        </button>
                         <button className="btn btn-danger btn-sm" onClick={() => handleDelete(o.id)}>✕</button>
                       </div>
                     </td>
@@ -1185,35 +1157,6 @@ export default function Orders() {
             <div className="modal-footer">
               <button className="btn btn-secondary" onClick={() => { setEditOrder(null); setError(''); }}>Cancel</button>
               <button className="btn btn-primary" onClick={handleSaveEdit}>Save Changes</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Notes Modal */}
-      {notesOrder && (
-        <div className="modal-overlay">
-          <div className="modal">
-            <div className="modal-header">
-              <h2>📝 Notes — {notesOrder.caleo_id}</h2>
-              <button className="btn-icon" onClick={() => setNotesOrder(null)}>✕</button>
-            </div>
-            <div className="modal-body">
-              <div style={{ fontSize: 12, color: '#8892b0', marginBottom: 10 }}>
-                {notesOrder.customer_name} · {notesOrder.city}
-              </div>
-              <textarea
-                className="form-input"
-                style={{ width: '100%', minHeight: 130, resize: 'vertical', fontFamily: 'inherit' }}
-                placeholder="Internal notes, follow-up reminders, customer requests..."
-                value={notesDraft}
-                onChange={e => setNotesDraft(e.target.value)}
-                autoFocus
-              />
-            </div>
-            <div className="modal-footer">
-              <button className="btn btn-secondary" onClick={() => setNotesOrder(null)}>Cancel</button>
-              <button className="btn btn-primary" onClick={handleSaveNotes}>Save Notes</button>
             </div>
           </div>
         </div>
