@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { getOrders, getProducts, getPacks, uploadPickupPDF, bulkCreateOrders, uploadReturnPDF, processReturns, updateOrderStatus, updateOrder, deleteOrder, bulkUpdateOrderStatus, sendToOlivraison, sendToForcelog, getForcelogStatus, syncAllForcelog, syncAllOlivraison, requestOlivRamassage, requestForcelogRamassage, confirmPickup, reportOrder, errorMessage } from '../api';
+import { getOrders, getProducts, getPacks, uploadPickupPDF, bulkCreateOrders, uploadReturnPDF, processReturns, updateOrderStatus, updateOrder, deleteOrder, bulkUpdateOrderStatus, sendToOlivraison, sendToForcelog, getForcelogStatus, syncAllForcelog, syncAllOlivraison, requestOlivRamassage, requestForcelogRamassage, confirmPickup, errorMessage } from '../api';
 import ErrorExplain from '../components/ErrorExplain';
 import { validatePhone, validateAmount, numericOnly, fieldErrorStyle } from '../utils/validate';
 
@@ -124,9 +124,6 @@ export default function Orders() {
   const [ramassageResult,  setRamassageResult]  = useState(null);
   const [ramassageLoading, setRamassageLoading] = useState(false);
 
-  // Report
-  const [reportingOrder,  setReportingOrder]  = useState(null);
-  const [reportDate,      setReportDate]      = useState('');
 
   const pickupRef = useRef();
   const returnRef = useRef();
@@ -363,18 +360,6 @@ export default function Orders() {
     } catch (e) {
       setError(errorMessage(e));
       load({ p: page, f: filter, t: activeTab });
-    }
-  };
-
-  const handleReport = async () => {
-    if (!reportingOrder || !reportDate) return;
-    try {
-      await reportOrder(reportingOrder.id, reportDate);
-      setOrders(prev => prev.map(o => o.id === reportingOrder.id ? { ...o, status: 'reported', reported_date: reportDate } : o));
-      setReportingOrder(null);
-      setReportDate('');
-    } catch (e) {
-      setError(errorMessage(e));
     }
   };
 
@@ -916,13 +901,6 @@ export default function Orders() {
                           style={{ color: '#a78bfa' }}
                           onClick={() => openExchange(o)}>
                           ↔
-                        </button>
-                        <button
-                          className="btn btn-secondary btn-sm"
-                          title="Report — client confirmed with a date"
-                          style={{ color: '#a855f7' }}
-                          onClick={() => { setReportingOrder(o); setReportDate(o.reported_date ? o.reported_date.slice(0,10) : ''); }}>
-                          📅
                         </button>
                         <button className="btn btn-danger btn-sm" onClick={() => handleDelete(o.id)}>✕</button>
                       </div>
@@ -1851,38 +1829,6 @@ export default function Orders() {
         </div>
       )}
 
-      {/* Report Modal */}
-      {reportingOrder && (
-        <div className="modal-overlay" onClick={() => setReportingOrder(null)}>
-          <form className="modal" style={{ maxWidth: 400 }} onClick={e => e.stopPropagation()}
-            onSubmit={e => { e.preventDefault(); handleReport(); }}>
-            <div className="modal-header">
-              <h2>📅 Report Order — {reportingOrder.caleo_id}</h2>
-              <button type="button" className="btn-icon" onClick={() => setReportingOrder(null)}>✕</button>
-            </div>
-            <div className="modal-body">
-              <div style={{ fontSize: 13, color: 'var(--t2)', marginBottom: 16 }}>
-                {reportingOrder.customer_name} · {reportingOrder.city} · <strong style={{ color: 'var(--accent)' }}>{reportingOrder.total_amount} MAD</strong>
-              </div>
-              <label className="form-label">Scheduled Date</label>
-              <input
-                className="form-input"
-                type="date"
-                value={reportDate}
-                onChange={e => setReportDate(e.target.value)}
-                autoFocus
-                required
-              />
-            </div>
-            <div className="modal-footer">
-              <button type="button" className="btn btn-secondary" onClick={() => setReportingOrder(null)}>Cancel</button>
-              <button type="submit" className="btn btn-primary" disabled={!reportDate} style={{ background: '#a855f7', borderColor: '#a855f7' }}>
-                Confirm Report
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
     </div>
   );
 }

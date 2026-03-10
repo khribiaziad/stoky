@@ -165,10 +165,12 @@ export const addSupplierPayment = (id, data) => api.post(`/suppliers/${id}/payme
 export const deleteSupplierPayment = (id) => api.delete(`/suppliers/payments/${id}`);
 
 // Leads
-export const getLeads    = ()    => api.get('/leads');
-export const deleteLead  = (id)  => api.delete(`/leads/${id}`);
-export const confirmLead = (id)  => api.post(`/leads/${id}/confirm`);
-export const cancelLead  = (id)  => api.post(`/leads/${id}/cancel`);
+export const getLeads         = ()              => api.get('/leads');
+export const deleteLead       = (id)             => api.delete(`/leads/${id}`);
+export const confirmLead      = (id)             => api.post(`/leads/${id}/confirm`);
+export const cancelLead       = (id)             => api.post(`/leads/${id}/cancel`);
+export const notAnsweringLead = (id)             => api.post(`/leads/${id}/not-answering`);
+export const reportLead       = (id, date)       => api.post(`/leads/${id}/report`, null, { params: { reported_date: date } });
 export const getApiKey   = ()    => api.get('/leads/api-key');
 export const rotateApiKey = ()   => api.post('/leads/api-key/rotate');
 

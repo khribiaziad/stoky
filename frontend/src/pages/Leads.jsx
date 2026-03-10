@@ -1,12 +1,13 @@
-import { useState, useEffect } from 'react';
-import { UserCheck, Trash2, Phone, MapPin, Package, Clock, RefreshCw, CheckCircle, XCircle, MessageCircle } from 'lucide-react';
-import { getLeads, deleteLead, confirmLead, cancelLead, errorMessage } from '../api';
+import { useState, useEffect, useRef } from 'react';
+import { UserCheck, Trash2, Phone, MapPin, Package, Clock, RefreshCw, CheckCircle, MessageCircle, ChevronDown } from 'lucide-react';
+import { getLeads, deleteLead, confirmLead, cancelLead, notAnsweringLead, reportLead, errorMessage } from '../api';
 import ErrorExplain from '../components/ErrorExplain';
 
 const STATUS_CONFIG = {
-  pending:      { label: 'Pending',      color: '#f59e0b', bg: '#f59e0b1f' },
-  cancelled:    { label: 'Cancelled',    color: '#ef4444', bg: '#ef44441f' },
-  unresponsive: { label: 'Unresponsive', color: '#6b7280', bg: '#6b72801f' },
+  pending:      { label: 'Pending',       color: '#f59e0b', bg: '#f59e0b1f' },
+  reported:     { label: 'Reported',      color: '#a855f7', bg: '#a855f71f' },
+  unresponsive: { label: 'Not Answering', color: '#6b7280', bg: '#6b72801f' },
+  cancelled:    { label: 'Cancelled',     color: '#ef4444', bg: '#ef44441f' },
 };
 
 function StatusBadge({ status }) {
@@ -24,19 +25,21 @@ function StatusBadge({ status }) {
 }
 
 function LeadCard({ lead, onUpdate, onDelete }) {
-  const [confirming, setConfirming] = useState(false);
-  const [cancelling, setCancelling] = useState(false);
-  const [deleting,   setDeleting]   = useState(false);
-  const [error,      setError]      = useState('');
+  const [confirming,  setConfirming]  = useState(false);
+  const [deleting,    setDeleting]    = useState(false);
+  const [error,       setError]       = useState('');
+  const [dropOpen,    setDropOpen]    = useState(false);
+  const [showReport,  setShowReport]  = useState(false);
+  const [reportDate,  setReportDate]  = useState('');
+  const dropRef = useRef();
 
-  const isPending = lead.status === 'pending' || lead.status === 'unresponsive';
+  const isPending = lead.status === 'pending' || lead.status === 'unresponsive' || lead.status === 'reported';
 
   const digits  = lead.customer_phone.replace(/\D/g, '');
   const waPhone = digits.startsWith('0') ? '212' + digits.slice(1) : digits;
   const items   = lead.matched_items || lead.raw_items || [];
   const date    = lead.created_at ? new Date(lead.created_at).toLocaleString('fr-MA', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
 
-  // Pre-filled WhatsApp message (French — agent sends manually)
   const itemsText = items.map(i => `${i.product_name} ×${i.quantity}`).join(', ');
   const waMsg = encodeURIComponent(
     `Bonjour ${lead.customer_name} ! 👋\n` +
@@ -45,9 +48,15 @@ function LeadCard({ lead, onUpdate, onDelete }) {
     `Pouvez-vous confirmer ?`
   );
 
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handler = (e) => { if (dropRef.current && !dropRef.current.contains(e.target)) setDropOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
   const handleConfirm = async () => {
-    setConfirming(true);
-    setError('');
+    setConfirming(true); setError('');
     try {
       await confirmLead(lead.id);
       onUpdate(lead.id, 'confirmed');
@@ -57,15 +66,37 @@ function LeadCard({ lead, onUpdate, onDelete }) {
     }
   };
 
-  const handleCancel = async () => {
-    setCancelling(true);
+  const handleDropAction = async (action) => {
+    setDropOpen(false);
     setError('');
     try {
-      await cancelLead(lead.id);
-      onUpdate(lead.id, 'cancelled');
+      if (action === 'report') {
+        setReportDate(lead.reported_date ? lead.reported_date.slice(0, 10) : '');
+        setShowReport(true);
+        return;
+      }
+      if (action === 'not-answering') {
+        await notAnsweringLead(lead.id);
+        onUpdate(lead.id, 'unresponsive');
+      }
+      if (action === 'cancel') {
+        await cancelLead(lead.id);
+        onUpdate(lead.id, 'cancelled');
+      }
     } catch (e) {
       setError(errorMessage(e));
-      setCancelling(false);
+    }
+  };
+
+  const handleReport = async (e) => {
+    e.preventDefault();
+    if (!reportDate) return;
+    try {
+      await reportLead(lead.id, reportDate);
+      onUpdate(lead.id, 'reported', reportDate);
+      setShowReport(false);
+    } catch (e) {
+      setError(errorMessage(e));
     }
   };
 
@@ -83,11 +114,16 @@ function LeadCard({ lead, onUpdate, onDelete }) {
   return (
     <div className="card" style={{ padding: '16px 18px', opacity: lead.status === 'cancelled' ? 0.65 : 1 }}>
 
-      {/* Top row: name + status + amount */}
+      {/* Top row */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ fontWeight: 700, fontSize: 15 }}>{lead.customer_name}</span>
           <StatusBadge status={lead.status} />
+          {lead.status === 'reported' && lead.reported_date && (
+            <span style={{ fontSize: 12, color: '#a855f7', fontWeight: 600 }}>
+              📅 {new Date(lead.reported_date).toLocaleDateString()}
+            </span>
+          )}
         </div>
         {lead.total_amount != null && (
           <span style={{ fontWeight: 700, fontSize: 16, color: 'var(--accent)' }}>
@@ -138,8 +174,26 @@ function LeadCard({ lead, onUpdate, onDelete }) {
 
       {error && <div className="alert alert-error" style={{ marginBottom: 10, padding: '6px 12px', fontSize: 12 }}>{error}</div>}
 
+      {/* Report date picker */}
+      {showReport && (
+        <form onSubmit={handleReport} style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10, padding: '10px 12px', background: 'var(--card-2)', borderRadius: 8 }}>
+          <span style={{ fontSize: 13, color: '#a855f7', fontWeight: 600 }}>📅 Schedule call:</span>
+          <input
+            className="form-input"
+            type="date"
+            value={reportDate}
+            onChange={e => setReportDate(e.target.value)}
+            required
+            autoFocus
+            style={{ flex: 1, padding: '4px 8px', fontSize: 13 }}
+          />
+          <button type="submit" className="btn btn-sm" style={{ background: '#a855f7', color: '#fff', border: 'none' }} disabled={!reportDate}>Save</button>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowReport(false)}>✕</button>
+        </form>
+      )}
+
       {/* Action buttons */}
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', paddingTop: 10, borderTop: '1px solid var(--border)' }}>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', paddingTop: 10, borderTop: '1px solid var(--border)', alignItems: 'center' }}>
 
         {/* Call */}
         <a href={`tel:${lead.customer_phone}`}
@@ -149,7 +203,7 @@ function LeadCard({ lead, onUpdate, onDelete }) {
           <Phone size={13} strokeWidth={1.75} /> Call
         </a>
 
-        {/* WhatsApp — opens chat with pre-filled message */}
+        {/* WhatsApp */}
         <a href={`https://wa.me/${waPhone}?text=${waMsg}`}
           target="_blank" rel="noreferrer"
           className="btn btn-secondary btn-sm"
@@ -158,7 +212,7 @@ function LeadCard({ lead, onUpdate, onDelete }) {
           <MessageCircle size={13} strokeWidth={1.75} /> WhatsApp
         </a>
 
-        {/* Confirm — only for pending/unresponsive */}
+        {/* Confirm — primary action */}
         {isPending && (
           <button
             className="btn btn-primary btn-sm"
@@ -171,20 +225,47 @@ function LeadCard({ lead, onUpdate, onDelete }) {
           </button>
         )}
 
-        {/* Cancel — only for pending/unresponsive */}
+        {/* Status dropdown */}
         {isPending && (
-          <button
-            className="btn btn-secondary btn-sm"
-            onClick={handleCancel}
-            disabled={cancelling}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--danger)' }}
-          >
-            <XCircle size={13} strokeWidth={1.75} />
-            {cancelling ? '…' : 'Cancel'}
-          </button>
+          <div ref={dropRef} style={{ position: 'relative' }}>
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={() => setDropOpen(o => !o)}
+              style={{ display: 'flex', alignItems: 'center', gap: 4 }}
+            >
+              Update <ChevronDown size={12} strokeWidth={2} />
+            </button>
+            {dropOpen && (
+              <div style={{
+                position: 'absolute', top: '100%', left: 0, marginTop: 4, zIndex: 50,
+                background: 'var(--card)', border: '1px solid var(--border)',
+                borderRadius: 'var(--r-sm)', minWidth: 160, boxShadow: '0 4px 16px rgba(0,0,0,.3)',
+              }}>
+                {[
+                  { action: 'report',        label: '📅 Report',        color: '#a855f7' },
+                  { action: 'not-answering', label: '📵 Not Answering',  color: '#6b7280' },
+                  { action: 'cancel',        label: '✕ Cancel',         color: '#ef4444' },
+                ].map(({ action, label, color }) => (
+                  <button
+                    key={action}
+                    onClick={() => handleDropAction(action)}
+                    style={{
+                      display: 'block', width: '100%', padding: '9px 14px',
+                      background: 'none', border: 'none', textAlign: 'left',
+                      cursor: 'pointer', fontSize: 13, color,
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'var(--card-2)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         )}
 
-        {/* Delete — always available */}
+        {/* Delete */}
         <button
           className="btn-icon"
           title="Delete lead"
@@ -225,8 +306,8 @@ export default function Leads() {
     return () => clearInterval(interval);
   }, []);
 
-  const handleUpdate = (id, newStatus) => {
-    setLeads(prev => prev.map(l => l.id === id ? { ...l, status: newStatus } : l));
+  const handleUpdate = (id, newStatus, reportedDate) => {
+    setLeads(prev => prev.map(l => l.id === id ? { ...l, status: newStatus, reported_date: reportedDate || l.reported_date } : l));
   };
 
   const handleDelete = (id) => {
@@ -236,8 +317,9 @@ export default function Leads() {
   const counts = {
     all:          leads.length,
     pending:      leads.filter(l => l.status === 'pending').length,
-    cancelled:    leads.filter(l => l.status === 'cancelled').length,
+    reported:     leads.filter(l => l.status === 'reported').length,
     unresponsive: leads.filter(l => l.status === 'unresponsive').length,
+    cancelled:    leads.filter(l => l.status === 'cancelled').length,
   };
 
   const visibleLeads = filter === 'all' ? leads : leads.filter(l => l.status === filter);
@@ -263,10 +345,11 @@ export default function Leads() {
       {leads.length > 0 && (
         <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
           {[
-            { key: 'all',          label: 'All',          color: 'var(--accent)' },
-            { key: 'pending',      label: 'Pending',      color: '#f59e0b' },
-            { key: 'cancelled',    label: 'Cancelled',    color: '#ef4444' },
-            { key: 'unresponsive', label: 'Unresponsive', color: '#6b7280' },
+            { key: 'all',          label: 'All',           color: 'var(--accent)' },
+            { key: 'pending',      label: 'Pending',       color: '#f59e0b' },
+            { key: 'reported',     label: 'Reported',      color: '#a855f7' },
+            { key: 'unresponsive', label: 'Not Answering', color: '#6b7280' },
+            { key: 'cancelled',    label: 'Cancelled',     color: '#ef4444' },
           ].map(({ key, label, color }) => (
             <button
               key={key}

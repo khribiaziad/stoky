@@ -54,6 +54,7 @@ for _stmt in [
     _col("users",          "reset_token_expires",    "TIMESTAMP"),
     _col("orders",         "caleo_id",               "VARCHAR"),
     _col("orders",         "reported_date",           "TIMESTAMP"),
+    _col("leads",          "reported_date",           "TIMESTAMP"),
 ]:
     try:
         with engine.begin() as _conn:

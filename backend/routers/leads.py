@@ -471,6 +471,39 @@ def cancel_lead(
     return {"success": True}
 
 
+@router.post("/{lead_id}/not-answering")
+def not_answering_lead(
+    lead_id: int,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(get_current_user),
+):
+    sid  = get_store_id(user)
+    lead = db.query(models.Lead).filter(models.Lead.id == lead_id, models.Lead.store_id == sid).first()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    lead.status = "unresponsive"
+    db.commit()
+    return {"success": True}
+
+
+@router.post("/{lead_id}/report")
+def report_lead(
+    lead_id: int,
+    reported_date: str,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(get_current_user),
+):
+    from datetime import datetime
+    sid  = get_store_id(user)
+    lead = db.query(models.Lead).filter(models.Lead.id == lead_id, models.Lead.store_id == sid).first()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    lead.status = "reported"
+    lead.reported_date = datetime.fromisoformat(reported_date)
+    db.commit()
+    return {"success": True}
+
+
 @router.get("/api-key")
 def get_api_key(
     db: Session = Depends(get_db),
@@ -550,6 +583,7 @@ def _serialize_lead(lead: models.Lead) -> dict:
         "status":           lead.status,
         "order_id":         lead.order_id,
         "message_count":    lead.message_count,
+        "reported_date":    lead.reported_date.isoformat() if lead.reported_date else None,
         "last_message_at":  lead.last_message_at.isoformat() if lead.last_message_at else None,
         "created_at":       lead.created_at.isoformat() if lead.created_at else None,
     }
