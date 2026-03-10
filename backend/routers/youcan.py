@@ -76,12 +76,22 @@ async def youcan_webhook(
 
     matched, matched_total = _match_items(raw_items, store_id, db)
 
+    # Auto-extract city from address if no city provided
+    resolved_city = city or region
+    if not resolved_city and address:
+        all_cities = db.query(models.City).all()
+        addr_lower = address.lower()
+        for c in all_cities:
+            if c.name.lower() in addr_lower:
+                resolved_city = c.name
+                break
+
     lead = models.Lead(
         store_id=store_id,
         customer_name=full_name,
         customer_phone=phone,
         customer_email=customer.get("email", ""),
-        customer_city=city or region,
+        customer_city=resolved_city,
         customer_address=address,
         raw_items=raw_items,
         matched_items=matched if matched else None,
