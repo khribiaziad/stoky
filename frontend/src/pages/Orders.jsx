@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { getOrders, getProducts, getPacks, uploadPickupPDF, bulkCreateOrders, uploadReturnPDF, processReturns, updateOrderStatus, updateOrder, deleteOrder, bulkUpdateOrderStatus, sendToOlivraison, sendToForcelog, getForcelogStatus, syncAllForcelog, syncAllOlivraison, requestOlivRamassage, requestForcelogRamassage, confirmPickup, errorMessage } from '../api';
+import { getOrders, getProducts, getPacks, uploadPickupPDF, bulkCreateOrders, uploadReturnPDF, processReturns, updateOrderStatus, updateOrder, deleteOrder, bulkUpdateOrderStatus, sendToOlivraison, sendToForcelog, getForcelogStatus, syncAllForcelog, syncAllOlivraison, requestOlivRamassage, requestForcelogRamassage, confirmPickup, reportOrder, errorMessage } from '../api';
 import ErrorExplain from '../components/ErrorExplain';
 import { validatePhone, validateAmount, numericOnly, fieldErrorStyle } from '../utils/validate';
 
@@ -18,6 +18,7 @@ const STATUS_LABEL = {
   in_delivery: 'In Delivery',
   delivered: 'Delivered',
   cancelled: 'Cancelled',
+  reported: 'Reported',
 };
 
 const statusStyle = (o) => {
@@ -39,6 +40,7 @@ const statusStyle = (o) => {
     in_delivery:     { background: 'rgba(96,165,250,0.15)',  color: '#60a5fa' },
     delivered:       { background: 'rgba(74,222,128,0.15)',  color: '#4ade80' },
     cancelled:       { background: 'rgba(248,113,113,0.15)', color: '#f87171' },
+    reported:        { background: 'rgba(168,85,247,0.15)',  color: '#a855f7' },
   };
   return S[o.status] || { background: 'rgba(100,116,139,0.15)', color: '#94a3b8' };
 };
@@ -121,6 +123,10 @@ export default function Orders() {
   const [showRamassage,    setShowRamassage]    = useState(false);
   const [ramassageResult,  setRamassageResult]  = useState(null);
   const [ramassageLoading, setRamassageLoading] = useState(false);
+
+  // Report
+  const [reportingOrder,  setReportingOrder]  = useState(null);
+  const [reportDate,      setReportDate]      = useState('');
 
   const pickupRef = useRef();
   const returnRef = useRef();
@@ -357,6 +363,18 @@ export default function Orders() {
     } catch (e) {
       setError(errorMessage(e));
       load({ p: page, f: filter, t: activeTab });
+    }
+  };
+
+  const handleReport = async () => {
+    if (!reportingOrder || !reportDate) return;
+    try {
+      await reportOrder(reportingOrder.id, reportDate);
+      setOrders(prev => prev.map(o => o.id === reportingOrder.id ? { ...o, status: 'reported', reported_date: reportDate } : o));
+      setReportingOrder(null);
+      setReportDate('');
+    } catch (e) {
+      setError(errorMessage(e));
     }
   };
 
@@ -682,6 +700,7 @@ export default function Orders() {
           { value: 'pending',         label: 'Pending',         countKey: 'pending' },
           { value: 'awaiting_pickup', label: 'Awaiting Pickup', countKey: 'awaiting_pickup' },
           { value: 'in_delivery',     label: 'In Delivery',     countKey: 'in_delivery' },
+          { value: 'reported',        label: 'Reported',        countKey: 'reported' },
           { value: 'delivered',       label: 'Delivered',       countKey: 'delivered' },
         ].map(({ value, label, countKey }) => {
           const count = countKey ? (statusCounts[countKey] || 0) : orderCount;
@@ -830,10 +849,15 @@ export default function Orders() {
                           ...statusStyle(o) }}>
                           {o.delivery_status || STATUS_LABEL[o.status] || o.status}
                         </span>
+                        {o.status === 'reported' && o.reported_date && (
+                          <span style={{ fontSize: 10, color: '#a855f7' }}>
+                            📅 {new Date(o.reported_date).toLocaleDateString()}
+                          </span>
+                        )}
                         <select
                           style={{ fontSize: 10, padding: '2px 4px', background: 'transparent',
                             border: '1px solid var(--border)', borderRadius: 4, color: 'var(--t2)', cursor: 'pointer' }}
-                          value={['awaiting_pickup','in_delivery'].includes(o.status) ? 'pending' : o.status}
+                          value={['awaiting_pickup','in_delivery','reported'].includes(o.status) ? 'pending' : o.status}
                           onChange={e => handleStatusChange(o.id, e.target.value)}
                         >
                           <option value="pending">Pending</option>
@@ -892,6 +916,13 @@ export default function Orders() {
                           style={{ color: '#a78bfa' }}
                           onClick={() => openExchange(o)}>
                           ↔
+                        </button>
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          title="Report — client confirmed with a date"
+                          style={{ color: '#a855f7' }}
+                          onClick={() => { setReportingOrder(o); setReportDate(o.reported_date ? o.reported_date.slice(0,10) : ''); }}>
+                          📅
                         </button>
                         <button className="btn btn-danger btn-sm" onClick={() => handleDelete(o.id)}>✕</button>
                       </div>
@@ -1817,6 +1848,39 @@ export default function Orders() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Report Modal */}
+      {reportingOrder && (
+        <div className="modal-overlay" onClick={() => setReportingOrder(null)}>
+          <form className="modal" style={{ maxWidth: 400 }} onClick={e => e.stopPropagation()}
+            onSubmit={e => { e.preventDefault(); handleReport(); }}>
+            <div className="modal-header">
+              <h2>📅 Report Order — {reportingOrder.caleo_id}</h2>
+              <button type="button" className="btn-icon" onClick={() => setReportingOrder(null)}>✕</button>
+            </div>
+            <div className="modal-body">
+              <div style={{ fontSize: 13, color: 'var(--t2)', marginBottom: 16 }}>
+                {reportingOrder.customer_name} · {reportingOrder.city} · <strong style={{ color: 'var(--accent)' }}>{reportingOrder.total_amount} MAD</strong>
+              </div>
+              <label className="form-label">Scheduled Date</label>
+              <input
+                className="form-input"
+                type="date"
+                value={reportDate}
+                onChange={e => setReportDate(e.target.value)}
+                autoFocus
+                required
+              />
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn btn-secondary" onClick={() => setReportingOrder(null)}>Cancel</button>
+              <button type="submit" className="btn btn-primary" disabled={!reportDate} style={{ background: '#a855f7', borderColor: '#a855f7' }}>
+                Confirm Report
+              </button>
+            </div>
+          </form>
         </div>
       )}
     </div>

@@ -126,6 +126,7 @@ def serialize_order(order: models.Order, user_map: dict = None, member_map: dict
         "delivery_status": order.delivery_status,
         "delivery_provider": getattr(order, "delivery_provider", None),
         "order_date": order.order_date.isoformat() if order.order_date else None,
+        "reported_date": order.reported_date.isoformat() if order.reported_date else None,
         "created_at": order.created_at.isoformat() if order.created_at else None,
         "uploaded_by": uploaded_by_name,
         "confirmed_by": confirmed_by_name,
@@ -440,9 +441,27 @@ def update_order_status(order_id: int, status: str, db: Session = Depends(get_db
     order = db.query(models.Order).filter(models.Order.id == order_id, models.Order.user_id == sid).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
-    if status not in ("pending", "delivered", "cancelled"):
+    if status not in ("pending", "delivered", "cancelled", "reported"):
         raise HTTPException(status_code=400, detail="Invalid status")
     order.status = status
+    db.commit()
+    return {"success": True}
+
+
+@router.patch("/{order_id}/report")
+def report_order(
+    order_id: int,
+    reported_date: str,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(get_current_user),
+):
+    from datetime import datetime
+    sid = get_store_id(user)
+    order = db.query(models.Order).filter(models.Order.id == order_id, models.Order.user_id == sid).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    order.status = "reported"
+    order.reported_date = datetime.fromisoformat(reported_date)
     db.commit()
     return {"success": True}
 

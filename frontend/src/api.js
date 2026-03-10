@@ -85,6 +85,7 @@ export const updateOrderStatus = (id, status) => api.put(`/orders/${id}/status`,
 export const bulkUpdateOrderStatus = (order_ids, status) => api.post('/orders/bulk-status', { order_ids, status });
 export const confirmPickup = () => api.post('/orders/confirm-pickup');
 export const updateOrderNotes = (id, notes) => api.patch(`/orders/${id}/notes`, { notes });
+export const reportOrder = (id, reported_date) => api.patch(`/orders/${id}/report`, null, { params: { reported_date } });
 export const deleteOrder = (id) => api.delete(`/orders/${id}`);
 export const sendToOlivraison    = (id) => api.post(`/olivraison/send/${id}`);
 export const sendToForcelog      = (id) => api.post(`/forcelog/send/${id}`);
