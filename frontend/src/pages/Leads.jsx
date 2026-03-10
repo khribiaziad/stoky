@@ -285,7 +285,7 @@ export default function Leads() {
   const [leads, setLeads]     = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState('');
-  const [filter, setFilter]   = useState('all');
+  const [filter, setFilter]   = useState('pending');
 
   const load = async (silent = false) => {
     if (!silent) setLoading(true);
@@ -344,10 +344,10 @@ export default function Leads() {
       {leads.length > 0 && (
         <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
           {[
-            { key: 'all',          label: 'All',           color: 'var(--accent)' },
             { key: 'pending',      label: 'New Leads',     color: '#f59e0b' },
             { key: 'unresponsive', label: 'Not Answering', color: '#6b7280' },
             { key: 'cancelled',    label: 'Cancelled',     color: '#ef4444' },
+            { key: 'all',          label: 'All',           color: 'var(--accent)' },
           ].map(({ key, label, color }) => (
             <button
               key={key}

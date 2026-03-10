@@ -4,7 +4,7 @@ import { getProducts, getStockArrivals, addBulkStockArrival, getBrokenStock, add
 const emptyItem = () => ({ product_id: '', variant_id: '', quantity: 1 });
 
 export default function Stock({ readOnly = false }) {
-  const [tab, setTab] = useState('arrivals');
+  const [tab, setTab] = useState('overview');
   const [products, setProducts] = useState([]);
   const [arrivals, setArrivals] = useState([]);
   const [broken, setBroken] = useState([]);
@@ -148,9 +148,9 @@ export default function Stock({ readOnly = false }) {
       )}
 
       <div className="tabs">
-        <div className={`tab ${tab === 'arrivals' ? 'active' : ''}`} onClick={() => setTab('arrivals')}>Stock Arrivals</div>
-        <div className={`tab ${tab === 'broken' ? 'active' : ''}`} onClick={() => setTab('broken')}>Broken Stock</div>
         <div className={`tab ${tab === 'overview' ? 'active' : ''}`} onClick={() => setTab('overview')}>Current Stock</div>
+        <div className={`tab ${tab === 'broken' ? 'active' : ''}`} onClick={() => setTab('broken')}>Broken Stock</div>
+        <div className={`tab ${tab === 'arrivals' ? 'active' : ''}`} onClick={() => setTab('arrivals')}>New Arrivals</div>
       </div>
 
       {/* Current Stock Overview */}
