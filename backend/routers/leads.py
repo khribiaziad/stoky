@@ -499,8 +499,19 @@ def report_lead(
     lead = db.query(models.Lead).filter(models.Lead.id == lead_id, models.Lead.store_id == sid).first()
     if not lead:
         raise HTTPException(status_code=404, detail="Lead not found")
+    if lead.status == "confirmed":
+        raise HTTPException(status_code=400, detail="Lead already confirmed")
+
+    # Temporarily set reported fields so _create_order_from_lead picks them up
     lead.status = "reported"
     lead.reported_date = datetime.fromisoformat(reported_date)
+
+    order = _create_order_from_lead(lead, db)
+    if order is None:
+        raise HTTPException(status_code=400, detail="Could not create order — stock may be insufficient")
+
+    lead.status   = "confirmed"
+    lead.order_id = order.id
     db.commit()
     return {"success": True}
 

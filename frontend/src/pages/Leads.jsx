@@ -4,7 +4,7 @@ import { getLeads, deleteLead, confirmLead, cancelLead, notAnsweringLead, report
 import ErrorExplain from '../components/ErrorExplain';
 
 const STATUS_CONFIG = {
-  pending:      { label: 'Pending',       color: '#f59e0b', bg: '#f59e0b1f' },
+  pending:      { label: 'New Lead',      color: '#f59e0b', bg: '#f59e0b1f' },
   reported:     { label: 'Reported',      color: '#a855f7', bg: '#a855f71f' },
   unresponsive: { label: 'Not Answering', color: '#6b7280', bg: '#6b72801f' },
   cancelled:    { label: 'Cancelled',     color: '#ef4444', bg: '#ef44441f' },
@@ -317,7 +317,6 @@ export default function Leads() {
   const counts = {
     all:          leads.length,
     pending:      leads.filter(l => l.status === 'pending').length,
-    reported:     leads.filter(l => l.status === 'reported').length,
     unresponsive: leads.filter(l => l.status === 'unresponsive').length,
     cancelled:    leads.filter(l => l.status === 'cancelled').length,
   };
@@ -346,8 +345,7 @@ export default function Leads() {
         <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
           {[
             { key: 'all',          label: 'All',           color: 'var(--accent)' },
-            { key: 'pending',      label: 'Pending',       color: '#f59e0b' },
-            { key: 'reported',     label: 'Reported',      color: '#a855f7' },
+            { key: 'pending',      label: 'New Leads',     color: '#f59e0b' },
             { key: 'unresponsive', label: 'Not Answering', color: '#6b7280' },
             { key: 'cancelled',    label: 'Cancelled',     color: '#ef4444' },
           ].map(({ key, label, color }) => (
