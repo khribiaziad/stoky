@@ -310,6 +310,16 @@ export default function Settings({ user, theme, setTheme, lang, setLang, accent,
   var WEBHOOK = '${window.location.origin}/api/leads/inbound?api_key=${apiKey}';
   var _sent = false;
   var _cache = {};
+  var CITIES = ['Casablanca','Mohammedia','Dar Bouazza','Bouskoura','Tit Mellil','Mediouna','Nouaceur','Sbata','Ain Sebaa','Sidi Bernoussi','Sidi Maarouf','Lahraouiyine','Oulfa','Had Soualem','Ouled Saleh','Bouznika','Benslimane','Berrechid','Ben Ahmed','Settat','El Jadida','Azemmour','Sidi Bennour','Khouribga','Oued Zem','Bejaad','El Borouj','Rabat','Sale','Temara','Skhirat','Kenitra','Khemisset','Sidi Slimane','Sidi Kacem','Tiflet','Souk El Arbaa','Mechra Bel Ksiri','Sidi Yahia El Gharb','Moulay Bousselham','Jorf El Melha','Marrakech','Safi','Essaouira','El Kelaa Des Sraghna','Youssoufia','Chichaoua','Imintanoute','Tahannaout','Amizmiz','Benguerir','Ait Ourir','Ourika','Fes','Meknes','Ifrane','Azrou','Sefrou','Imouzzer Kandar','Moulay Yacoub','Taza','El Hajeb','Ain Taoujdate','Bhalil','Boulmane','Tanger','Tetouan','Al Hoceima','Larache','Ksar El Kebir','Chefchaouen','Asilah','Fnideq','Martil','Ouezzane','Oujda','Nador','Berkane','Taourirt','Jerada','Guercif','Driouch','Zaio','Ahfir','Figuig','Agadir','Inezgane','Tiznit','Taroudant','Ouarzazate','Zagora','Ait Melloul','Biougra','Tafraout','Oulad Teima','Aourir','Sidi Ifni','Beni Mellal','Khenifra','Fquih Ben Salah','Azilal','Kasba Tadla','Demnate','Errachidia','Midelt','Tinghir','Rich','Erfoud','Rissani','Boumalne Dades','Guelmim','Tan-Tan','Laayoune','Boujdour','Smara','Dakhla'];
+
+  function findCity(text) {
+    if (!text) return '';
+    var t = text.toLowerCase();
+    for (var i = 0; i < CITIES.length; i++) {
+      if (t.indexOf(CITIES[i].toLowerCase()) !== -1) return CITIES[i];
+    }
+    return '';
+  }
 
   // ── 1. Capture all visible inputs into cache ──────────────────────────────
   function captureInputs() {
@@ -355,6 +365,9 @@ export default function Settings({ user, theme, setTheme, lang, setLang, accent,
     var city      = get(['city', 'ville'],                                     extra);
     var address   = get(['address', 'address1', 'adresse', 'address-line1', 'street', 'rue', 'shipping-address', 'line1', 'first_line', 'shipping_address'], extra);
     var fullName  = (firstName + ' ' + lastName).trim() || get(['name'],     extra);
+    // Extract city from address field, then from all captured text as fallback
+    if (!city) city = findCity(address);
+    if (!city) city = findCity(Object.values(_cache).join(' '));
     if (!phone && !fullName) return;
     _sent = true;
     fetch(WEBHOOK, {
