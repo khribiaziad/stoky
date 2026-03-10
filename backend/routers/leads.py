@@ -145,7 +145,8 @@ def _create_order_from_lead(lead: models.Lead, db: Session) -> Optional[models.O
         customer_address=lead.customer_address,
         city=lead.customer_city,
         total_amount=lead.total_amount or 0,
-        status="pending",
+        status="reported" if lead.status == "reported" else "pending",
+        reported_date=lead.reported_date if lead.status == "reported" else None,
         order_date=datetime.now(),
     )
     db.add(order)
