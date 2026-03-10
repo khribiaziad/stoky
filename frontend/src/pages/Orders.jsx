@@ -125,8 +125,8 @@ export default function Orders() {
   const [ramassageLoading, setRamassageLoading] = useState(false);
 
   // Date range selectors
-  const [dateRange,     setDateRange]     = useState('all'); // for order_date (non-reported)
-  const [reportedRange, setReportedRange] = useState('all'); // for reported_date (reported tab)
+  const [dateRange,     setDateRange]     = useState('today'); // for order_date (non-reported)
+  const [reportedRange, setReportedRange] = useState('all');  // for reported_date (reported tab)
 
 
   const pickupRef = useRef();
