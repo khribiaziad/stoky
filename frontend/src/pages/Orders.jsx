@@ -807,7 +807,10 @@ export default function Orders() {
                           ? <div style={{ color: '#8892b0', fontSize: 11 }}>{o.customer_phone}</div>
                           : <div style={{ color: '#8892b0', fontSize: 11 }}>—</div>}
                       </td>
-                      <td>{o.city}</td>
+                      <td>
+                        <div>{o.city}</div>
+                        {o.customer_address && <div style={{ fontSize: 11, color: '#8892b0', marginTop: 2 }}>{o.customer_address}</div>}
+                      </td>
                       <td style={{ fontWeight: 600, color: '#60a5fa' }}>{o.total_amount} MAD</td>
                       <td>
                         {o.items?.length > 0
@@ -871,7 +874,10 @@ export default function Orders() {
                         </a>
                       ) : <div style={{ color: '#8892b0', fontSize: 11 }}>—</div>}
                     </td>
-                    <td>{o.city}</td>
+                    <td>
+                      <div>{o.city}</div>
+                      {o.customer_address && <div style={{ fontSize: 11, color: '#8892b0', marginTop: 2 }}>{o.customer_address}</div>}
+                    </td>
                     <td style={{ fontWeight: 600, color: '#60a5fa' }}>{o.total_amount} MAD</td>
                     <td>
                       {o.items?.length > 0

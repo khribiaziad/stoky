@@ -138,10 +138,10 @@ function LeadCard({ lead, onUpdate, onDelete }) {
           <Phone size={12} strokeWidth={1.75} />
           {lead.customer_phone}
         </span>
-        {lead.customer_city && (
+        {(lead.customer_city || lead.customer_address) && (
           <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
             <MapPin size={12} strokeWidth={1.75} />
-            {lead.customer_city}
+            {[lead.customer_city, lead.customer_address].filter(Boolean).join(' — ')}
           </span>
         )}
         <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
