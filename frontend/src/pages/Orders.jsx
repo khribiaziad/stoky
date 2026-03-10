@@ -274,6 +274,20 @@ export default function Orders() {
     returnRef.current.value = '';
   };
 
+  const removeOrderFromParsed = (i) => {
+    const newParsed = parsedOrders.filter((_, idx) => idx !== i);
+    const newItems = {};
+    const newExpenses = {};
+    newParsed.forEach((_, newIdx) => {
+      const oldIdx = newIdx >= i ? newIdx + 1 : newIdx;
+      newItems[newIdx] = orderItems[oldIdx];
+      newExpenses[newIdx] = orderExpenses[oldIdx];
+    });
+    setParsedOrders(newParsed);
+    setOrderItems(newItems);
+    setOrderExpenses(newExpenses);
+  };
+
   const handleSaveOrders = async () => {
     setError('');
     const ordersToCreate = parsedOrders.map((order, i) => {
@@ -1210,7 +1224,7 @@ export default function Orders() {
         <div className="modal-overlay">
           <div className="modal modal-xl">
             <div className="modal-header">
-              <h2>📦 Assign Products to Orders ({parsedOrders.length} orders found)</h2>
+              <h2>📦 Assign Products to Orders ({parsedOrders.length} remaining)</h2>
               <button className="btn-icon" onClick={() => { setParsedOrders(null); setOrderErrors({}); }}>✕</button>
             </div>
             <div className="modal-body">
@@ -1226,6 +1240,7 @@ export default function Orders() {
                       <div style={{ color: '#8892b0', fontSize: 12 }}>{order.customer_phone} · {order.customer_address}</div>
                       {orderErr && <div style={{ marginTop: 6, color: '#f87171', fontSize: 12, fontWeight: 500 }}>⚠ {orderErr}</div>}
                     </div>
+                    <button className="btn-icon" title="Skip this order" onClick={() => removeOrderFromParsed(i)} style={{ alignSelf: 'flex-start', color: 'var(--t2)' }}>✕</button>
                   </div>
 
                   {/* Product / Pack selection */}
