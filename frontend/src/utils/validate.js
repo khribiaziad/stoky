@@ -31,6 +31,7 @@ export function validateEmail(value) {
 
 // keyDown handler: block non-numeric keys on numeric-only fields
 export function numericOnly(e) {
+  if (e.ctrlKey || e.metaKey) return; // allow Ctrl/Cmd+A, C, V, X, Z
   const allowed = ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter'];
   if (allowed.includes(e.key)) return;
   if (!/^\d$/.test(e.key)) e.preventDefault();

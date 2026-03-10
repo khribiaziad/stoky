@@ -1043,7 +1043,7 @@ export default function Orders() {
       {/* Edit Order Modal */}
       {editOrder && (
         <div className="modal-overlay">
-          <div className="modal modal-lg">
+          <form className="modal modal-lg" onSubmit={e => { e.preventDefault(); handleSaveEdit(); }}>
             <div className="modal-header">
               <h2>✏ Edit Order — {editOrder.caleo_id}</h2>
               <button className="btn-icon" onClick={() => { setEditOrder(null); setError(''); }}>✕</button>
@@ -1155,10 +1155,10 @@ export default function Orders() {
               )}
             </div>
             <div className="modal-footer">
-              <button className="btn btn-secondary" onClick={() => { setEditOrder(null); setError(''); }}>Cancel</button>
-              <button className="btn btn-primary" onClick={handleSaveEdit}>Save Changes</button>
+              <button type="button" className="btn btn-secondary" onClick={() => { setEditOrder(null); setError(''); }}>Cancel</button>
+              <button type="submit" className="btn btn-primary">Save Changes</button>
             </div>
-          </div>
+          </form>
         </div>
       )}
 
@@ -1399,7 +1399,7 @@ export default function Orders() {
       {/* Manual Order Modal */}
       {showManualOrder && (
         <div className="modal-overlay">
-          <div className="modal modal-lg">
+          <form className="modal modal-lg" onSubmit={e => { e.preventDefault(); handleManualOrder(); }}>
             <div className="modal-header">
               <h2>+ New Order</h2>
               <button className="btn-icon" onClick={() => { setShowManualOrder(false); setError(''); }}>✕</button>
@@ -1504,10 +1504,10 @@ export default function Orders() {
               </div>
             </div>
             <div className="modal-footer">
-              <button className="btn btn-secondary" onClick={() => { setShowManualOrder(false); setError(''); }}>Cancel</button>
-              <button className="btn btn-primary" onClick={handleManualOrder}>Create Order</button>
+              <button type="button" className="btn btn-secondary" onClick={() => { setShowManualOrder(false); setError(''); }}>Cancel</button>
+              <button type="submit" className="btn btn-primary">Create Order</button>
             </div>
-          </div>
+          </form>
         </div>
       )}
 
