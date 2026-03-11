@@ -131,7 +131,7 @@ export default function Dashboard({ onNavigate, user, lang = 'en' }) {
   const isConfirmer = user?.role === 'confirmer';
 
   // Admin state
-  const [lowStockOpen, setLowStockOpen] = useState(true);
+  const [lowStockOpen, setLowStockOpen] = useState(false);
   const [pendingLeads, setPendingLeads] = useState([]);
   const [leadsOpen, setLeadsOpen] = useState(true);
   const [period, setPeriod] = useState('today');
