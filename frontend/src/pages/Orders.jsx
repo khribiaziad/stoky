@@ -129,6 +129,9 @@ export default function Orders() {
   const [reportedRange, setReportedRange] = useState('all');  // for reported_date (reported tab)
 
 
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const moreMenuRef = useRef();
+
   const pickupRef = useRef();
   const returnRef = useRef();
 
@@ -213,6 +216,17 @@ export default function Orders() {
       .then(() => load({ p: 1, f: 'pending', t: 'orders', dr: 'today' }))
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!showMoreMenu) return;
+    const handler = (e) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target)) {
+        setShowMoreMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showMoreMenu]);
 
   // Handle pickup PDF upload
   const handleManualOrder = async () => {
@@ -672,12 +686,50 @@ export default function Orders() {
             <button className="btn btn-secondary" onClick={() => pickupRef.current.click()} disabled={uploading}>
               {uploading ? '⏳ Parsing...' : '📤 Upload Pickup PDF'}
             </button>
-            <button className="btn btn-secondary" onClick={() => { setRamassageResult(null); setShowRamassage(true); }} title="Request courier pickup">📦 Request Pickup</button>
-            {filter === 'awaiting_pickup' && (
-              <button className="btn btn-secondary" onClick={handleConfirmPickup} style={{ borderColor: '#60a5fa', color: '#60a5fa' }} title="Courier has arrived and collected packages">✓ Confirm Pickup</button>
-            )}
-            <button className="btn btn-secondary" onClick={exportCSV} title="Export visible orders to CSV">⬇ Export CSV</button>
-            <button className="btn btn-secondary" onClick={handleSyncAll} disabled={syncing} title="Refresh delivery status from Forcelog & Olivraison" style={{ padding: '0 12px', fontSize: 18 }}>{syncing ? '⏳' : '⟳'}</button>
+            {/* More ▾ dropdown */}
+            <div ref={moreMenuRef} style={{ position: 'relative' }}>
+              <button
+                className="btn btn-secondary"
+                onClick={() => setShowMoreMenu(prev => !prev)}
+                style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                More <span style={{ fontSize: 10 }}>▾</span>
+              </button>
+              {showMoreMenu && (
+                <div style={{
+                  position: 'absolute', top: '100%', right: 0, marginTop: 4, zIndex: 200,
+                  background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8,
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.4)', minWidth: 200, overflow: 'hidden',
+                }}>
+                  <button
+                    className="btn btn-secondary"
+                    style={{ width: '100%', textAlign: 'left', borderRadius: 0, border: 'none', borderBottom: '1px solid var(--border)', padding: '10px 16px' }}
+                    onClick={() => { setShowMoreMenu(false); setRamassageResult(null); setShowRamassage(true); }}>
+                    📦 Request Pickup
+                  </button>
+                  {filter === 'awaiting_pickup' && (
+                    <button
+                      className="btn btn-secondary"
+                      style={{ width: '100%', textAlign: 'left', borderRadius: 0, border: 'none', borderBottom: '1px solid var(--border)', padding: '10px 16px', color: '#60a5fa', borderColor: 'transparent' }}
+                      onClick={() => { setShowMoreMenu(false); handleConfirmPickup(); }}>
+                      ✓ Confirm Pickup
+                    </button>
+                  )}
+                  <button
+                    className="btn btn-secondary"
+                    style={{ width: '100%', textAlign: 'left', borderRadius: 0, border: 'none', borderBottom: '1px solid var(--border)', padding: '10px 16px' }}
+                    onClick={() => { setShowMoreMenu(false); exportCSV(); }}>
+                    ⬇ Export CSV
+                  </button>
+                  <button
+                    className="btn btn-secondary"
+                    style={{ width: '100%', textAlign: 'left', borderRadius: 0, border: 'none', padding: '10px 16px' }}
+                    disabled={syncing}
+                    onClick={() => { setShowMoreMenu(false); handleSyncAll(); }}>
+                    {syncing ? '⏳ Syncing...' : '⟳ Sync Deliveries'}
+                  </button>
+                </div>
+              )}
+            </div>
           </> : <>
             <button className="btn btn-secondary" style={{ borderColor: '#f87171', color: '#f87171' }} onClick={() => { setError(''); setShowManualReturn(true); }}>↩ Create Return</button>
             <button className="btn btn-secondary" onClick={() => returnRef.current.click()} disabled={uploading}>
