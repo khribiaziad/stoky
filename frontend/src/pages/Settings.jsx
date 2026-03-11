@@ -433,7 +433,7 @@ export default function Settings({ user, theme, setTheme, lang, setLang, accent,
 
   // ── YouCan express checkout button (most reliable trigger) ────────────────
   document.addEventListener('click', function (e) {
-    var btn = e.target.closest('.express-checkout-button, [class*="express-checkout"], [class*="checkout-btn"], [class*="order-btn"], button[type=submit]');
+    var btn = e.target.closest('.express-checkout-button, [class*="express-checkout"], [class*="checkout-btn"], [class*="order-btn"]');
     if (btn) {
       captureInputs();
       setTimeout(function () { sendLead('btn'); }, 800);
