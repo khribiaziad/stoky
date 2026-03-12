@@ -133,7 +133,9 @@ export const getAdCostPerOrder = (start, end) => api.get('/expenses/cost-per-ord
 
 // Reports
 export const getReportSummary = (params) => api.get('/reports/summary', { params });
-export const getDashboardStats = (params) => api.get('/reports/dashboard', { params });
+export const getDashboardStats       = (params) => api.get('/reports/dashboard', { params });
+export const getDashboardAttention   = ()       => api.get('/reports/attention');
+export const getDashboardWeekSummary = ()       => api.get('/reports/week-summary');
 export const getMyStats = (params) => api.get('/reports/my-stats', { params });
 export const getTopProducts = (params) => api.get('/reports/top-products', { params });
 export const getTopCities = (params) => api.get('/reports/top-cities', { params });

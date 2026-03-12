@@ -289,6 +289,120 @@ def get_dashboard_stats(
     }
 
 
+@router.get("/attention")
+def get_attention(
+    db: Session = Depends(get_db),
+    user: models.User = Depends(get_current_user),
+):
+    """Quick-action counts for the dashboard attention strip."""
+    uid = get_store_id(user)
+    now = datetime.now()
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_end   = now.replace(hour=23, minute=59, second=59, microsecond=999999)
+
+    new_leads = db.query(func.count(models.Lead.id)).filter(
+        models.Lead.store_id == uid,
+        models.Lead.status == "pending",
+    ).scalar() or 0
+
+    pending_orders = db.query(func.count(models.Order.id)).filter(
+        models.Order.user_id == uid,
+        models.Order.status == "pending",
+        models.Order.tracking_id.is_(None),
+    ).scalar() or 0
+
+    reported_due_today = db.query(func.count(models.Order.id)).filter(
+        models.Order.user_id == uid,
+        models.Order.status == "reported",
+        models.Order.reported_date >= today_start,
+        models.Order.reported_date <= today_end,
+    ).scalar() or 0
+
+    low_stock_variants = db.query(models.ProductVariant).join(
+        models.Product, models.ProductVariant.product_id == models.Product.id
+    ).filter(
+        models.Product.user_id == uid,
+        models.ProductVariant.low_stock_threshold > 0,
+        models.ProductVariant.stock <= models.ProductVariant.low_stock_threshold,
+    ).count()
+
+    return {
+        "newLeads":          new_leads,
+        "pendingOrders":     pending_orders,
+        "reportedDueToday":  reported_due_today,
+        "lowStockItems":     low_stock_variants,
+    }
+
+
+@router.get("/week-summary")
+def get_week_summary(
+    db: Session = Depends(get_db),
+    user: models.User = Depends(get_current_user),
+):
+    """This-week vs last-week comparison for revenue, orders, leads converted."""
+    uid = get_store_id(user)
+    now = datetime.now()
+
+    # This week: Monday 00:00 → now
+    days_since_monday = now.weekday()
+    week_start = (now - timedelta(days=days_since_monday)).replace(hour=0, minute=0, second=0, microsecond=0)
+    week_end   = now
+
+    # Last week: previous Monday → previous Sunday
+    last_week_start = week_start - timedelta(days=7)
+    last_week_end   = week_start - timedelta(seconds=1)
+
+    def revenue_in(s, e):
+        r = db.query(func.sum(models.Order.total_amount)).filter(
+            models.Order.user_id == uid,
+            models.Order.status == "delivered",
+            models.Order.order_date >= s,
+            models.Order.order_date <= e,
+        ).scalar()
+        return round(r or 0.0, 2)
+
+    def orders_confirmed_in(s, e):
+        return db.query(func.count(models.Order.id)).filter(
+            models.Order.user_id == uid,
+            models.Order.status.in_(["delivered", "awaiting_pickup", "in_delivery"]),
+            models.Order.order_date >= s,
+            models.Order.order_date <= e,
+        ).scalar() or 0
+
+    def leads_converted_in(s, e):
+        return db.query(func.count(models.Lead.id)).filter(
+            models.Lead.store_id == uid,
+            models.Lead.status == "confirmed",
+            models.Lead.order_id.isnot(None),
+        ).join(models.Order, models.Lead.order_id == models.Order.id).filter(
+            models.Order.order_date >= s,
+            models.Order.order_date <= e,
+        ).scalar() or 0
+
+    def pct_delta(now_val, prev_val):
+        if prev_val == 0:
+            return None
+        return round((now_val - prev_val) / prev_val * 100)
+
+    rev_now  = revenue_in(week_start, week_end)
+    rev_prev = revenue_in(last_week_start, last_week_end)
+
+    ord_now  = orders_confirmed_in(week_start, week_end)
+    ord_prev = orders_confirmed_in(last_week_start, last_week_end)
+
+    lead_now  = leads_converted_in(week_start, week_end)
+    lead_prev = leads_converted_in(last_week_start, last_week_end)
+
+    return {
+        "revenue":         rev_now,
+        "revenueDelta":    pct_delta(rev_now, rev_prev),
+        "ordersConfirmed": ord_now,
+        "ordersDelta":     pct_delta(ord_now, ord_prev),
+        "leadsConverted":  lead_now,
+        "leadsDelta":      pct_delta(lead_now, lead_prev),
+    }
+
+
 @router.get("/my-stats")
 def get_my_stats(
     period: Optional[str] = None,

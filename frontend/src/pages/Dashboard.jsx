@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { getDashboardStats, getReportSummary, getProducts, getMyStats, getLeads, getSetting, setSetting, errorMessage } from '../api';
+import { getDashboardStats, getDashboardAttention, getDashboardWeekSummary, getReportSummary, getProducts, getMyStats, getLeads, getSetting, setSetting, errorMessage } from '../api';
 import ErrorExplain from '../components/ErrorExplain';
 
 // ── Translations ───────────────────────────────────────────────────────────
@@ -130,6 +130,11 @@ export default function Dashboard({ onNavigate, user, lang = 'en' }) {
   const isMobile = useIsMobile();
   const isConfirmer = user?.role === 'confirmer';
 
+  // New attention + week summary
+  const [attention,        setAttention]        = useState(null);
+  const [weekSummary,      setWeekSummary]      = useState(null);
+  const [attentionLoading, setAttentionLoading] = useState(true);
+
   // Admin state
   const [lowStockOpen, setLowStockOpen] = useState(false);
   const [pendingLeads, setPendingLeads] = useState([]);
@@ -173,6 +178,12 @@ export default function Dashboard({ onNavigate, user, lang = 'en' }) {
   useEffect(() => {
     if (isConfirmer) return;
     if (period !== 'custom') loadStats(period, '', '');
+
+    setAttentionLoading(true);
+    Promise.all([getDashboardAttention(), getDashboardWeekSummary()])
+      .then(([a, w]) => { setAttention(a.data); setWeekSummary(w.data); })
+      .catch(() => {})
+      .finally(() => setAttentionLoading(false));
 
     getLeads().then(r => {
       const actionable = r.data.filter(l => l.status === 'pending' || l.status === 'unresponsive');
@@ -373,6 +384,96 @@ export default function Dashboard({ onNavigate, user, lang = 'en' }) {
           )}
         </div>
       </div>
+
+      {/* ── Needs Attention strip ─────────────────────────────────────────── */}
+      <style>{`
+        @keyframes db-pulse-dot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(1.4)} }
+        .db-pulse-dot { animation: db-pulse-dot 1.6s ease-in-out infinite; }
+      `}</style>
+      {attentionLoading ? (
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4,1fr)', gap: 10, marginBottom: 16 }}>
+          {[0,1,2,3].map(i => (
+            <div key={i} style={{ height: 80, borderRadius: 10, background: 'var(--card)', border: '1px solid var(--border)', opacity: 0.4 }} />
+          ))}
+        </div>
+      ) : attention && (() => {
+        const cards = [
+          { key: 'newLeads',         label: 'New Leads',          count: attention.newLeads,         color: '#4ade80', nav: 'leads',   pulse: false },
+          { key: 'pendingOrders',    label: 'Pending Orders',      count: attention.pendingOrders,    color: '#fb923c', nav: 'orders',  pulse: false },
+          { key: 'reportedDueToday', label: 'Reported Due Today',  count: attention.reportedDueToday, color: '#00c2cb', nav: 'orders',  pulse: true  },
+          { key: 'lowStockItems',    label: 'Low Stock Items',     count: attention.lowStockItems,    color: '#f87171', nav: 'stock',   pulse: true  },
+        ];
+        return (
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.1em', color: 'var(--t3)', textTransform: 'uppercase', marginBottom: 8 }}>Needs Attention</div>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4,1fr)', gap: 10 }}>
+              {cards.map(c => {
+                const active = c.count > 0;
+                return (
+                  <div key={c.key}
+                    onClick={() => active && onNavigate(c.nav)}
+                    style={{
+                      position: 'relative', borderRadius: 10, padding: '14px 16px',
+                      background: active ? `${c.color}08` : 'var(--card)',
+                      border: `1px solid var(--border)`,
+                      borderLeft: `3px solid ${active ? c.color : 'var(--border)'}`,
+                      opacity: active ? 1 : 0.45,
+                      cursor: active ? 'pointer' : 'default',
+                      transition: 'opacity .15s',
+                    }}
+                  >
+                    {active && c.pulse && (
+                      <div className="db-pulse-dot" style={{
+                        position: 'absolute', top: 10, right: 10,
+                        width: 7, height: 7, borderRadius: '50%', background: c.color,
+                      }} />
+                    )}
+                    <div style={{ fontSize: 28, fontWeight: 800, color: c.color, lineHeight: 1 }}>{c.count}</div>
+                    <div style={{ fontSize: 12, color: 'var(--t2)', marginTop: 4 }}>{c.label}</div>
+                    {active && (
+                      <div style={{ fontSize: 11, color: 'var(--accent)', marginTop: 6 }}>Go to →</div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── This Week summary bar ─────────────────────────────────────────── */}
+      {weekSummary && !attentionLoading && (() => {
+        const items = [
+          { label: 'Revenue This Week',  value: `${weekSummary.revenue.toLocaleString()} MAD`, delta: weekSummary.revenueDelta },
+          { label: 'Orders Confirmed',   value: weekSummary.ordersConfirmed,                   delta: weekSummary.ordersDelta },
+          { label: 'Leads Converted',    value: weekSummary.leadsConverted,                    delta: weekSummary.leadsDelta },
+        ];
+        return (
+          <div style={{
+            display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3,1fr)',
+            gap: 0, marginBottom: 16,
+            background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden',
+          }}>
+            {items.map((item, i) => (
+              <div key={i} style={{
+                padding: '14px 18px',
+                borderRight: !isMobile && i < 2 ? '1px solid var(--border)' : 'none',
+                borderBottom: isMobile && i < 2 ? '1px solid var(--border)' : 'none',
+              }}>
+                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.08em', color: 'var(--t3)', textTransform: 'uppercase', marginBottom: 4 }}>{item.label}</div>
+                <div style={{ fontSize: 20, fontWeight: 700, fontFamily: 'monospace', color: 'var(--t1)' }}>{item.value}</div>
+                {item.delta !== null && item.delta !== undefined ? (
+                  <div style={{ fontSize: 12, marginTop: 3, color: item.delta >= 0 ? '#4ade80' : '#f87171' }}>
+                    {item.delta >= 0 ? '▲' : '▼'} {Math.abs(item.delta)}% vs last week
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 12, marginTop: 3, color: 'var(--t3)' }}>— vs last week</div>
+                )}
+              </div>
+            ))}
+          </div>
+        );
+      })()}
 
       {/* Low Stock Alerts — collapsible */}
       {lowStockItems.length > 0 && (
