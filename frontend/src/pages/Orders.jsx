@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { getOrders, getProducts, getPacks, uploadPickupPDF, bulkCreateOrders, uploadReturnPDF, processReturns, updateOrderStatus, updateOrder, deleteOrder, bulkUpdateOrderStatus, sendToOlivraison, sendToForcelog, getForcelogStatus, syncAllForcelog, syncAllOlivraison, requestOlivRamassage, requestForcelogRamassage, confirmPickup, errorMessage } from '../api';
 import ErrorExplain from '../components/ErrorExplain';
 import { validatePhone, validateAmount, numericOnly, fieldErrorStyle } from '../utils/validate';
@@ -980,7 +980,8 @@ export default function Orders() {
                     ? { ...rowStyle(o), background: 'rgba(0,212,143,0.1)', outline: '1px solid rgba(0,212,143,0.2)', cursor: 'pointer' }
                     : { ...rowStyle(o), cursor: 'pointer' };
                   return (
-                  <tr key={o.id}
+                  <React.Fragment key={o.id}>
+                  <tr
                     className={isDueToday ? 'ord-due-today-row' : ''}
                     style={trStyle}
                     onClick={e => { if (e.target.closest('button,input,select,a,label')) return; setDetailOrder(prev => prev?.id === o.id ? null : o); }}>
@@ -1084,6 +1085,106 @@ export default function Orders() {
                       </div>
                     </td>
                   </tr>
+                  {/* Inline expansion row */}
+                  {detailOrder?.id === o.id && (() => {
+                    const hasCourier = !!o.tracking_id;
+                    const isForce = o.delivery_provider === 'forcelog';
+                    const courierName = isForce ? 'Forcelog' : 'Olivraison';
+                    const STEPS = [
+                      { key: 'pending', label: 'Pending' },
+                      { key: 'awaiting_pickup', label: 'Pickup' },
+                      { key: 'in_delivery', label: 'Delivery' },
+                      { key: 'delivered', label: 'Delivered' },
+                    ];
+                    const stepKeys = STEPS.map(s => s.key);
+                    const currentStep = ['cancelled','reported'].includes(o.status) ? 0 : stepKeys.indexOf(o.status);
+                    return (
+                      <tr key={`exp-${o.id}`}>
+                        <td colSpan={7} style={{ padding: 0, border: 'none' }}>
+                          <div style={{ padding: '16px 20px', background: 'rgba(0,212,143,0.03)', borderBottom: '2px solid rgba(0,212,143,0.15)', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 20 }}>
+
+                            {/* Col 1: Customer info */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--t3)', letterSpacing: '.08em', marginBottom: 4 }}>CUSTOMER</div>
+                              {o.customer_phone && (
+                                <a href={`https://wa.me/${o.customer_phone.replace(/\D/g,'')}`} target="_blank" rel="noopener noreferrer"
+                                  style={{ color: '#25D366', fontSize: 13, textDecoration: 'none' }}>💬 {o.customer_phone}</a>
+                              )}
+                              {o.city && <div style={{ fontSize: 13, color: 'var(--t2)' }}>📍 {o.city}</div>}
+                              {o.customer_address && <div style={{ fontSize: 12, color: 'var(--t3)' }}>{o.customer_address}</div>}
+                              <div style={{ fontSize: 12, color: 'var(--t3)' }}>🗓 {o.order_date ? new Date(o.order_date).toLocaleDateString() : '—'}</div>
+                              <div style={{ fontWeight: 700, fontSize: 16, color: '#60a5fa', marginTop: 4 }}>{o.total_amount} MAD</div>
+                              {o.confirmed_by && <div style={{ fontSize: 11, color: 'var(--t3)' }}>By: <span style={{ color: '#00d48f' }}>{o.confirmed_by}</span></div>}
+                            </div>
+
+                            {/* Col 2: Pipeline */}
+                            <div>
+                              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--t3)', letterSpacing: '.08em', marginBottom: 12 }}>STATUS PIPELINE</div>
+                              <div style={{ display: 'flex', alignItems: 'flex-start' }}>
+                                {STEPS.map((step, i) => {
+                                  const done = i < currentStep;
+                                  const active = i === currentStep;
+                                  return (
+                                    <div key={step.key} style={{ display: 'flex', alignItems: 'center', flex: i < STEPS.length - 1 ? 1 : 0 }}>
+                                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
+                                        <div style={{
+                                          width: 26, height: 26, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                          fontSize: 11, fontWeight: 700,
+                                          background: done || active ? 'var(--accent)' : 'var(--border)',
+                                          color: done || active ? '#fff' : 'var(--t3)',
+                                          outline: active ? '2px solid var(--accent)' : 'none', outlineOffset: 2,
+                                        }}>{done ? '✓' : i + 1}</div>
+                                        <div style={{ fontSize: 9, color: active ? 'var(--t1)' : done ? 'var(--accent)' : 'var(--t3)', textAlign: 'center', whiteSpace: 'nowrap' }}>{step.label}</div>
+                                      </div>
+                                      {i < STEPS.length - 1 && <div style={{ flex: 1, height: 2, background: done ? 'var(--accent)' : 'var(--border)', margin: '0 4px', marginBottom: 18 }} />}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                              <div style={{ fontSize: 11, color: hasCourier ? '#00c2cb' : 'var(--t3)', marginTop: 8 }}>
+                                {hasCourier ? `⚡ Auto-synced via ${courierName}` : '✏ Updated manually'}
+                              </div>
+                              {!hasCourier && (
+                                <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+                                  <button className="btn btn-secondary btn-sm" style={{ fontSize: 11 }} onClick={() => { handleStatusChange(o.id, 'pending'); setDetailOrder(p => ({ ...p, status: 'pending' })); }}>Pending</button>
+                                  <button className="btn btn-secondary btn-sm" style={{ fontSize: 11, color: '#fb923c', borderColor: '#fb923c' }} onClick={() => { handleStatusChange(o.id, 'awaiting_pickup'); setDetailOrder(p => ({ ...p, status: 'awaiting_pickup' })); }}>Awaiting Pickup</button>
+                                  <button className="btn btn-secondary btn-sm" style={{ fontSize: 11, color: '#4ade80', borderColor: '#4ade80' }} onClick={() => { handleStatusChange(o.id, 'delivered'); setDetailOrder(p => ({ ...p, status: 'delivered' })); }}>Delivered</button>
+                                  <button className="btn btn-secondary btn-sm" style={{ fontSize: 11, color: '#f87171', borderColor: '#f87171' }} onClick={() => { handleStatusChange(o.id, 'cancelled'); setDetailOrder(p => ({ ...p, status: 'cancelled' })); }}>Cancelled</button>
+                                </div>
+                              )}
+                              {hasCourier && o.tracking_id && (
+                                <div style={{ marginTop: 8, fontSize: 12 }}>
+                                  <span style={{ fontFamily: 'monospace', color: isForce ? '#7c3aed' : '#00d48f' }}>{o.tracking_id}</span>
+                                  {o.delivery_status && <span style={{ color: 'var(--t3)', marginLeft: 6 }}>· {o.delivery_status}</span>}
+                                  {isForce && <button className="btn btn-secondary btn-sm" style={{ fontSize: 11, marginLeft: 8 }} disabled={refreshingForce === o.id} onClick={() => handleRefreshForcelog(o.id)}>{refreshingForce === o.id ? '…' : '🔄'}</button>}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Col 3: Products + actions */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--t3)', letterSpacing: '.08em', marginBottom: 4 }}>PRODUCTS</div>
+                              {o.items?.length > 0
+                                ? o.items.map(item => (
+                                    <div key={item.id} style={{ fontSize: 12, color: 'var(--t2)' }}>
+                                      {item.product_name}{item.size ? ` — ${item.size}` : ''}{item.color ? ` / ${item.color}` : ''} <span style={{ color: 'var(--accent)', fontWeight: 700 }}>×{item.quantity}</span>
+                                    </div>
+                                  ))
+                                : <span style={{ color: 'var(--t3)', fontSize: 12 }}>—</span>}
+                              {o.notes && <div style={{ fontSize: 11, color: 'var(--t3)', fontStyle: 'italic', marginTop: 4 }}>📝 {o.notes}</div>}
+                              <div style={{ display: 'flex', gap: 6, marginTop: 'auto', paddingTop: 8, flexWrap: 'wrap' }}>
+                                <button className="btn btn-secondary btn-sm" onClick={() => { openEdit(o); setDetailOrder(null); }}>✏ Edit</button>
+                                <button className="btn btn-secondary btn-sm" style={{ color: '#a78bfa' }} onClick={() => { openExchange(o); setDetailOrder(null); }}>↔ Exchange</button>
+                                <button className="btn btn-danger btn-sm" onClick={() => { handleDelete(o.id); setDetailOrder(null); }}>✕ Delete</button>
+                              </div>
+                            </div>
+
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })()}
+                  </React.Fragment>
                   );
                 })}
               </tbody>
@@ -1111,175 +1212,6 @@ export default function Orders() {
             onClick={() => { const p = page + 1; setPage(p); load({ p, f: filter, t: activeTab }); }}>Next →</button>
         </div>
       )}
-
-      {/* Detail Panel — slides in from right */}
-      {detailOrder && (() => {
-        const o = detailOrder;
-        const hasCourier = !!o.tracking_id;
-        const isForce = o.delivery_provider === 'forcelog';
-        const courierName = isForce ? 'Forcelog' : 'Olivraison';
-        const source = o.caleo_id?.startsWith('MAN-') ? 'Manual'
-          : o.caleo_id?.startsWith('EXCH-') ? 'Exchange'
-          : o.uploaded_by ? `PDF — ${o.uploaded_by}`
-          : 'Website / Lead';
-        const STEPS = [
-          { key: 'pending', label: 'Pending' },
-          { key: 'awaiting_pickup', label: 'Pickup' },
-          { key: 'in_delivery', label: 'Delivery' },
-          { key: 'delivered', label: 'Delivered' },
-        ];
-        const stepKeys = STEPS.map(s => s.key);
-        const currentStep = ['cancelled','reported'].includes(o.status) ? 0 : stepKeys.indexOf(o.status);
-        return (
-          <div style={{
-            position: 'fixed', right: 0, top: 0, bottom: 0, zIndex: 300, width: 400,
-            background: 'var(--card)', borderLeft: '1px solid var(--border)',
-            overflowY: 'auto', display: 'flex', flexDirection: 'column',
-            boxShadow: '-8px 0 32px rgba(0,0,0,0.5)',
-            transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-          }}>
-            {/* Panel header */}
-            <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0, background: 'var(--card)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--t3)' }}>{o.caleo_id}</span>
-                <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 99, background: 'var(--accent)22', color: 'var(--accent)', border: '1px solid var(--accent)44' }}>{source}</span>
-              </div>
-              <button className="btn-icon" onClick={() => setDetailOrder(null)}>✕</button>
-            </div>
-
-            {/* Panel body */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: 18, display: 'flex', flexDirection: 'column', gap: 14 }}>
-
-              {/* Customer */}
-              <div style={{ background: 'var(--bg)', borderRadius: 8, padding: '12px 14px' }}>
-                <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 6 }}>{o.customer_name}</div>
-                {o.customer_phone && (
-                  <a href={`https://wa.me/${o.customer_phone.replace(/\D/g,'')}`} target="_blank" rel="noopener noreferrer"
-                    style={{ color: '#25D366', fontSize: 13, textDecoration: 'none', display: 'block', marginBottom: 4 }}>
-                    💬 {o.customer_phone}
-                  </a>
-                )}
-                {o.city && <div style={{ fontSize: 13, color: 'var(--t2)' }}>📍 {o.city}</div>}
-                {o.customer_address && <div style={{ fontSize: 12, color: 'var(--t3)', marginTop: 2 }}>{o.customer_address}</div>}
-              </div>
-
-              {/* Amount + Date */}
-              <div style={{ display: 'flex', gap: 10 }}>
-                <div style={{ flex: 1, background: 'var(--bg)', borderRadius: 8, padding: '10px 14px', textAlign: 'center' }}>
-                  <div style={{ fontSize: 10, color: 'var(--t3)', marginBottom: 3 }}>TOTAL</div>
-                  <div style={{ fontWeight: 700, fontSize: 18, color: '#60a5fa' }}>{o.total_amount} MAD</div>
-                </div>
-                <div style={{ flex: 1, background: 'var(--bg)', borderRadius: 8, padding: '10px 14px', textAlign: 'center' }}>
-                  <div style={{ fontSize: 10, color: 'var(--t3)', marginBottom: 3 }}>DATE</div>
-                  <div style={{ fontSize: 13, color: 'var(--t2)' }}>{o.order_date ? new Date(o.order_date).toLocaleDateString() : '—'}</div>
-                </div>
-              </div>
-
-              {/* Status Pipeline */}
-              <div style={{ background: 'var(--bg)', borderRadius: 8, padding: '14px' }}>
-                <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--t3)', letterSpacing: '.08em', marginBottom: 14 }}>STATUS PIPELINE</div>
-                <div style={{ display: 'flex', alignItems: 'flex-start' }}>
-                  {STEPS.map((step, i) => {
-                    const done = i < currentStep;
-                    const active = i === currentStep;
-                    return (
-                      <div key={step.key} style={{ display: 'flex', alignItems: 'center', flex: i < STEPS.length - 1 ? 1 : 0 }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
-                          <div style={{
-                            width: 26, height: 26, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            fontSize: 11, fontWeight: 700,
-                            background: done || active ? 'var(--accent)' : 'var(--border)',
-                            color: done || active ? '#fff' : 'var(--t3)',
-                            outline: active ? '2px solid var(--accent)' : 'none', outlineOffset: 2,
-                          }}>
-                            {done ? '✓' : i + 1}
-                          </div>
-                          <div style={{ fontSize: 9, color: active ? 'var(--t1)' : done ? 'var(--accent)' : 'var(--t3)', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                            {step.label}
-                          </div>
-                        </div>
-                        {i < STEPS.length - 1 && (
-                          <div style={{ flex: 1, height: 2, background: done ? 'var(--accent)' : 'var(--border)', margin: '0 4px', marginBottom: 18 }} />
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* Mode note */}
-                <div style={{ marginTop: 10, fontSize: 11, color: hasCourier ? '#00c2cb' : 'var(--t3)' }}>
-                  {hasCourier ? `⚡ Auto-synced via ${courierName}` : '✏ Updated manually'}
-                </div>
-
-                {/* Manual update buttons */}
-                {!hasCourier && (
-                  <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
-                    <button className="btn btn-secondary btn-sm" style={{ fontSize: 11 }}
-                      onClick={() => { handleStatusChange(o.id, 'pending'); setDetailOrder(p => ({ ...p, status: 'pending' })); }}>Pending</button>
-                    <button className="btn btn-secondary btn-sm" style={{ fontSize: 11, color: '#fb923c', borderColor: '#fb923c' }}
-                      onClick={() => { handleStatusChange(o.id, 'awaiting_pickup'); setDetailOrder(p => ({ ...p, status: 'awaiting_pickup' })); }}>Awaiting Pickup</button>
-                    <button className="btn btn-secondary btn-sm" style={{ fontSize: 11, color: '#4ade80', borderColor: '#4ade80' }}
-                      onClick={() => { handleStatusChange(o.id, 'delivered'); setDetailOrder(p => ({ ...p, status: 'delivered' })); }}>Delivered</button>
-                    <button className="btn btn-secondary btn-sm" style={{ fontSize: 11, color: '#f87171', borderColor: '#f87171' }}
-                      onClick={() => { handleStatusChange(o.id, 'cancelled'); setDetailOrder(p => ({ ...p, status: 'cancelled' })); }}>Cancelled</button>
-                  </div>
-                )}
-
-                {/* Courier tracking info */}
-                {hasCourier && (
-                  <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div>
-                      <span style={{ fontSize: 10, fontWeight: 700, color: isForce ? '#7c3aed' : '#00d48f' }}>{isForce ? 'FORCELOG' : 'OLIVRAISON'} — </span>
-                      <span style={{ fontSize: 12, fontFamily: 'monospace', color: 'var(--t1)' }}>{o.tracking_id}</span>
-                      {o.delivery_status && <div style={{ fontSize: 11, color: 'var(--t2)', marginTop: 2 }}>{o.delivery_status}</div>}
-                    </div>
-                    {isForce && (
-                      <button className="btn btn-secondary btn-sm" style={{ fontSize: 11 }} disabled={refreshingForce === o.id}
-                        onClick={() => handleRefreshForcelog(o.id)}>
-                        {refreshingForce === o.id ? '…' : '🔄 Refresh'}
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Products */}
-              {o.items?.length > 0 && (
-                <div>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--t3)', letterSpacing: '.08em', marginBottom: 8 }}>PRODUCTS</div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    {o.items.map(item => (
-                      <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', background: 'var(--bg)', borderRadius: 7, padding: '8px 12px', fontSize: 13 }}>
-                        <span>{item.product_name}{item.size ? ` — ${item.size}` : ''}{item.color ? ` / ${item.color}` : ''}</span>
-                        <span style={{ fontWeight: 700, color: 'var(--accent)' }}>×{item.quantity}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Notes */}
-              {o.notes && (
-                <div style={{ fontSize: 13, color: 'var(--t2)', fontStyle: 'italic', background: 'var(--bg)', borderRadius: 8, padding: '10px 14px' }}>
-                  📝 {o.notes}
-                </div>
-              )}
-
-              {/* Confirmed by */}
-              {o.confirmed_by && (
-                <div style={{ fontSize: 12, color: 'var(--t3)' }}>Confirmed by: <span style={{ color: '#00d48f', fontWeight: 600 }}>{o.confirmed_by}</span></div>
-              )}
-
-              {/* Footer actions */}
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', paddingTop: 8, borderTop: '1px solid var(--border)' }}>
-                <button className="btn btn-secondary btn-sm" onClick={() => { openEdit(o); setDetailOrder(null); }}>✏ Edit</button>
-                <button className="btn btn-secondary btn-sm" style={{ color: '#a78bfa' }} onClick={() => { openExchange(o); setDetailOrder(null); }}>↔ Exchange</button>
-                <button className="btn btn-danger btn-sm" style={{ marginLeft: 'auto' }} onClick={() => { handleDelete(o.id); setDetailOrder(null); }}>✕ Delete</button>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
 
       {/* Edit Order Modal */}
       {editOrder && (
