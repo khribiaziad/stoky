@@ -182,7 +182,7 @@ export default function Dashboard({ onNavigate, user, lang = 'en' }) {
     setAttentionLoading(true);
     Promise.all([getDashboardAttention(), getDashboardWeekSummary()])
       .then(([a, w]) => { setAttention(a.data); setWeekSummary(w.data); })
-      .catch(() => {})
+      .catch((e) => console.error('Attention/WeekSummary fetch failed:', e?.response?.status, e?.response?.data || e?.message))
       .finally(() => setAttentionLoading(false));
 
     getLeads().then(r => {
