@@ -853,6 +853,18 @@ export default function Orders() {
       {activeTab === 'orders' && selectedIds.size > 0 && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', background: '#1a1a2e', border: '1px solid #00d48f44', borderRadius: 10, marginBottom: 12, flexWrap: 'wrap' }}>
           <span style={{ fontWeight: 600, color: '#00d48f' }}>{selectedIds.size} selected</span>
+          <select className="btn btn-sm btn-secondary" style={{ cursor: 'pointer', fontSize: 12, color: '#60a5fa', borderColor: '#60a5fa' }} value=""
+            onChange={e => {
+              const courier = e.target.value;
+              if (!courier) return;
+              const selected = filtered.filter(o => selectedIds.has(o.id));
+              Promise.allSettled(selected.map(o => courier === 'olivraison' ? handleSendOlivraison(o.id) : handleSendForcelog(o.id)))
+                .then(() => setSelectedIds(new Set()));
+            }}>
+            <option value="" disabled>🚚 Send to courier…</option>
+            <option value="olivraison">Olivraison</option>
+            <option value="forcelog">Forcelog</option>
+          </select>
           <span style={{ color: '#8892b0', fontSize: 13 }}>Update to:</span>
           <button className="btn btn-sm btn-secondary" style={{ borderColor: '#4ade80', color: '#4ade80' }} onClick={() => handleBulkStatus('delivered')}>✓ Delivered</button>
           <button className="btn btn-sm btn-secondary" style={{ borderColor: '#f59e0b', color: '#f59e0b' }} onClick={() => handleBulkStatus('pending')}>⏳ Pending</button>
