@@ -318,12 +318,12 @@ def get_attention(
         models.Order.reported_date <= today_end,
     ).scalar() or 0
 
-    low_stock_variants = db.query(models.ProductVariant).join(
-        models.Product, models.ProductVariant.product_id == models.Product.id
+    low_stock_variants = db.query(models.Variant).join(
+        models.Product, models.Variant.product_id == models.Product.id
     ).filter(
         models.Product.user_id == uid,
-        models.ProductVariant.low_stock_threshold > 0,
-        models.ProductVariant.stock <= models.ProductVariant.low_stock_threshold,
+        models.Variant.low_stock_threshold > 0,
+        models.Variant.stock <= models.Variant.low_stock_threshold,
     ).count()
 
     return {
