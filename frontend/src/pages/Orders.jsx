@@ -1002,11 +1002,15 @@ export default function Orders() {
                       {o.customer_address && <div style={{ fontSize: 11, color: '#8892b0', marginTop: 2 }}>{o.customer_address}</div>}
                     </td>
                     <td style={{ fontWeight: 600, color: '#60a5fa' }}>{o.total_amount} MAD</td>
-                    <td style={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <td style={{ maxWidth: 180 }}>
                       {o.items?.length > 0
-                        ? <span title={o.items.map(i => `${i.product_name} x${i.quantity}`).join(', ')} style={{ fontSize: 12 }}>
-                            {o.items[0].product_name}{o.items.length > 1 ? ` +${o.items.length - 1}` : ''}
-                          </span>
+                        ? <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                            {o.items.map((item, i) => (
+                              <span key={i} style={{ fontSize: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 170 }}>
+                                {item.product_name}{item.quantity > 1 ? ` ×${item.quantity}` : ''}
+                              </span>
+                            ))}
+                          </div>
                         : <span style={{ color: '#8892b0' }}>—</span>}
                     </td>
                     <td>
