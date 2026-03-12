@@ -2,7 +2,7 @@ services:
   - type: web
     name: stoky
     runtime: python
-    buildCommand: "npm install --prefix frontend && npm run build --prefix frontend && rm -rf backend/dist && cp -r frontend/dist backend/dist && pip install -r backend/requirements.txt"
+    buildCommand: "npm install --prefix frontend && npm run build --prefix frontend && pip install -r backend/requirements.txt"
     startCommand: "cd backend && python -m uvicorn main:app --host 0.0.0.0 --port $PORT"
     envVars:
       - key: PYTHON_VERSION
