@@ -99,30 +99,74 @@ Error generating stack: `+d.message+`
     return '';
   }
 
-  function scrapeItems() {
+  function scrapeItems(bodyItems) {
+    // 1. Items from intercepted API body (most reliable)
+    if (bodyItems && bodyItems.length) return bodyItems;
+    // 2. Cart/order summary DOM elements
     var items = [];
-    document.querySelectorAll('ul.items li .item, .cart-item, .order-item').forEach(function (el) {
-      var nameEl = el.querySelector('span.name, .item-name, .product-name');
-      var qtyEl  = el.querySelector('span.quantity, .item-qty, .quantity');
-      if (nameEl) items.push({ product_name: nameEl.innerText.trim(), quantity: qtyEl ? parseInt(qtyEl.innerText.replace(/\\D/g, '')) || 1 : 1 });
+    document.querySelectorAll('.cart-item, .order-item, .checkout-item, [class*="cart-item"], [class*="order-item"], ul.items li').forEach(function (el) {
+      var nameEl = el.querySelector('.name, .product-name, .item-name, .title, h3, h4, strong');
+      var qtyEl  = el.querySelector('.quantity, .qty, [class*="qty"], [class*="quantity"]');
+      if (nameEl && nameEl.innerText.trim()) {
+        items.push({ product_name: nameEl.innerText.trim().split('\\n')[0], quantity: qtyEl ? parseInt(qtyEl.innerText.replace(/\\D/g, '')) || 1 : 1 });
+      }
     });
-    return items.length ? items : [{ product_name: 'YouCan order', quantity: 1 }];
+    if (items.length) return items;
+    // 3. Product title on the page (h1, og:title, page title)
+    var h1 = document.querySelector('.product-title, h1.name, h1');
+    if (h1 && h1.innerText.trim().length < 120) return [{ product_name: h1.innerText.trim().split('\\n')[0], quantity: 1 }];
+    var og = document.querySelector('meta[property="og:title"]');
+    if (og && og.content) return [{ product_name: og.content.split('|')[0].split('–')[0].trim(), quantity: 1 }];
+    var t = document.title.split('|')[0].split('–')[0].split('-')[0].trim();
+    if (t && t.length < 100) return [{ product_name: t, quantity: 1 }];
+    return [];
+  }
+
+  function scrapeAmount() {
+    // Try visible price elements on the page
+    var el = document.querySelector('.product-price .price, .price .amount, [class*="selling-price"], [class*="product-price"], .price');
+    if (el) {
+      var n = parseFloat(el.innerText.replace(/[^\\d.]/g, ''));
+      if (n > 0) return n;
+    }
+    var og = document.querySelector('meta[property="product:price:amount"]');
+    if (og && og.content) { var n2 = parseFloat(og.content); if (n2 > 0) return n2; }
+    return null;
+  }
+
+  function extractBodyItems(body) {
+    var items = [];
+    var variants = body.variants || body.items || body.line_items || body.products || body.cart || [];
+    if (!Array.isArray(variants)) variants = [];
+    variants.forEach(function (v) {
+      var name = (v.product && (v.product.name || v.product.title)) || v.name || v.title || v.product_name || '';
+      var qty  = parseInt(v.quantity || v.qty || 1) || 1;
+      if (name) items.push({ product_name: name, quantity: qty });
+    });
+    return items;
   }
 
   // ── 2. Send lead (deduped) ────────────────────────────────────────────────
-  function sendLead(ref, extra) {
+  function sendLead(ref, extra, bodyItems, bodyAmount) {
     if (_sent) return;
     captureInputs();
     var firstName = get(['first_name', 'firstname', 'given-name', 'prenom'], extra);
     var lastName  = get(['last_name',  'lastname',  'family-name', 'nom'],   extra);
     var phone     = get(['phone', '_phone', 'telephone', 'tel', 'mobile'],   extra);
     var email     = get(['email', '_email'],                                   extra);
-    var city      = get(['city', 'ville'],                                     extra);
+    var city      = get(['city', 'ville', 'province', 'region', 'wilaya'],   extra);
     var address   = get(['address', 'address1', 'adresse', 'address-line1', 'street', 'rue', 'shipping-address', 'line1', 'first_line', 'shipping_address'], extra);
-    var fullName  = (firstName + ' ' + lastName).trim() || get(['name'],     extra);
-    // Extract city from address field, then from all captured text as fallback
+    var fullName  = (firstName + ' ' + lastName).trim() || get(['name', 'full-name', 'fullname'], extra);
+    // City: try extra fields, then scan address, then scan all cached values, then scan all select options
     if (!city) city = findCity(address);
     if (!city) city = findCity(Object.values(_cache).join(' '));
+    if (!city) {
+      document.querySelectorAll('select').forEach(function(sel) {
+        if (!city && sel.value) city = findCity(sel.value) || findCity(sel.options[sel.selectedIndex] && sel.options[sel.selectedIndex].text || '');
+      });
+    }
+    var amount = bodyAmount || scrapeAmount();
+    var items  = scrapeItems(bodyItems);
     if (!phone && !fullName) return;
     _sent = true;
     fetch(WEBHOOK, {
@@ -134,8 +178,9 @@ Error generating stack: `+d.message+`
         customer_email:   email || null,
         customer_city:    city || null,
         customer_address: address || null,
+        total_amount:     amount || null,
         notes:            'YouCan' + (ref ? ' #' + ref : ''),
-        items:            scrapeItems(),
+        items:            items,
         website:          ''
       })
     });
@@ -149,15 +194,17 @@ Error generating stack: `+d.message+`
     if (method === 'POST' && /order|checkout|purchase|cart|buy|payment/i.test(url)) {
       try {
         var body = JSON.parse((init || {}).body || '{}');
-        var c = body.customer || body.shipping || body;
+        var c  = body.customer || body.shipping || body;
         var sa = body.shipping_address || body.address || {};
         var extra = {
           'first_name': c.first_name, 'last_name': c.last_name, 'name': c.name,
-          '_phone': c.phone || c.telephone || sa.phone,
-          'city':    c.city || sa.city || sa.region,
+          '_phone':  c.phone || c.telephone || sa.phone,
+          'city':    c.city  || sa.city || sa.region || sa.province,
           'address': c.address || c.address1 || sa.address1 || sa.first_line || sa.street || [sa.first_line, sa.second_line].filter(Boolean).join(', '),
         };
-        setTimeout(function () { sendLead('ajax', extra); }, 500);
+        var bodyItems  = extractBodyItems(body);
+        var bodyAmount = parseFloat(body.total || body.amount || body.price || body.grand_total || 0) || null;
+        setTimeout(function () { sendLead('ajax', extra, bodyItems, bodyAmount); }, 500);
       } catch (e) {}
     }
     return _origFetch.apply(this, arguments);
@@ -170,11 +217,13 @@ Error generating stack: `+d.message+`
   XMLHttpRequest.prototype.send = function (body) {
     if (this._m === 'POST' && /order|checkout|purchase|cart|buy|payment/i.test(this._u)) {
       try {
-        var d = JSON.parse(body || '{}');
-        var c = d.customer || d.shipping || d;
-        var sa2 = d.shipping_address || d.address || {};
-        var extra = { 'first_name': c.first_name, 'last_name': c.last_name, '_phone': c.phone || c.telephone || sa2.phone, 'city': c.city || sa2.city, 'address': c.address || c.address1 || sa2.address1 || sa2.first_line || sa2.street };
-        setTimeout(function () { sendLead('xhr', extra); }, 500);
+        var d  = JSON.parse(body || '{}');
+        var c  = d.customer || d.shipping || d;
+        var sa = d.shipping_address || d.address || {};
+        var extra = { 'first_name': c.first_name, 'last_name': c.last_name, '_phone': c.phone || c.telephone || sa.phone, 'city': c.city || sa.city || sa.region || sa.province, 'address': c.address || c.address1 || sa.address1 || sa.first_line || sa.street };
+        var bodyItems  = extractBodyItems(d);
+        var bodyAmount = parseFloat(d.total || d.amount || d.price || 0) || null;
+        setTimeout(function () { sendLead('xhr', extra, bodyItems, bodyAmount); }, 500);
       } catch (e) {}
     }
     return _oSend.apply(this, arguments);

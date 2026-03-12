@@ -197,6 +197,7 @@ class InboundLeadInput(BaseModel):
     customer_email:   Optional[str] = None
     customer_city:    Optional[str] = None
     customer_address: Optional[str] = None
+    total_amount:     Optional[float] = None
     notes:            Optional[str] = None
     items:            List[RawItem]
     # Honeypot: real users leave this empty; bots fill it in
@@ -302,7 +303,7 @@ def inbound_lead(
         customer_address=data.customer_address,
         raw_items=raw_items,
         matched_items=matched if matched else None,
-        total_amount=total if total > 0 else None,
+        total_amount=data.total_amount or (total if total > 0 else None),
         notes=data.notes,
         status="pending",
         message_count=1,
