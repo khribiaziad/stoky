@@ -40,9 +40,24 @@ const statusStyle = (o) => {
     in_delivery:     { background: 'rgba(96,165,250,0.15)',  color: '#60a5fa' },
     delivered:       { background: 'rgba(74,222,128,0.15)',  color: '#4ade80' },
     cancelled:       { background: 'rgba(248,113,113,0.15)', color: '#f87171' },
-    reported:        { background: 'rgba(168,85,247,0.15)',  color: '#a855f7' },
+    reported:        { background: 'rgba(0,194,203,0.1)',    color: '#00c2cb' },
   };
   return S[o.status] || { background: 'rgba(100,116,139,0.15)', color: '#94a3b8' };
+};
+
+const rowStyle = (o) => {
+  const today = new Date().toISOString().slice(0, 10);
+  const isDueToday = o.status === 'reported' && o.reported_date && o.reported_date.slice(0, 10) === today;
+  if (isDueToday) return { background: 'rgba(0,194,203,0.10)', borderLeft: '3px solid #00c2cb' };
+  const S = {
+    pending:         { background: 'rgba(245,166,35,0.045)',  borderLeft: '3px solid rgba(245,166,35,0.5)' },
+    awaiting_pickup: { background: 'rgba(79,124,255,0.045)',  borderLeft: '3px solid rgba(79,124,255,0.5)' },
+    in_delivery:     { background: 'rgba(155,109,255,0.045)', borderLeft: '3px solid rgba(155,109,255,0.5)' },
+    reported:        { background: 'rgba(0,194,203,0.05)',    borderLeft: '3px dashed rgba(0,194,203,0.55)' },
+    delivered:       { background: 'rgba(31,217,138,0.03)',   borderLeft: '3px solid rgba(31,217,138,0.4)' },
+    cancelled:       { background: 'rgba(240,79,79,0.03)',    borderLeft: '3px solid rgba(240,79,79,0.4)' },
+  };
+  return S[o.status] || {};
 };
 
 export default function Orders() {
@@ -94,8 +109,9 @@ export default function Orders() {
   // Bulk selection
   const [selectedIds, setSelectedIds] = useState(new Set());
 
-  // Detail popup
+  // Detail popup / slide panel
   const [detailOrder, setDetailOrder] = useState(null);
+  const [expandedCardId, setExpandedCardId] = useState(null);
 
   // Edit order modal
   const [editOrder, setEditOrder] = useState(null);
@@ -676,6 +692,18 @@ export default function Orders() {
 
   return (
     <div>
+      <style>{`
+        @keyframes ord-pulse { 0%,100% { opacity:1; } 50% { opacity:0.45; } }
+        @keyframes ord-pulse-border { 0%,100% { border-left-color:#00c2cb; } 50% { border-left-color:rgba(0,194,203,0.2); } }
+        .ord-due-today-pill { font-size:10px; background:rgba(0,194,203,0.15); color:#00c2cb; padding:2px 7px; border-radius:99px; white-space:nowrap; animation:ord-pulse 1.5s ease-in-out infinite; }
+        .ord-due-today-row { animation:ord-pulse-border 2s ease-in-out infinite; }
+        .ord-desktop-table { display:block; }
+        .ord-mobile-cards  { display:none; }
+        @media (max-width:767px) {
+          .ord-desktop-table { display:none !important; }
+          .ord-mobile-cards  { display:block; }
+        }
+      `}</style>
       <div className="page-header">
         <h1 className="page-title">Orders</h1>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -743,7 +771,7 @@ export default function Orders() {
       <div style={{ display: 'flex', gap: 0, marginBottom: 16, borderBottom: '1px solid var(--border)' }}>
         {[{ id: 'orders', label: `Orders (${orderCount})` },
           { id: 'returns', label: `Returns (${returnCount})` }].map(tab => (
-          <button key={tab.id} onClick={() => { setActiveTab(tab.id); setSearch(''); setFilter('pending'); setSelectedIds(new Set()); setPage(1); load({ p: 1, f: 'pending', t: tab.id }); }}
+          <button key={tab.id} onClick={() => { setActiveTab(tab.id); setSearch(''); setFilter('pending'); setSelectedIds(new Set()); setPage(1); setExpandedCardId(null); load({ p: 1, f: 'pending', t: tab.id }); }}
             style={{
               background: 'none', border: 'none', padding: '10px 20px', cursor: 'pointer',
               fontSize: 14, fontWeight: 600,
@@ -774,7 +802,7 @@ export default function Orders() {
             <button key={value}
               className={`btn ${filter === value ? 'btn-primary' : 'btn-secondary'}`}
               style={{ fontSize: 13, padding: '6px 14px', display: 'flex', alignItems: 'center', gap: 6 }}
-              onClick={() => { setFilter(value); setPage(1); load({ p: 1, f: value, t: activeTab }); }}>
+              onClick={() => { setFilter(value); setPage(1); setExpandedCardId(null); load({ p: 1, f: value, t: activeTab }); }}>
               {label}
               {count > 0 && (
                 <span style={{
@@ -890,8 +918,8 @@ export default function Orders() {
         </div>
       )}
 
-      {/* Orders Table */}
-      {activeTab === 'orders' && <div className="card">
+      {/* Orders Table — desktop only */}
+      {activeTab === 'orders' && <div className="card ord-desktop-table">
         {filtered.length === 0 ? (
           <div className="empty-state">
             <h3>No orders found</h3>
@@ -907,16 +935,26 @@ export default function Orders() {
                       checked={selectedIds.size === filtered.length && filtered.length > 0}
                       onChange={toggleSelectAll} title="Select all" />
                   </th>
-                  <th>CMD-ID</th><th>Customer</th><th>City</th><th>Amount</th><th>Items</th><th>Confirmed by</th><th>Status</th><th>Date</th><th>Actions</th>
+                  <th>Customer</th><th>City</th><th>Amount</th><th>Items</th><th>Status</th><th>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(o => (
-                  <tr key={o.id} style={{ background: selectedIds.has(o.id) ? '#1a2a1a' : undefined }}>
+                {filtered.map(o => {
+                  const today = new Date().toISOString().slice(0, 10);
+                  const isDueToday = o.status === 'reported' && o.reported_date && o.reported_date.slice(0, 10) === today;
+                  const trStyle = selectedIds.has(o.id)
+                    ? { background: '#1a2a1a', borderLeft: '3px solid var(--accent)', cursor: 'pointer' }
+                    : detailOrder?.id === o.id
+                    ? { ...rowStyle(o), background: 'rgba(0,212,143,0.1)', outline: '1px solid rgba(0,212,143,0.2)', cursor: 'pointer' }
+                    : { ...rowStyle(o), cursor: 'pointer' };
+                  return (
+                  <tr key={o.id}
+                    className={isDueToday ? 'ord-due-today-row' : ''}
+                    style={trStyle}
+                    onClick={e => { if (e.target.closest('button,input,select,a,label')) return; setDetailOrder(prev => prev?.id === o.id ? null : o); }}>
                     <td>
                       <input type="checkbox" checked={selectedIds.has(o.id)} onChange={() => toggleSelect(o.id)} />
                     </td>
-                    <td style={{ fontFamily: 'monospace', fontSize: 12 }}>{o.caleo_id}</td>
                     <td>
                       <div style={{ fontWeight: 500 }}>{o.customer_name}</div>
                       {o.customer_phone ? (
@@ -931,15 +969,12 @@ export default function Orders() {
                       {o.customer_address && <div style={{ fontSize: 11, color: '#8892b0', marginTop: 2 }}>{o.customer_address}</div>}
                     </td>
                     <td style={{ fontWeight: 600, color: '#60a5fa' }}>{o.total_amount} MAD</td>
-                    <td>
+                    <td style={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {o.items?.length > 0
-                        ? o.items.map(item => <div key={item.id} style={{ fontSize: 12 }}>{item.product_name} {item.size} {item.color} x{item.quantity}</div>)
+                        ? <span title={o.items.map(i => `${i.product_name} x${i.quantity}`).join(', ')} style={{ fontSize: 12 }}>
+                            {o.items[0].product_name}{o.items.length > 1 ? ` +${o.items.length - 1}` : ''}
+                          </span>
                         : <span style={{ color: '#8892b0' }}>—</span>}
-                    </td>
-                    <td>
-                      {o.confirmed_by
-                        ? <span style={{ fontSize: 12, color: '#00d48f', fontWeight: 500 }}>{o.confirmed_by}</span>
-                        : <span style={{ color: '#8892b0', fontSize: 12 }}>—</span>}
                     </td>
                     <td>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 110 }}>
@@ -948,11 +983,11 @@ export default function Orders() {
                           ...statusStyle(o) }}>
                           {o.delivery_status || STATUS_LABEL[o.status] || o.status}
                         </span>
-                        {o.status === 'reported' && o.reported_date && (
-                          <span style={{ fontSize: 10, color: '#a855f7' }}>
-                            📅 {new Date(o.reported_date).toLocaleDateString()}
-                          </span>
-                        )}
+                        {o.status === 'reported' && o.reported_date && (() => {
+                          if (isDueToday) return <span className="ord-due-today-pill">⚡ Due Today</span>;
+                          const ds = new Date(o.reported_date).toLocaleDateString('en', { month: 'short', day: 'numeric' });
+                          return <span style={{ fontSize: 10, background: 'rgba(0,194,203,0.1)', color: '#00c2cb', padding: '2px 6px', borderRadius: 99, whiteSpace: 'nowrap' }}>📅 {ds}</span>;
+                        })()}
                         <select
                           style={{ fontSize: 10, padding: '2px 4px', background: 'transparent',
                             border: '1px solid var(--border)', borderRadius: 4, color: 'var(--t2)', cursor: 'pointer' }}
@@ -964,9 +999,6 @@ export default function Orders() {
                           <option value="cancelled">Cancelled</option>
                         </select>
                       </div>
-                    </td>
-                    <td style={{ color: '#8892b0', fontSize: 12 }}>
-                      {o.order_date ? new Date(o.order_date).toLocaleDateString() : '—'}
                     </td>
                     <td>
                       <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -1020,7 +1052,8 @@ export default function Orders() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -1047,116 +1080,169 @@ export default function Orders() {
         </div>
       )}
 
-      {/* Order Detail Modal */}
+      {/* Detail Panel — slides in from right */}
       {detailOrder && (() => {
         const o = detailOrder;
+        const hasCourier = !!o.tracking_id;
+        const isForce = o.delivery_provider === 'forcelog';
+        const courierName = isForce ? 'Forcelog' : 'Olivraison';
         const source = o.caleo_id?.startsWith('MAN-') ? 'Manual'
           : o.caleo_id?.startsWith('EXCH-') ? 'Exchange'
           : o.uploaded_by ? `PDF — ${o.uploaded_by}`
           : 'Website / Lead';
+        const STEPS = [
+          { key: 'pending', label: 'Pending' },
+          { key: 'awaiting_pickup', label: 'Pickup' },
+          { key: 'in_delivery', label: 'Delivery' },
+          { key: 'delivered', label: 'Delivered' },
+        ];
+        const stepKeys = STEPS.map(s => s.key);
+        const currentStep = ['cancelled','reported'].includes(o.status) ? 0 : stepKeys.indexOf(o.status);
         return (
-          <div className="modal-overlay" onClick={() => setDetailOrder(null)}>
-            <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
-              <div className="modal-header">
-                <h2>Order Details</h2>
-                <button className="btn-icon" onClick={() => setDetailOrder(null)}>✕</button>
+          <div style={{
+            position: 'fixed', right: 0, top: 0, bottom: 0, zIndex: 300, width: 400,
+            background: 'var(--card)', borderLeft: '1px solid var(--border)',
+            overflowY: 'auto', display: 'flex', flexDirection: 'column',
+            boxShadow: '-8px 0 32px rgba(0,0,0,0.5)',
+            transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          }}>
+            {/* Panel header */}
+            <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0, background: 'var(--card)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--t3)' }}>{o.caleo_id}</span>
+                <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 99, background: 'var(--accent)22', color: 'var(--accent)', border: '1px solid var(--accent)44' }}>{source}</span>
               </div>
-              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <button className="btn-icon" onClick={() => setDetailOrder(null)}>✕</button>
+            </div>
 
-                {/* CMD + Source */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontFamily: 'monospace', fontSize: 13, color: 'var(--t2)' }}>{o.caleo_id}</span>
-                  <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 99,
-                    background: 'var(--accent)22', color: 'var(--accent)', border: '1px solid var(--accent)44' }}>
-                    {source}
-                  </span>
-                </div>
+            {/* Panel body */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: 18, display: 'flex', flexDirection: 'column', gap: 14 }}>
 
-                {/* Customer info */}
-                <div style={{ background: 'var(--bg)', borderRadius: 8, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 7 }}>
-                  <div style={{ fontWeight: 700, fontSize: 16 }}>{o.customer_name}</div>
-                  {o.customer_phone && (
-                    <a href={`https://wa.me/${o.customer_phone.replace(/\D/g,'')}`} target="_blank" rel="noopener noreferrer"
-                      style={{ color: '#25D366', fontSize: 13, textDecoration: 'none' }}>
-                      💬 {o.customer_phone}
-                    </a>
-                  )}
-                  {o.city && <div style={{ fontSize: 13, color: 'var(--t2)' }}>📍 {o.city}</div>}
-                  {o.customer_address && <div style={{ fontSize: 12, color: 'var(--t3)' }}>{o.customer_address}</div>}
-                </div>
-
-                {/* Amount + Status + Date */}
-                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                  <div style={{ flex: 1, background: 'var(--bg)', borderRadius: 8, padding: '10px 14px', textAlign: 'center' }}>
-                    <div style={{ fontSize: 11, color: 'var(--t3)', marginBottom: 3 }}>TOTAL</div>
-                    <div style={{ fontWeight: 700, fontSize: 18, color: '#60a5fa' }}>{o.total_amount} MAD</div>
-                  </div>
-                  <div style={{ flex: 1, background: 'var(--bg)', borderRadius: 8, padding: '10px 14px', textAlign: 'center' }}>
-                    <div style={{ fontSize: 11, color: 'var(--t3)', marginBottom: 3 }}>STATUS</div>
-                    <span style={{ fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 12, ...statusStyle(o) }}>
-                      {o.delivery_status || STATUS_LABEL[o.status] || o.status}
-                    </span>
-                  </div>
-                  <div style={{ flex: 1, background: 'var(--bg)', borderRadius: 8, padding: '10px 14px', textAlign: 'center' }}>
-                    <div style={{ fontSize: 11, color: 'var(--t3)', marginBottom: 3 }}>DATE</div>
-                    <div style={{ fontSize: 13, color: 'var(--t2)' }}>{o.order_date ? new Date(o.order_date).toLocaleDateString() : '—'}</div>
-                  </div>
-                </div>
-
-                {/* Products */}
-                {o.items?.length > 0 && (
-                  <div>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--t3)', letterSpacing: '.08em', marginBottom: 8 }}>PRODUCTS</div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      {o.items.map(item => (
-                        <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                          background: 'var(--bg)', borderRadius: 7, padding: '8px 12px', fontSize: 13 }}>
-                          <span>{item.product_name}{item.size ? ` — ${item.size}` : ''}{item.color ? ` / ${item.color}` : ''}</span>
-                          <span style={{ fontWeight: 700, color: 'var(--accent)' }}>×{item.quantity}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+              {/* Customer */}
+              <div style={{ background: 'var(--bg)', borderRadius: 8, padding: '12px 14px' }}>
+                <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 6 }}>{o.customer_name}</div>
+                {o.customer_phone && (
+                  <a href={`https://wa.me/${o.customer_phone.replace(/\D/g,'')}`} target="_blank" rel="noopener noreferrer"
+                    style={{ color: '#25D366', fontSize: 13, textDecoration: 'none', display: 'block', marginBottom: 4 }}>
+                    💬 {o.customer_phone}
+                  </a>
                 )}
+                {o.city && <div style={{ fontSize: 13, color: 'var(--t2)' }}>📍 {o.city}</div>}
+                {o.customer_address && <div style={{ fontSize: 12, color: 'var(--t3)', marginTop: 2 }}>{o.customer_address}</div>}
+              </div>
 
-                {/* Tracking */}
-                {o.tracking_id && (() => {
-                  const isForce = o.delivery_provider === 'forcelog';
-                  const color = isForce ? '#7c3aed' : '#00d48f';
-                  return (
-                    <div style={{ background: isForce ? 'rgba(124,58,237,0.08)' : 'rgba(0,212,143,0.08)', border: `1px solid ${isForce ? 'rgba(124,58,237,0.25)' : 'rgba(0,212,143,0.25)'}`, borderRadius: 8, padding: '10px 14px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, color, letterSpacing: '.08em' }}>
-                          {isForce ? 'FORCELOG' : 'OLIVRAISON'}
+              {/* Amount + Date */}
+              <div style={{ display: 'flex', gap: 10 }}>
+                <div style={{ flex: 1, background: 'var(--bg)', borderRadius: 8, padding: '10px 14px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 10, color: 'var(--t3)', marginBottom: 3 }}>TOTAL</div>
+                  <div style={{ fontWeight: 700, fontSize: 18, color: '#60a5fa' }}>{o.total_amount} MAD</div>
+                </div>
+                <div style={{ flex: 1, background: 'var(--bg)', borderRadius: 8, padding: '10px 14px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 10, color: 'var(--t3)', marginBottom: 3 }}>DATE</div>
+                  <div style={{ fontSize: 13, color: 'var(--t2)' }}>{o.order_date ? new Date(o.order_date).toLocaleDateString() : '—'}</div>
+                </div>
+              </div>
+
+              {/* Status Pipeline */}
+              <div style={{ background: 'var(--bg)', borderRadius: 8, padding: '14px' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--t3)', letterSpacing: '.08em', marginBottom: 14 }}>STATUS PIPELINE</div>
+                <div style={{ display: 'flex', alignItems: 'flex-start' }}>
+                  {STEPS.map((step, i) => {
+                    const done = i < currentStep;
+                    const active = i === currentStep;
+                    return (
+                      <div key={step.key} style={{ display: 'flex', alignItems: 'center', flex: i < STEPS.length - 1 ? 1 : 0 }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
+                          <div style={{
+                            width: 26, height: 26, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: 11, fontWeight: 700,
+                            background: done || active ? 'var(--accent)' : 'var(--border)',
+                            color: done || active ? '#fff' : 'var(--t3)',
+                            outline: active ? '2px solid var(--accent)' : 'none', outlineOffset: 2,
+                          }}>
+                            {done ? '✓' : i + 1}
+                          </div>
+                          <div style={{ fontSize: 9, color: active ? 'var(--t1)' : done ? 'var(--accent)' : 'var(--t3)', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                            {step.label}
+                          </div>
                         </div>
-                        {isForce && (
-                          <button
-                            className="btn btn-secondary btn-sm"
-                            title="Refresh delivery status from Forcelog"
-                            style={{ fontSize: 11, padding: '2px 8px', color }}
-                            disabled={refreshingForce === o.id}
-                            onClick={() => handleRefreshForcelog(o.id)}>
-                            {refreshingForce === o.id ? '…' : '🔄 Refresh'}
-                          </button>
+                        {i < STEPS.length - 1 && (
+                          <div style={{ flex: 1, height: 2, background: done ? 'var(--accent)' : 'var(--border)', margin: '0 4px', marginBottom: 18 }} />
                         )}
                       </div>
-                      <div style={{ fontSize: 13, color: 'var(--t1)', fontFamily: 'monospace' }}>{o.tracking_id}</div>
-                      {o.delivery_status && <div style={{ fontSize: 12, color: 'var(--t2)', marginTop: 3 }}>{o.delivery_status}</div>}
-                    </div>
-                  );
-                })()}
+                    );
+                  })}
+                </div>
 
-                {/* Notes */}
-                {o.notes && (
-                  <div style={{ fontSize: 13, color: 'var(--t2)', fontStyle: 'italic', background: 'var(--bg)', borderRadius: 8, padding: '10px 14px' }}>
-                    📝 {o.notes}
+                {/* Mode note */}
+                <div style={{ marginTop: 10, fontSize: 11, color: hasCourier ? '#00c2cb' : 'var(--t3)' }}>
+                  {hasCourier ? `⚡ Auto-synced via ${courierName}` : '✏ Updated manually'}
+                </div>
+
+                {/* Manual update buttons */}
+                {!hasCourier && (
+                  <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
+                    <button className="btn btn-secondary btn-sm" style={{ fontSize: 11 }}
+                      onClick={() => { handleStatusChange(o.id, 'pending'); setDetailOrder(p => ({ ...p, status: 'pending' })); }}>Pending</button>
+                    <button className="btn btn-secondary btn-sm" style={{ fontSize: 11, color: '#fb923c', borderColor: '#fb923c' }}
+                      onClick={() => { handleStatusChange(o.id, 'awaiting_pickup'); setDetailOrder(p => ({ ...p, status: 'awaiting_pickup' })); }}>Awaiting Pickup</button>
+                    <button className="btn btn-secondary btn-sm" style={{ fontSize: 11, color: '#4ade80', borderColor: '#4ade80' }}
+                      onClick={() => { handleStatusChange(o.id, 'delivered'); setDetailOrder(p => ({ ...p, status: 'delivered' })); }}>Delivered</button>
+                    <button className="btn btn-secondary btn-sm" style={{ fontSize: 11, color: '#f87171', borderColor: '#f87171' }}
+                      onClick={() => { handleStatusChange(o.id, 'cancelled'); setDetailOrder(p => ({ ...p, status: 'cancelled' })); }}>Cancelled</button>
                   </div>
                 )}
 
-                {/* Confirmed by */}
-                {o.confirmed_by && (
-                  <div style={{ fontSize: 12, color: 'var(--t3)' }}>Confirmed by: <span style={{ color: '#00d48f', fontWeight: 600 }}>{o.confirmed_by}</span></div>
+                {/* Courier tracking info */}
+                {hasCourier && (
+                  <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: isForce ? '#7c3aed' : '#00d48f' }}>{isForce ? 'FORCELOG' : 'OLIVRAISON'} — </span>
+                      <span style={{ fontSize: 12, fontFamily: 'monospace', color: 'var(--t1)' }}>{o.tracking_id}</span>
+                      {o.delivery_status && <div style={{ fontSize: 11, color: 'var(--t2)', marginTop: 2 }}>{o.delivery_status}</div>}
+                    </div>
+                    {isForce && (
+                      <button className="btn btn-secondary btn-sm" style={{ fontSize: 11 }} disabled={refreshingForce === o.id}
+                        onClick={() => handleRefreshForcelog(o.id)}>
+                        {refreshingForce === o.id ? '…' : '🔄 Refresh'}
+                      </button>
+                    )}
+                  </div>
                 )}
+              </div>
+
+              {/* Products */}
+              {o.items?.length > 0 && (
+                <div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--t3)', letterSpacing: '.08em', marginBottom: 8 }}>PRODUCTS</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {o.items.map(item => (
+                      <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', background: 'var(--bg)', borderRadius: 7, padding: '8px 12px', fontSize: 13 }}>
+                        <span>{item.product_name}{item.size ? ` — ${item.size}` : ''}{item.color ? ` / ${item.color}` : ''}</span>
+                        <span style={{ fontWeight: 700, color: 'var(--accent)' }}>×{item.quantity}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Notes */}
+              {o.notes && (
+                <div style={{ fontSize: 13, color: 'var(--t2)', fontStyle: 'italic', background: 'var(--bg)', borderRadius: 8, padding: '10px 14px' }}>
+                  📝 {o.notes}
+                </div>
+              )}
+
+              {/* Confirmed by */}
+              {o.confirmed_by && (
+                <div style={{ fontSize: 12, color: 'var(--t3)' }}>Confirmed by: <span style={{ color: '#00d48f', fontWeight: 600 }}>{o.confirmed_by}</span></div>
+              )}
+
+              {/* Footer actions */}
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', paddingTop: 8, borderTop: '1px solid var(--border)' }}>
+                <button className="btn btn-secondary btn-sm" onClick={() => { openEdit(o); setDetailOrder(null); }}>✏ Edit</button>
+                <button className="btn btn-secondary btn-sm" style={{ color: '#a78bfa' }} onClick={() => { openExchange(o); setDetailOrder(null); }}>↔ Exchange</button>
+                <button className="btn btn-danger btn-sm" style={{ marginLeft: 'auto' }} onClick={() => { handleDelete(o.id); setDetailOrder(null); }}>✕ Delete</button>
               </div>
             </div>
           </div>
@@ -1876,6 +1962,100 @@ export default function Orders() {
               <button className="btn btn-danger" onClick={handleProcessReturns}>Confirm Returns</button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Mobile Card List — shown only on < 768px */}
+      {activeTab === 'orders' && (
+        <div className="ord-mobile-cards">
+          {/* Mobile bulk bar */}
+          {selectedIds.size > 0 && (
+            <div style={{ position: 'sticky', top: 0, zIndex: 50, display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: '#1a1a2e', border: '1px solid #00d48f44', borderRadius: 10, marginBottom: 10 }}>
+              <span style={{ fontWeight: 600, color: '#00d48f', fontSize: 13 }}>{selectedIds.size} selected</span>
+              <select className="btn btn-secondary btn-sm" style={{ cursor: 'pointer', fontSize: 12 }} value="" onChange={e => {
+                const v = e.target.value;
+                if (v === 'olivraison') filtered.filter(o => selectedIds.has(o.id)).forEach(o => handleSendOlivraison(o.id));
+                if (v === 'forcelog') filtered.filter(o => selectedIds.has(o.id)).forEach(o => handleSendForcelog(o.id));
+              }}>
+                <option value="" disabled>🚚 Send to courier…</option>
+                <option value="olivraison">Olivraison</option>
+                <option value="forcelog">Forcelog</option>
+              </select>
+              <button className="btn btn-secondary btn-sm" style={{ marginLeft: 'auto' }} onClick={() => setSelectedIds(new Set())}>✕</button>
+            </div>
+          )}
+
+          {filtered.length === 0 ? (
+            <div className="empty-state"><h3>No orders found</h3></div>
+          ) : filtered.map(o => {
+            const today = new Date().toISOString().slice(0, 10);
+            const isDueToday = o.status === 'reported' && o.reported_date && o.reported_date.slice(0, 10) === today;
+            const isExpanded = expandedCardId === o.id;
+            return (
+              <div key={o.id}
+                className={isDueToday ? 'ord-due-today-row' : ''}
+                style={{ ...rowStyle(o), borderRadius: 10, marginBottom: 8, overflow: 'hidden', background: selectedIds.has(o.id) ? '#1a2a1a' : rowStyle(o).background }}>
+                {/* Card header — tap to expand */}
+                <div style={{ padding: '12px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}
+                  onClick={e => { if (e.target.closest('input[type=checkbox]')) return; setExpandedCardId(prev => prev === o.id ? null : o.id); }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 600, fontSize: 14 }}>{o.customer_name}</div>
+                    <div style={{ fontSize: 12, color: 'var(--t2)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {o.city}{o.items?.length > 0 ? ` · ${o.items[0].product_name}` : ''}
+                    </div>
+                    <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 12, ...statusStyle(o) }}>
+                        {STATUS_LABEL[o.status] || o.status}
+                      </span>
+                      {o.status === 'reported' && o.reported_date && (
+                        isDueToday
+                          ? <span className="ord-due-today-pill">⚡ Due Today</span>
+                          : <span style={{ fontSize: 10, background: 'rgba(0,194,203,0.1)', color: '#00c2cb', padding: '2px 6px', borderRadius: 99 }}>📅 {new Date(o.reported_date).toLocaleDateString('en', { month: 'short', day: 'numeric' })}</span>
+                      )}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8, marginLeft: 10 }}>
+                    <span style={{ fontWeight: 700, color: '#60a5fa', fontSize: 15 }}>{o.total_amount} MAD</span>
+                    <input type="checkbox" checked={selectedIds.has(o.id)} onChange={() => toggleSelect(o.id)} />
+                  </div>
+                </div>
+
+                {/* Expanded section */}
+                {isExpanded && (
+                  <div style={{ borderTop: '1px solid var(--border)', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {o.customer_phone && (
+                      <a href={`https://wa.me/${o.customer_phone.replace(/\D/g,'')}`} target="_blank" rel="noopener noreferrer"
+                        style={{ color: '#25D366', fontSize: 13, textDecoration: 'none' }}>💬 {o.customer_phone}</a>
+                    )}
+                    {o.customer_address && <div style={{ fontSize: 12, color: 'var(--t2)' }}>📍 {o.customer_address}</div>}
+                    {o.order_date && <div style={{ fontSize: 12, color: 'var(--t3)' }}>🗓 {new Date(o.order_date).toLocaleDateString()}</div>}
+                    {o.status === 'reported' && o.reported_date && (
+                      <div style={{ fontSize: 12, color: '#00c2cb' }}>📅 Due: {new Date(o.reported_date).toLocaleDateString()}</div>
+                    )}
+                    {o.items?.length > 0 && (
+                      <div style={{ fontSize: 12, color: 'var(--t2)' }}>
+                        {o.items.map(i => `${i.product_name}${i.size ? ` ${i.size}` : ''} ×${i.quantity}`).join(', ')}
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
+                      {!o.tracking_id && (
+                        <select className="btn btn-secondary btn-sm" style={{ fontSize: 12, cursor: 'pointer' }} value=""
+                          onChange={e => { if (e.target.value === 'olivraison') handleSendOlivraison(o.id); if (e.target.value === 'forcelog') handleSendForcelog(o.id); }}>
+                          <option value="" disabled>🚚 Send to courier…</option>
+                          <option value="olivraison">Olivraison</option>
+                          <option value="forcelog">Forcelog</option>
+                        </select>
+                      )}
+                      <button className="btn btn-secondary btn-sm" style={{ fontSize: 12, color: '#4ade80', borderColor: '#4ade80' }}
+                        onClick={() => handleStatusChange(o.id, 'delivered')}>✓ Delivered</button>
+                      <button className="btn btn-secondary btn-sm" style={{ fontSize: 12, color: '#f87171', borderColor: '#f87171' }}
+                        onClick={() => handleStatusChange(o.id, 'cancelled')}>✕ Cancel</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
