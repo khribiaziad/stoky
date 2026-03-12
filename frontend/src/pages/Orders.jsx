@@ -70,7 +70,7 @@ export default function Orders() {
   const [products, setProducts] = useState([]);
   const [packs, setPacks] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('pending');
+  const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
 
   // PDF upload states
@@ -226,10 +226,10 @@ export default function Orders() {
   };
 
   useEffect(() => {
-    load({ p: 1, f: 'pending', t: 'orders', dr: 'today' });
+    load({ p: 1, f: 'all', t: 'orders', dr: 'today' });
     // Silently sync delivery statuses in the background on page load
     Promise.allSettled([syncAllForcelog(), syncAllOlivraison()])
-      .then(() => load({ p: 1, f: 'pending', t: 'orders', dr: 'today' }))
+      .then(() => load({ p: 1, f: 'all', t: 'orders', dr: 'today' }))
       .catch(() => {});
   }, []);
 
@@ -699,9 +699,13 @@ export default function Orders() {
         .ord-due-today-row { animation:ord-pulse-border 2s ease-in-out infinite; }
         .ord-desktop-table { display:block; }
         .ord-mobile-cards  { display:none; }
+        .ord-filter-pills  { display:flex; gap:8px; flex-wrap:wrap; }
+        .ord-filter-select { display:none; }
         @media (max-width:767px) {
           .ord-desktop-table { display:none !important; }
           .ord-mobile-cards  { display:block; }
+          .ord-filter-pills  { display:none !important; }
+          .ord-filter-select { display:block !important; }
         }
       `}</style>
       <div className="page-header">
@@ -771,7 +775,7 @@ export default function Orders() {
       <div style={{ display: 'flex', gap: 0, marginBottom: 16, borderBottom: '1px solid var(--border)' }}>
         {[{ id: 'orders', label: `Orders (${orderCount})` },
           { id: 'returns', label: `Returns (${returnCount})` }].map(tab => (
-          <button key={tab.id} onClick={() => { setActiveTab(tab.id); setSearch(''); setFilter('pending'); setSelectedIds(new Set()); setPage(1); setExpandedCardId(null); load({ p: 1, f: 'pending', t: tab.id }); }}
+          <button key={tab.id} onClick={() => { setActiveTab(tab.id); setSearch(''); setFilter('all'); setSelectedIds(new Set()); setPage(1); setExpandedCardId(null); load({ p: 1, f: 'all', t: tab.id }); }}
             style={{
               background: 'none', border: 'none', padding: '10px 20px', cursor: 'pointer',
               fontSize: 14, fontWeight: 600,
@@ -789,33 +793,49 @@ export default function Orders() {
 
       {/* Filters */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 16, alignItems: 'center', flexWrap: 'wrap' }}>
-        {activeTab === 'orders' && [
-          { value: 'pending',         label: 'Pending',         countKey: 'pending' },
-          { value: 'awaiting_pickup', label: 'Awaiting Pickup', countKey: 'awaiting_pickup' },
-          { value: 'in_delivery',     label: 'In Delivery',     countKey: 'in_delivery' },
-          { value: 'reported',        label: 'Reported',        countKey: 'reported' },
-          { value: 'delivered',       label: 'Delivered',       countKey: 'delivered' },
-          { value: 'all',             label: 'All',             countKey: null },
-        ].map(({ value, label, countKey }) => {
-          const count = countKey ? (statusCounts[countKey] || 0) : orderCount;
-          return (
-            <button key={value}
-              className={`btn ${filter === value ? 'btn-primary' : 'btn-secondary'}`}
-              style={{ fontSize: 13, padding: '6px 14px', display: 'flex', alignItems: 'center', gap: 6 }}
-              onClick={() => { setFilter(value); setPage(1); setExpandedCardId(null); load({ p: 1, f: value, t: activeTab }); }}>
-              {label}
-              {count > 0 && (
-                <span style={{
-                  fontSize: 11, fontWeight: 700, padding: '1px 7px', borderRadius: 20,
-                  background: filter === value ? 'rgba(255,255,255,0.25)' : 'rgba(0,212,143,0.15)',
-                  color: filter === value ? '#fff' : 'var(--accent)',
-                }}>
-                  {count}
-                </span>
-              )}
-            </button>
-          );
-        })}
+        {activeTab === 'orders' && (() => {
+          const STATUS_FILTERS = [
+            { value: 'all',             label: 'All',             countKey: null },
+            { value: 'pending',         label: 'Pending',         countKey: 'pending' },
+            { value: 'awaiting_pickup', label: 'Awaiting Pickup', countKey: 'awaiting_pickup' },
+            { value: 'in_delivery',     label: 'In Delivery',     countKey: 'in_delivery' },
+            { value: 'reported',        label: 'Reported',        countKey: 'reported' },
+            { value: 'delivered',       label: 'Delivered',       countKey: 'delivered' },
+          ];
+          return (<>
+            {/* Desktop pills */}
+            <div className="ord-filter-pills">
+              {STATUS_FILTERS.map(({ value, label, countKey }) => {
+                const count = countKey ? (statusCounts[countKey] || 0) : orderCount;
+                return (
+                  <button key={value}
+                    className={`btn ${filter === value ? 'btn-primary' : 'btn-secondary'}`}
+                    style={{ fontSize: 13, padding: '6px 14px', display: 'flex', alignItems: 'center', gap: 6 }}
+                    onClick={() => { setFilter(value); setPage(1); setExpandedCardId(null); load({ p: 1, f: value, t: activeTab }); }}>
+                    {label}
+                    {count > 0 && (
+                      <span style={{
+                        fontSize: 11, fontWeight: 700, padding: '1px 7px', borderRadius: 20,
+                        background: filter === value ? 'rgba(255,255,255,0.25)' : 'rgba(0,212,143,0.15)',
+                        color: filter === value ? '#fff' : 'var(--accent)',
+                      }}>{count}</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            {/* Mobile dropdown */}
+            <select className="ord-filter-select form-input"
+              style={{ fontSize: 13, padding: '6px 10px', cursor: 'pointer', maxWidth: 180 }}
+              value={filter}
+              onChange={e => { setFilter(e.target.value); setPage(1); setExpandedCardId(null); load({ p: 1, f: e.target.value, t: activeTab }); }}>
+              {STATUS_FILTERS.map(({ value, label, countKey }) => {
+                const count = countKey ? (statusCounts[countKey] || 0) : orderCount;
+                return <option key={value} value={value}>{label}{count > 0 ? ` (${count})` : ''}</option>;
+              })}
+            </select>
+          </>);
+        })()}
 
         {/* Right group: date range selector + search */}
         <div style={{ display: 'flex', gap: 8, marginLeft: 'auto', alignItems: 'center', flexWrap: 'wrap' }}>
