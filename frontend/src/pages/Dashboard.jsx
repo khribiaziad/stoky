@@ -411,14 +411,14 @@ export default function Dashboard({ onNavigate, user, lang = 'en' }) {
                 const active = c.count > 0;
                 return (
                   <div key={c.key}
-                    onClick={() => active && onNavigate(c.nav)}
+                    onClick={() => onNavigate(c.nav)}
                     style={{
                       position: 'relative', borderRadius: 10, padding: '14px 16px',
                       background: active ? `${c.color}08` : 'var(--card)',
                       border: `1px solid var(--border)`,
                       borderLeft: `3px solid ${active ? c.color : 'var(--border)'}`,
                       opacity: active ? 1 : 0.45,
-                      cursor: active ? 'pointer' : 'default',
+                      cursor: 'pointer',
                       transition: 'opacity .15s',
                     }}
                   >
