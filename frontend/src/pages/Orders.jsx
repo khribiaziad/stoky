@@ -157,6 +157,16 @@ export default function Orders() {
     under_1kg: p.under_1kg,
   })));
 
+  // Auto-calculate total from selected variants' selling prices
+  const calcManualTotal = (items) => {
+    const total = items.reduce((sum, item) => {
+      if (!item.variant_id) return sum;
+      const v = allVariants.find(v => v.id === parseInt(item.variant_id));
+      return sum + (v?.selling_price || 0) * (parseInt(item.quantity) || 1);
+    }, 0);
+    return total > 0 ? String(total) : '';
+  };
+
   // Auto-set seal_bag based on whether any selected product is under 1kg
   const autoSealBag = (items) => {
     return items.some(item => {
@@ -1613,7 +1623,10 @@ export default function Orders() {
                     onChange={e => setManualOrder({ ...manualOrder, customer_address: e.target.value })} />
                 </div>
                 <div>
-                  <label className="form-label">Total Amount (MAD) *</label>
+                  <label className="form-label">
+                    Total Amount (MAD) *
+                    {manualOrder.total_amount && <span style={{ fontWeight: 400, color: 'var(--accent)', textTransform: 'none', letterSpacing: 0, marginLeft: 6 }}>auto</span>}
+                  </label>
                   <input className="form-input" type="number" min="0" placeholder="0.00" value={manualOrder.total_amount}
                     onChange={e => setManualOrder({ ...manualOrder, total_amount: e.target.value })} />
                   {manualFieldErrors.total_amount && <div style={fieldErrorStyle}>{manualFieldErrors.total_amount}</div>}
@@ -1631,6 +1644,7 @@ export default function Orders() {
                         newItems[j] = { ...newItems[j], variant_id: e.target.value };
                         setManualItems(newItems);
                         setManualExpenses(prev => ({ ...prev, seal_bag: autoSealBag(newItems) }));
+                        setManualOrder(prev => ({ ...prev, total_amount: calcManualTotal(newItems) }));
                       }}>
                       <option value="">Select product...</option>
                       {allVariants.map(v => (
@@ -1645,12 +1659,14 @@ export default function Orders() {
                         const newItems = [...manualItems];
                         newItems[j] = { ...newItems[j], quantity: e.target.value };
                         setManualItems(newItems);
+                        setManualOrder(prev => ({ ...prev, total_amount: calcManualTotal(newItems) }));
                       }} />
                     {manualItems.length > 1 && (
                       <button className="btn btn-danger btn-sm" onClick={() => {
                         const newItems = manualItems.filter((_, idx) => idx !== j);
                         setManualItems(newItems);
                         setManualExpenses(prev => ({ ...prev, seal_bag: autoSealBag(newItems) }));
+                        setManualOrder(prev => ({ ...prev, total_amount: calcManualTotal(newItems) }));
                       }}>✕</button>
                     )}
                   </div>
