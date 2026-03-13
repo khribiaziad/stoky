@@ -17,7 +17,7 @@ const PLATFORM_CATALOGUE = [
   { name: 'pinterest',label: 'Pinterest',        color: '#e60023' },
   { name: 'instagram',label: 'Instagram',        color: '#e1306c' },
   { name: 'twitter',  label: 'X / Twitter',      color: '#000000' },
-  { name: 'other',    label: 'Other',            color: '#8892b0' },
+  { name: 'other',    label: 'Other',            color: 'var(--t2)' },
 ];
 
 // ── Platform brand logos (Simple Icons paths) ───────────────
@@ -343,7 +343,7 @@ export default function Ads() {
               style={{
                 padding: '5px 14px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 500,
                 background: rateMode === 'manual' ? '#2d3248' : 'transparent',
-                color: rateMode === 'manual' ? '#fff' : '#8892b0',
+                color: rateMode === 'manual' ? '#fff' : 'var(--t2)',
                 transition: 'all 0.15s',
               }}
             >Manual</button>
@@ -352,7 +352,7 @@ export default function Ads() {
               style={{
                 padding: '5px 14px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 500,
                 background: rateMode === 'market' ? '#00d48f22' : 'transparent',
-                color: rateMode === 'market' ? '#00d48f' : '#8892b0',
+                color: rateMode === 'market' ? '#00d48f' : 'var(--t2)',
                 transition: 'all 0.15s',
               }}
             >● Market Price</button>
@@ -360,7 +360,7 @@ export default function Ads() {
 
           {/* Rate display */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ color: '#8892b0', fontSize: 13 }}>1 USD =</span>
+            <span style={{ color: 'var(--t2)', fontSize: 13 }}>1 USD =</span>
             {rateMode === 'manual' ? (
               <input
                 className="form-input"
@@ -376,14 +376,14 @@ export default function Ads() {
                 {fetchingRate ? '…' : fmt(usdRate)}
               </span>
             )}
-            <span style={{ color: '#8892b0', fontSize: 13 }}>MAD</span>
+            <span style={{ color: 'var(--t2)', fontSize: 13 }}>MAD</span>
           </div>
 
           {/* Market mode extras */}
           {rateMode === 'market' && (
             <>
               {marketDate && !fetchingRate && (
-                <span style={{ fontSize: 12, color: '#8892b0' }}>as of {marketDate}</span>
+                <span style={{ fontSize: 12, color: 'var(--t2)' }}>as of {marketDate}</span>
               )}
               <button
                 className="btn btn-secondary btn-sm"
@@ -407,7 +407,7 @@ export default function Ads() {
         <div className="stat-grid" style={{ marginBottom: 24 }}>
           <div className="stat-card">
             <div className="stat-label">Total Spent (All Time)</div>
-            <div className="stat-value">{fmt(grandTotalMAD)} <span style={{ fontSize: 14, color: '#8892b0' }}>MAD</span></div>
+            <div className="stat-value">{fmt(grandTotalMAD)} <span style={{ fontSize: 14, color: 'var(--t2)' }}>MAD</span></div>
             <div className="stat-sub">{platforms.length} platform{platforms.length !== 1 ? 's' : ''}</div>
           </div>
           <div className="stat-card">
@@ -417,8 +417,8 @@ export default function Ads() {
           </div>
           <div className="stat-card">
             <div className="stat-label">Exchange Rate</div>
-            <div className="stat-value">{fmt(usdRate)} <span style={{ fontSize: 14, color: '#8892b0' }}>MAD/USD</span></div>
-            <div className="stat-sub" style={{ color: rateMode === 'market' ? '#00d48f' : '#8892b0' }}>
+            <div className="stat-value">{fmt(usdRate)} <span style={{ fontSize: 14, color: 'var(--t2)' }}>MAD/USD</span></div>
+            <div className="stat-sub" style={{ color: rateMode === 'market' ? '#00d48f' : 'var(--t2)' }}>
               {rateMode === 'market' ? `live · ${marketDate || '…'}` : 'manual'}
             </div>
           </div>
@@ -430,7 +430,7 @@ export default function Ads() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
           <Calculator size={16} strokeWidth={1.75} style={{ color: '#00d48f' }} />
           <span style={{ fontWeight: 600 }}>Cost Per Order Calculator</span>
-          <span style={{ fontSize: 12, color: '#8892b0', marginLeft: 4 }}>uses order date, not upload date</span>
+          <span style={{ fontSize: 12, color: 'var(--t2)', marginLeft: 4 }}>uses order date, not upload date</span>
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
           <div>
@@ -450,18 +450,18 @@ export default function Ads() {
           <div style={{ marginTop: 16, padding: 16, background: '#0f1117', borderRadius: 10, border: '1px solid #2d3248' }}>
             <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', marginBottom: 14 }}>
               <div>
-                <div style={{ fontSize: 12, color: '#8892b0' }}>Orders in period</div>
+                <div style={{ fontSize: 12, color: 'var(--t2)' }}>Orders in period</div>
                 <div style={{ fontSize: 22, fontWeight: 700 }}>{calcResult.order_count}</div>
               </div>
               <div>
-                <div style={{ fontSize: 12, color: '#8892b0' }}>Total Ad Spend</div>
-                <div style={{ fontSize: 22, fontWeight: 700 }}>${fmt(calcResult.total_usd)} <span style={{ fontSize: 13, color: '#8892b0' }}>USD</span></div>
-                <div style={{ fontSize: 13, color: '#8892b0' }}>{fmt(calcResult.total_usd * usdRate)} MAD</div>
+                <div style={{ fontSize: 12, color: 'var(--t2)' }}>Total Ad Spend</div>
+                <div style={{ fontSize: 22, fontWeight: 700 }}>${fmt(calcResult.total_usd)} <span style={{ fontSize: 13, color: 'var(--t2)' }}>USD</span></div>
+                <div style={{ fontSize: 13, color: 'var(--t2)' }}>{fmt(calcResult.total_usd * usdRate)} MAD</div>
               </div>
               <div>
-                <div style={{ fontSize: 12, color: '#8892b0' }}>Cost per Order</div>
+                <div style={{ fontSize: 12, color: 'var(--t2)' }}>Cost per Order</div>
                 <div style={{ fontSize: 22, fontWeight: 700, color: '#00d48f' }}>
-                  {calcResult.order_count > 0 ? fmt(calcResult.total_usd * usdRate / calcResult.order_count) : '—'} <span style={{ fontSize: 13, color: '#8892b0' }}>MAD</span>
+                  {calcResult.order_count > 0 ? fmt(calcResult.total_usd * usdRate / calcResult.order_count) : '—'} <span style={{ fontSize: 13, color: 'var(--t2)' }}>MAD</span>
                 </div>
               </div>
             </div>
@@ -471,7 +471,7 @@ export default function Ads() {
                   <div key={b.platform} style={{ background: '#1d1d27', borderRadius: 8, padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span style={{ width: 8, height: 8, borderRadius: '50%', background: b.color, display: 'inline-block' }} />
                     <span style={{ fontSize: 13 }}>{b.platform}</span>
-                    <span style={{ fontSize: 13, color: '#8892b0' }}>${fmt(b.total_usd)}</span>
+                    <span style={{ fontSize: 13, color: 'var(--t2)' }}>${fmt(b.total_usd)}</span>
                   </div>
                 ))}
               </div>
@@ -487,7 +487,7 @@ export default function Ads() {
       {platforms.length === 0 ? (
         <div className="card">
           <div className="empty-state">
-            <Megaphone size={40} strokeWidth={1} style={{ margin: '0 auto 12px', color: '#8892b0' }} />
+            <Megaphone size={40} strokeWidth={1} style={{ margin: '0 auto 12px', color: 'var(--t2)' }} />
             <h3>No platforms yet</h3>
             <p>Click "Add Platform" to start tracking your ad spend</p>
           </div>
@@ -505,11 +505,11 @@ export default function Ads() {
                 <PlatformIcon name={platform.name} size={36} />
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 700, fontSize: 16 }}>{platform.label}</div>
-                  <div style={{ fontSize: 12, color: '#8892b0', marginTop: 2 }}>
+                  <div style={{ fontSize: 12, color: 'var(--t2)', marginTop: 2 }}>
                     {fmt(totalMAD)} MAD total ·{' '}
                     {running
                       ? <span style={{ color: '#00d48f' }}>● ${fmt(running.daily_rate_usd)}/day running</span>
-                      : <span style={{ color: '#8892b0' }}>no active campaign</span>}
+                      : <span style={{ color: 'var(--t2)' }}>no active campaign</span>}
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 6 }}>
@@ -528,7 +528,7 @@ export default function Ads() {
               {/* Campaigns list */}
               {isExpanded && (
                 platform.campaigns.length === 0 ? (
-                  <div style={{ color: '#8892b0', fontSize: 13, padding: '8px 0' }}>
+                  <div style={{ color: 'var(--t2)', fontSize: 13, padding: '8px 0' }}>
                     No campaigns yet. Click "+ Campaign" to add one.
                   </div>
                 ) : (
@@ -558,14 +558,14 @@ export default function Ads() {
                                     display: 'inline-flex', alignItems: 'center', gap: 6,
                                     padding: '4px 10px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600,
                                     background: isRunning ? '#0d2a1e' : '#2d3248',
-                                    color: isRunning ? '#00d48f' : '#8892b0',
+                                    color: isRunning ? '#00d48f' : 'var(--t2)',
                                   }}
                                 >
-                                  <span style={{ width: 7, height: 7, borderRadius: '50%', background: isRunning ? '#00d48f' : '#8892b0', display: 'inline-block' }} />
+                                  <span style={{ width: 7, height: 7, borderRadius: '50%', background: isRunning ? '#00d48f' : 'var(--t2)', display: 'inline-block' }} />
                                   {isRunning ? 'Running · Stop' : 'Stopped · Resume'}
                                 </button>
                               </td>
-                              <td style={{ fontSize: 12, color: '#8892b0' }}>
+                              <td style={{ fontSize: 12, color: 'var(--t2)' }}>
                                 {c.start_date.slice(0, 10)}
                                 {!isRunning && (
                                   <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>→ {c.end_date.slice(0, 10)}</div>
@@ -573,12 +573,12 @@ export default function Ads() {
                               </td>
                               <td style={{ fontWeight: 600 }}>
                                 {days}
-                                <span style={{ fontSize: 11, color: '#8892b0', marginLeft: 4 }}>days</span>
+                                <span style={{ fontSize: 11, color: 'var(--t2)', marginLeft: 4 }}>days</span>
                               </td>
                               <td style={{ color: '#60a5fa' }}>${fmt(c.daily_rate_usd)}</td>
                               <td>
                                 <div style={{ fontWeight: 700, fontSize: 15, color: '#f59e0b' }}>{fmt(totalMAD)} MAD</div>
-                                <div style={{ fontSize: 11, color: '#8892b0' }}>${fmt(days * c.daily_rate_usd)} USD</div>
+                                <div style={{ fontSize: 11, color: 'var(--t2)' }}>${fmt(days * c.daily_rate_usd)} USD</div>
                               </td>
                               <td>
                                 <div style={{ display: 'flex', gap: 4 }}>
@@ -632,7 +632,7 @@ export default function Ads() {
                   </button>
                 ))}
                 {PLATFORM_CATALOGUE.every(p => addedNames.has(p.name)) && (
-                  <div style={{ color: '#8892b0', textAlign: 'center', padding: 16 }}>All platforms already added</div>
+                  <div style={{ color: 'var(--t2)', textAlign: 'center', padding: 16 }}>All platforms already added</div>
                 )}
               </div>
             </div>
@@ -660,7 +660,7 @@ export default function Ads() {
                   onChange={e => setCampaignForm({ ...campaignForm, daily_rate_usd: e.target.value })} />
                 {campaignFieldErrors.daily_rate_usd && <div style={fieldErrorStyle}>{campaignFieldErrors.daily_rate_usd}</div>}
                 {campaignForm.daily_rate_usd && parseFloat(campaignForm.daily_rate_usd) > 0 && (
-                  <div style={{ marginTop: 4, fontSize: 12, color: '#8892b0' }}>
+                  <div style={{ marginTop: 4, fontSize: 12, color: 'var(--t2)' }}>
                     ≈ {fmt(parseFloat(campaignForm.daily_rate_usd) * usdRate)} MAD/day
                   </div>
                 )}
@@ -672,13 +672,13 @@ export default function Ads() {
                     onChange={e => setCampaignForm({ ...campaignForm, start_date: e.target.value })} />
                 </div>
                 <div>
-                  <label className="form-label">End Date <span style={{ color: '#8892b0', fontWeight: 400 }}>(optional)</span></label>
+                  <label className="form-label">End Date <span style={{ color: 'var(--t2)', fontWeight: 400 }}>(optional)</span></label>
                   <input className="form-input" type="date" value={campaignForm.end_date}
                     onChange={e => setCampaignForm({ ...campaignForm, end_date: e.target.value })} />
                 </div>
               </div>
               {!campaignForm.end_date && (
-                <div style={{ marginTop: 10, fontSize: 12, color: '#8892b0', background: '#1d1d27', padding: '8px 12px', borderRadius: 6 }}>
+                <div style={{ marginTop: 10, fontSize: 12, color: 'var(--t2)', background: '#1d1d27', padding: '8px 12px', borderRadius: 6 }}>
                   No end date = runs until you add a new campaign (auto-closes this one).
                 </div>
               )}

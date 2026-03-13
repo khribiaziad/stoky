@@ -223,7 +223,7 @@ export default function Products({ readOnly = false }) {
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: expandedProduct === product.id ? 16 : 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <span style={{ color: '#8892b0', fontSize: 12 }}>
+                <span style={{ color: 'var(--t2)', fontSize: 12 }}>
                   {expandedProduct === product.id ? '▼' : '▶'}
                 </span>
                 {product.image_url && (
@@ -236,7 +236,7 @@ export default function Products({ readOnly = false }) {
                 )}
                 <div>
                   <div style={{ fontWeight: 600, fontSize: 16 }}>{product.name}</div>
-                  <div style={{ color: '#8892b0', fontSize: 12, marginTop: 2 }}>
+                  <div style={{ color: 'var(--t2)', fontSize: 12, marginTop: 2 }}>
                     {product.category}
                     {product.supplier_id && (() => { const s = suppliers.find(s => s.id === product.supplier_id); return s ? <span> · <span style={{ color: 'var(--accent)' }}>{s.name}</span></span> : null; })()}
                     {' · '}{product.variants.length} variant{product.variants.length !== 1 ? 's' : ''} ·{' '}
@@ -283,13 +283,13 @@ export default function Products({ readOnly = false }) {
                       <tr key={v.id}>
                         {product.has_sizes && <td>{v.size || '—'}</td>}
                         {product.has_colors && <td>{v.color || '—'}</td>}
-                        <td style={{ color: '#8892b0', fontSize: 12, fontFamily: 'monospace' }}>{v.sku || '—'}</td>
+                        <td style={{ color: 'var(--t2)', fontSize: 12, fontFamily: 'monospace' }}>{v.sku || '—'}</td>
                         <td>{v.buying_price} MAD</td>
                         <td>{v.selling_price ? `${v.selling_price} MAD` : '—'}</td>
                         <td style={{ fontWeight: 600, color: v.stock === 0 ? '#f87171' : v.stock <= v.low_stock_threshold ? '#fbbf24' : '#4ade80' }}>
                           {v.stock}
                         </td>
-                        <td style={{ color: v.broken_stock > 0 ? '#f87171' : '#8892b0' }}>
+                        <td style={{ color: v.broken_stock > 0 ? '#f87171' : 'var(--t2)' }}>
                           {v.broken_stock > 0 ? `${v.broken_stock} (${v.returnable_broken} ret.)` : '0'}
                         </td>
                         <td>
@@ -474,7 +474,7 @@ export default function Products({ readOnly = false }) {
                     </div>
                   )}
                   <div className="form-group">
-                    <label className="form-label">SKU <span style={{ color: '#8892b0', fontWeight: 400 }}>(optional)</span></label>
+                    <label className="form-label">SKU <span style={{ color: 'var(--t2)', fontWeight: 400 }}>(optional)</span></label>
                     <input className="form-input" placeholder="e.g. CAP-BLK-M" value={newVariant.sku} onChange={e => setNewVariant({...newVariant, sku: e.target.value})} />
                   </div>
                   <div className="form-group">
@@ -522,13 +522,13 @@ export default function Products({ readOnly = false }) {
                 <div className="form-grid-2">
                   {product?.has_sizes && (
                     <div className="form-group">
-                      <label className="form-label">Sizes <span style={{ color: '#8892b0', fontWeight: 400 }}>(comma-separated)</span></label>
+                      <label className="form-label">Sizes <span style={{ color: 'var(--t2)', fontWeight: 400 }}>(comma-separated)</span></label>
                       <input className="form-input" placeholder="S, M, L, XL" value={bulkSizes} onChange={e => setBulkSizes(e.target.value)} />
                     </div>
                   )}
                   {product?.has_colors && (
                     <div className="form-group">
-                      <label className="form-label">Colors <span style={{ color: '#8892b0', fontWeight: 400 }}>(comma-separated)</span></label>
+                      <label className="form-label">Colors <span style={{ color: 'var(--t2)', fontWeight: 400 }}>(comma-separated)</span></label>
                       <input className="form-input" placeholder="Black, White, Blue" value={bulkColors} onChange={e => setBulkColors(e.target.value)} />
                     </div>
                   )}
@@ -553,7 +553,7 @@ export default function Products({ readOnly = false }) {
                 {/* Preview combinations */}
                 {combos.length > 0 && (
                   <div style={{ marginTop: 12 }}>
-                    <div style={{ fontSize: 12, color: '#8892b0', marginBottom: 8 }}>
+                    <div style={{ fontSize: 12, color: 'var(--t2)', marginBottom: 8 }}>
                       {combos.length} variant{combos.length !== 1 ? 's' : ''} will be created:
                     </div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
@@ -608,7 +608,7 @@ export default function Products({ readOnly = false }) {
                   </div>
                 )}
                 <div className="form-group">
-                  <label className="form-label">SKU <span style={{ color: '#8892b0', fontWeight: 400 }}>(optional)</span></label>
+                  <label className="form-label">SKU <span style={{ color: 'var(--t2)', fontWeight: 400 }}>(optional)</span></label>
                   <input className="form-input" placeholder="e.g. CAP-BLK-M" value={editForm.sku || ''} onChange={e => setEditForm({...editForm, sku: e.target.value})} />
                 </div>
                 <div className="form-group">

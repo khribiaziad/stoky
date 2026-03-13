@@ -89,7 +89,7 @@ function LoginInner({ onAuth }) {
       <div style={{ width: 400 }}>
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: 4, color: '#7c6ef5' }}>STOCKY</div>
-          <div style={{ color: '#8892b0', fontSize: 13, marginTop: 6 }}>Inventory Management</div>
+          <div style={{ color: 'var(--t2)', fontSize: 13, marginTop: 6 }}>Inventory Management</div>
         </div>
 
         <div className="card">
@@ -98,7 +98,7 @@ function LoginInner({ onAuth }) {
             <div style={{ display: 'flex', marginBottom: 24, borderBottom: '1px solid #2d3248' }}>
               {['login', 'register'].map(m => (
                 <button key={m} onClick={() => go(m)}
-                  style={{ flex: 1, padding: '10px 0', background: 'none', border: 'none', color: mode === m ? '#7c6ef5' : '#8892b0', borderBottom: mode === m ? '2px solid #7c6ef5' : '2px solid transparent', cursor: 'pointer', fontWeight: mode === m ? 600 : 400, fontSize: 14 }}>
+                  style={{ flex: 1, padding: '10px 0', background: 'none', border: 'none', color: mode === m ? '#7c6ef5' : 'var(--t2)', borderBottom: mode === m ? '2px solid #7c6ef5' : '2px solid transparent', cursor: 'pointer', fontWeight: mode === m ? 600 : 400, fontSize: 14 }}>
                   {m === 'login' ? 'Sign In' : 'Create Store'}
                 </button>
               ))}
@@ -121,7 +121,7 @@ function LoginInner({ onAuth }) {
                 <input className="form-input" type={showPw ? 'text' : 'password'} placeholder="••••••••" style={{ paddingRight: 40 }}
                   value={form.password} onChange={e => f('password', e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSubmit()} />
                 <button type="button" onClick={() => setShowPw(s => !s)}
-                  style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#8892b0', fontSize: 16 }}>
+                  style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--t2)', fontSize: 16 }}>
                   {showPw ? '🙈' : '👁'}
                 </button>
               </div>
@@ -136,7 +136,7 @@ function LoginInner({ onAuth }) {
             </button>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '18px 0 14px' }}>
               <div style={{ flex: 1, height: 1, background: '#2d3248' }} />
-              <span style={{ color: '#8892b0', fontSize: 12 }}>or</span>
+              <span style={{ color: 'var(--t2)', fontSize: 12 }}>or</span>
               <div style={{ flex: 1, height: 1, background: '#2d3248' }} />
             </div>
             <GoogleButton onSuccess={handleGoogleSuccess} onError={() => setError('Google sign-in failed')} />
@@ -168,7 +168,7 @@ function LoginInner({ onAuth }) {
                 <input className="form-input" type={showPw ? 'text' : 'password'} placeholder="••••••••" style={{ paddingRight: 40 }}
                   value={form.password} onChange={e => f('password', e.target.value)} />
                 <button type="button" onClick={() => setShowPw(s => !s)}
-                  style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#8892b0', fontSize: 16 }}>
+                  style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--t2)', fontSize: 16 }}>
                   {showPw ? '🙈' : '👁'}
                 </button>
               </div>
@@ -183,7 +183,7 @@ function LoginInner({ onAuth }) {
             <div style={{ textAlign: 'center', padding: '8px 0' }}>
               <div style={{ fontSize: 40, marginBottom: 12 }}>⏳</div>
               <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 8 }}>Account pending approval</div>
-              <div style={{ fontSize: 13, color: '#8892b0', lineHeight: 1.7 }}>
+              <div style={{ fontSize: 13, color: 'var(--t2)', lineHeight: 1.7 }}>
                 We'll review your request and contact you via email or WhatsApp shortly.
               </div>
               <button onClick={() => go('login')} style={{ marginTop: 20, background: 'none', border: 'none', color: '#7c6ef5', fontSize: 13, cursor: 'pointer' }}>
@@ -195,7 +195,7 @@ function LoginInner({ onAuth }) {
           {/* ── Forgot Password ── */}
           {mode === 'forgot' && <>
             <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 6 }}>Reset your password</div>
-            <div style={{ fontSize: 13, color: '#8892b0', marginBottom: 20 }}>
+            <div style={{ fontSize: 13, color: 'var(--t2)', marginBottom: 20 }}>
               Enter the email linked to your account and we'll send you a reset link.
             </div>
             {!success && <>

@@ -49,10 +49,10 @@ export default function ErrorExplain({ message, page = '' }) {
       {open && (
         <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid #f8717122' }}>
           {loading ? (
-            <span style={{ fontSize: 13, color: '#8892b0' }}>{t.thinking}</span>
+            <span style={{ fontSize: 13, color: 'var(--t2)' }}>{t.thinking}</span>
           ) : (
             <>
-              <div style={{ fontSize: 13, color: '#e2e8f0', lineHeight: 1.65, marginBottom: 10 }}>
+              <div style={{ fontSize: 13, color: 'var(--t1)', lineHeight: 1.65, marginBottom: 10 }}>
                 💡 {explanation}
               </div>
               <button

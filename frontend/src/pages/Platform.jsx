@@ -472,8 +472,8 @@ function StoreDrawer({ store, onClose, onUpdate, onDelete }) {
                     ) : (
                       <>
                         <div style={{ color: '#4ade80' }}>✓ {importResult.created_orders} orders imported</div>
-                        <div style={{ color: '#8892b0' }}>{importResult.skipped_orders} skipped (already exist)</div>
-                        <div style={{ color: '#8892b0' }}>{importResult.products_created} products created</div>
+                        <div style={{ color: 'var(--t2)' }}>{importResult.skipped_orders} skipped (already exist)</div>
+                        <div style={{ color: 'var(--t2)' }}>{importResult.products_created} products created</div>
                         {importResult.unmatched_product_names > 0 && (
                           <div style={{ color: '#fbbf24' }}>⚠ {importResult.unmatched_product_names} unrecognized product names</div>
                         )}

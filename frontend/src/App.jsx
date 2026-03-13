@@ -98,8 +98,8 @@ function NotifDropdown({ notifications, onNotifClick, onMarkAll }) {
             }}>
             <span style={{
               marginTop: 2, fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4, flexShrink: 0,
-              background: (TYPE_COLOR[n.type] || '#8892b0') + '22',
-              color: TYPE_COLOR[n.type] || '#8892b0',
+              background: (TYPE_COLOR[n.type] || 'var(--t2)') + '22',
+              color: TYPE_COLOR[n.type] || 'var(--t2)',
             }}>{TYPE_LABEL[n.type] || n.type}</span>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--t1)',

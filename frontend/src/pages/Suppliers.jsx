@@ -136,10 +136,10 @@ export default function Suppliers() {
                 onClick={() => toggleExpand(s.id)}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <span style={{ color: '#8892b0', fontSize: 12 }}>{isExpanded ? '▼' : '▶'}</span>
+                  <span style={{ color: 'var(--t2)', fontSize: 12 }}>{isExpanded ? '▼' : '▶'}</span>
                   <div>
                     <div style={{ fontWeight: 600, fontSize: 16 }}>{s.name}</div>
-                    <div style={{ color: '#8892b0', fontSize: 12, marginTop: 2, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                    <div style={{ color: 'var(--t2)', fontSize: 12, marginTop: 2, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                       {s.platform && <span style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 4, padding: '1px 7px', fontSize: 11 }}>{s.platform}</span>}
                       {s.phone && <span>📞 {s.phone}</span>}
                       <span>{s.product_count} product{s.product_count !== 1 ? 's' : ''}</span>
@@ -160,7 +160,7 @@ export default function Suppliers() {
               {/* Expanded detail */}
               {isExpanded && (
                 <div onClick={e => e.stopPropagation()}>
-                  {loadingDetail === s.id && <div style={{ color: '#8892b0', fontSize: 13 }}>Loading...</div>}
+                  {loadingDetail === s.id && <div style={{ color: 'var(--t2)', fontSize: 13 }}>Loading...</div>}
                   {d && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
@@ -172,7 +172,7 @@ export default function Suppliers() {
                           { label: 'Balance Owed', value: `${fmt(d.balance)} MAD`, color: d.balance > 0 ? '#f87171' : '#4ade80' },
                         ].map(stat => (
                           <div key={stat.label} className="card" style={{ flex: '1 1 140px', padding: '12px 16px', background: 'var(--bg)' }}>
-                            <div style={{ fontSize: 11, color: '#8892b0', marginBottom: 4 }}>{stat.label}</div>
+                            <div style={{ fontSize: 11, color: 'var(--t2)', marginBottom: 4 }}>{stat.label}</div>
                             <div style={{ fontWeight: 700, fontSize: 18, color: stat.color }}>{stat.value}</div>
                           </div>
                         ))}
@@ -181,12 +181,12 @@ export default function Suppliers() {
                       {/* Linked products */}
                       {d.products.length > 0 && (
                         <div>
-                          <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 13, color: '#8892b0', textTransform: 'uppercase', letterSpacing: 1 }}>Linked Products</div>
+                          <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 13, color: 'var(--t2)', textTransform: 'uppercase', letterSpacing: 1 }}>Linked Products</div>
                           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                             {d.products.map(p => (
                               <div key={p.id} style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 14px', fontSize: 13 }}>
                                 <div style={{ fontWeight: 600 }}>{p.name}</div>
-                                <div style={{ color: '#8892b0', fontSize: 11 }}>{p.variant_count} variants · {p.total_stock} in stock</div>
+                                <div style={{ color: 'var(--t2)', fontSize: 11 }}>{p.variant_count} variants · {p.total_stock} in stock</div>
                               </div>
                             ))}
                           </div>
@@ -198,9 +198,9 @@ export default function Suppliers() {
 
                         {/* Purchase History */}
                         <div>
-                          <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 13, color: '#8892b0', textTransform: 'uppercase', letterSpacing: 1 }}>Purchase History</div>
+                          <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 13, color: 'var(--t2)', textTransform: 'uppercase', letterSpacing: 1 }}>Purchase History</div>
                           {d.arrivals.length === 0 ? (
-                            <div style={{ color: '#8892b0', fontSize: 13 }}>No purchases yet.</div>
+                            <div style={{ color: 'var(--t2)', fontSize: 13 }}>No purchases yet.</div>
                           ) : (
                             <div className="table-wrapper">
                               <table>
@@ -215,10 +215,10 @@ export default function Suppliers() {
                                 <tbody>
                                   {d.arrivals.map(a => (
                                     <tr key={a.id}>
-                                      <td style={{ color: '#8892b0', fontSize: 12 }}>{a.date?.split('T')[0]}</td>
+                                      <td style={{ color: 'var(--t2)', fontSize: 12 }}>{a.date?.split('T')[0]}</td>
                                       <td>
                                         <div>{a.product_name}</div>
-                                        {a.variant !== '—' && <div style={{ color: '#8892b0', fontSize: 11 }}>{a.variant}</div>}
+                                        {a.variant !== '—' && <div style={{ color: 'var(--t2)', fontSize: 11 }}>{a.variant}</div>}
                                       </td>
                                       <td>{a.quantity}</td>
                                       <td style={{ fontWeight: 600, color: '#fbbf24' }}>{fmt(a.total_cost)} MAD</td>
@@ -233,7 +233,7 @@ export default function Suppliers() {
                         {/* Payments */}
                         <div>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                            <div style={{ fontWeight: 600, fontSize: 13, color: '#8892b0', textTransform: 'uppercase', letterSpacing: 1 }}>Payments Made</div>
+                            <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--t2)', textTransform: 'uppercase', letterSpacing: 1 }}>Payments Made</div>
                             <button className="btn btn-primary btn-sm" onClick={() => { setError(''); setShowPayment(s.id); }}>+ Add</button>
                           </div>
 
@@ -263,7 +263,7 @@ export default function Suppliers() {
                           )}
 
                           {d.payments.length === 0 ? (
-                            <div style={{ color: '#8892b0', fontSize: 13 }}>No payments recorded yet.</div>
+                            <div style={{ color: 'var(--t2)', fontSize: 13 }}>No payments recorded yet.</div>
                           ) : (
                             <div className="table-wrapper">
                               <table>
@@ -273,9 +273,9 @@ export default function Suppliers() {
                                 <tbody>
                                   {d.payments.map(p => (
                                     <tr key={p.id}>
-                                      <td style={{ color: '#8892b0', fontSize: 12 }}>{p.date?.split('T')[0]}</td>
+                                      <td style={{ color: 'var(--t2)', fontSize: 12 }}>{p.date?.split('T')[0]}</td>
                                       <td style={{ fontWeight: 600, color: '#4ade80' }}>{fmt(p.amount)} MAD</td>
-                                      <td style={{ color: '#8892b0' }}>{p.note || '—'}</td>
+                                      <td style={{ color: 'var(--t2)' }}>{p.note || '—'}</td>
                                       <td><button className="btn btn-danger btn-sm" onClick={() => handleDeletePayment(s.id, p.id)}>✕</button></td>
                                     </tr>
                                   ))}

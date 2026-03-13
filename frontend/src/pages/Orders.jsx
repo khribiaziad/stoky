@@ -895,7 +895,7 @@ export default function Orders() {
             <option value="olivraison">Olivraison</option>
             <option value="forcelog">Forcelog</option>
           </select>
-          <span style={{ color: '#8892b0', fontSize: 13 }}>Update to:</span>
+          <span style={{ color: 'var(--t2)', fontSize: 13 }}>Update to:</span>
           <button className="btn btn-sm btn-secondary" style={{ borderColor: '#4ade80', color: '#4ade80' }} onClick={() => handleBulkStatus('delivered')}>✓ Delivered</button>
           <button className="btn btn-sm btn-secondary" style={{ borderColor: '#f59e0b', color: '#f59e0b' }} onClick={() => handleBulkStatus('pending')}>⏳ Pending</button>
           <button className="btn btn-sm btn-secondary" style={{ borderColor: '#f87171', color: '#f87171' }} onClick={() => handleBulkStatus('cancelled')}>✕ Cancelled</button>
@@ -926,23 +926,23 @@ export default function Orders() {
                       <td>
                         <div style={{ fontWeight: 500 }}>{o.customer_name}</div>
                         {o.customer_phone
-                          ? <div style={{ color: '#8892b0', fontSize: 11 }}>{o.customer_phone}</div>
-                          : <div style={{ color: '#8892b0', fontSize: 11 }}>—</div>}
+                          ? <div style={{ color: 'var(--t2)', fontSize: 11 }}>{o.customer_phone}</div>
+                          : <div style={{ color: 'var(--t2)', fontSize: 11 }}>—</div>}
                       </td>
                       <td>
                         <div>{o.city}</div>
-                        {o.customer_address && <div style={{ fontSize: 11, color: '#8892b0', marginTop: 2 }}>{o.customer_address}</div>}
+                        {o.customer_address && <div style={{ fontSize: 11, color: 'var(--t2)', marginTop: 2 }}>{o.customer_address}</div>}
                       </td>
                       <td style={{ fontWeight: 600, color: '#60a5fa' }}>{o.total_amount} MAD</td>
                       <td>
                         {o.items?.length > 0
                           ? o.items.map(item => <div key={item.id} style={{ fontSize: 12 }}>{item.product_name} {item.size} {item.color} x{item.quantity}</div>)
-                          : <span style={{ color: '#8892b0' }}>—</span>}
+                          : <span style={{ color: 'var(--t2)' }}>—</span>}
                       </td>
                       <td>
                         <span className="badge badge-red">Return</span>
                       </td>
-                      <td style={{ color: '#8892b0', fontSize: 12 }}>
+                      <td style={{ color: 'var(--t2)', fontSize: 12 }}>
                         {o.order_date ? new Date(o.order_date).toLocaleDateString() : '—'}
                       </td>
                       <td>
@@ -1005,11 +1005,11 @@ export default function Orders() {
                           style={{ color: '#25D366', fontSize: 11, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 3 }}>
                           💬 {o.customer_phone}
                         </a>
-                      ) : <div style={{ color: '#8892b0', fontSize: 11 }}>—</div>}
+                      ) : <div style={{ color: 'var(--t2)', fontSize: 11 }}>—</div>}
                     </td>
                     <td>
                       <div>{o.city}</div>
-                      {o.customer_address && <div style={{ fontSize: 11, color: '#8892b0', marginTop: 2 }}>{o.customer_address}</div>}
+                      {o.customer_address && <div style={{ fontSize: 11, color: 'var(--t2)', marginTop: 2 }}>{o.customer_address}</div>}
                     </td>
                     <td style={{ fontWeight: 600, color: '#60a5fa' }}>{o.total_amount} MAD</td>
                     <td style={{ maxWidth: 180 }}>
@@ -1021,7 +1021,7 @@ export default function Orders() {
                               </span>
                             ))}
                           </div>
-                        : <span style={{ color: '#8892b0' }}>—</span>}
+                        : <span style={{ color: 'var(--t2)' }}>—</span>}
                     </td>
                     <td>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 110 }}>
@@ -1327,11 +1327,11 @@ export default function Orders() {
                   Sell Bag (1 MAD)
                 </label>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ color: '#8892b0', fontSize: 13 }}>Packaging:</span>
+                  <span style={{ color: 'var(--t2)', fontSize: 13 }}>Packaging:</span>
                   <input className="form-input" type="number" min="0" style={{ width: 60, padding: '4px 8px' }}
                     value={editExpenses.packaging}
                     onChange={e => setEditExpenses({ ...editExpenses, packaging: parseFloat(e.target.value) || 0 })} />
-                  <span style={{ color: '#8892b0', fontSize: 13 }}>MAD</span>
+                  <span style={{ color: 'var(--t2)', fontSize: 13 }}>MAD</span>
                 </div>
               </div>
 
@@ -1367,7 +1367,7 @@ export default function Orders() {
                     <div>
                       <div style={{ fontWeight: 600, fontFamily: 'monospace', color: orderErr ? '#f87171' : '#7c6ef5' }}>{order.caleo_id}</div>
                       <div style={{ marginTop: 4 }}>{order.customer_name} · {order.city} · <strong style={{ color: '#60a5fa' }}>{order.total_amount} MAD</strong></div>
-                      <div style={{ color: '#8892b0', fontSize: 12 }}>{order.customer_phone} · {order.customer_address}</div>
+                      <div style={{ color: 'var(--t2)', fontSize: 12 }}>{order.customer_phone} · {order.customer_address}</div>
                       {orderErr && <div style={{ marginTop: 6, color: '#f87171', fontSize: 12, fontWeight: 500 }}>⚠ {orderErr}</div>}
                     </div>
                     <button className="btn-icon" title="Skip this order" onClick={() => removeOrderFromParsed(i)} style={{ alignSelf: 'flex-start', color: 'var(--t2)' }}>✕</button>
@@ -1490,7 +1490,7 @@ export default function Orders() {
                                 )}
 
                                 {/* Composition items */}
-                                <div style={{ fontSize: 12, color: '#8892b0', marginBottom: 6 }}>
+                                <div style={{ fontSize: 12, color: 'var(--t2)', marginBottom: 6 }}>
                                   Products inside this pack:
                                 </div>
                                 {(item.customItems || []).map((ci, k) => (
@@ -1562,14 +1562,14 @@ export default function Orders() {
                       Sell Bag (1 MAD)
                     </label>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ color: '#8892b0', fontSize: 13 }}>Packaging:</span>
+                      <span style={{ color: 'var(--t2)', fontSize: 13 }}>Packaging:</span>
                       <input
                         className="form-input"
                         type="number" min="0" style={{ width: 60, padding: '4px 8px' }}
                         value={orderExpenses[i]?.packaging || 1}
                         onChange={e => setOrderExpenses({ ...orderExpenses, [i]: { ...orderExpenses[i], packaging: parseFloat(e.target.value) || 0 } })}
                       />
-                      <span style={{ color: '#8892b0', fontSize: 13 }}>MAD</span>
+                      <span style={{ color: 'var(--t2)', fontSize: 13 }}>MAD</span>
                     </div>
                   </div>
                 </div>
@@ -1688,11 +1688,11 @@ export default function Orders() {
                   Sell Bag (1 MAD)
                 </label>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ color: '#8892b0', fontSize: 13 }}>Packaging:</span>
+                  <span style={{ color: 'var(--t2)', fontSize: 13 }}>Packaging:</span>
                   <input className="form-input" type="number" min="0" style={{ width: 60, padding: '4px 8px' }}
                     value={manualExpenses.packaging}
                     onChange={e => setManualExpenses({ ...manualExpenses, packaging: parseFloat(e.target.value) || 0 })} />
-                  <span style={{ color: '#8892b0', fontSize: 13 }}>MAD</span>
+                  <span style={{ color: 'var(--t2)', fontSize: 13 }}>MAD</span>
                 </div>
               </div>
             </div>
@@ -1727,11 +1727,11 @@ export default function Orders() {
                       style={{ padding: '10px 14px', borderBottom: '1px solid #2d3248', cursor: 'pointer', background: selectedReturn?.id === o.id ? '#0d2a1e' : 'transparent', borderLeft: selectedReturn?.id === o.id ? '3px solid #00d48f' : '3px solid transparent' }}
                       onClick={() => setSelectedReturn(o)}>
                       <div style={{ fontFamily: 'monospace', fontSize: 12, color: '#7c6ef5' }}>{o.caleo_id}</div>
-                      <div style={{ marginTop: 2 }}>{o.customer_name} · <span style={{ color: '#8892b0' }}>{o.city}</span> · <strong style={{ color: '#60a5fa' }}>{o.total_amount} MAD</strong></div>
+                      <div style={{ marginTop: 2 }}>{o.customer_name} · <span style={{ color: 'var(--t2)' }}>{o.city}</span> · <strong style={{ color: '#60a5fa' }}>{o.total_amount} MAD</strong></div>
                     </div>
                   ))}
                 {orders.filter(o => ['pending','awaiting_pickup','in_delivery'].includes(o.status)).length === 0 && (
-                  <div style={{ padding: 20, textAlign: 'center', color: '#8892b0' }}>No pending orders found</div>
+                  <div style={{ padding: 20, textAlign: 'center', color: 'var(--t2)' }}>No pending orders found</div>
                 )}
               </div>
               {selectedReturn && (
@@ -1776,10 +1776,10 @@ export default function Orders() {
               {/* Original order info */}
               <div style={{ padding: '10px 14px', background: '#0f1117', borderRadius: 8, marginBottom: 16, fontSize: 13 }}>
                 <div style={{ fontWeight: 600, marginBottom: 4 }}>{exchangeOrder.customer_name}</div>
-                <div style={{ color: '#8892b0' }}>
+                <div style={{ color: 'var(--t2)' }}>
                   {exchangeOrder.city} · {exchangeOrder.customer_phone} · {exchangeOrder.total_amount} MAD
                 </div>
-                <div style={{ marginTop: 6, color: '#8892b0' }}>
+                <div style={{ marginTop: 6, color: 'var(--t2)' }}>
                   Original items: {exchangeOrder.items?.map(i => `${i.product_name} ${i.size || ''} ${i.color || ''} x${i.quantity}`).join(', ') || '—'}
                 </div>
               </div>
@@ -1790,7 +1790,7 @@ export default function Orders() {
                   <button key={n} onClick={() => setExchangeStep(n)} style={{
                     background: 'none', border: 'none', padding: '8px 16px', cursor: 'pointer',
                     fontSize: 13, fontWeight: 600,
-                    color: exchangeStep === n ? 'var(--accent, #00d48f)' : '#8892b0',
+                    color: exchangeStep === n ? 'var(--accent, #00d48f)' : 'var(--t2)',
                     borderBottom: `2px solid ${exchangeStep === n ? 'var(--accent, #00d48f)' : 'transparent'}`,
                   }}>{label}</button>
                 ))}
@@ -1799,7 +1799,7 @@ export default function Orders() {
               {/* Step 1: Return */}
               {exchangeStep === 1 && (
                 <div>
-                  <div style={{ marginBottom: 12, fontSize: 13, color: '#8892b0' }}>
+                  <div style={{ marginBottom: 12, fontSize: 13, color: 'var(--t2)' }}>
                     The original order will be marked as <strong style={{ color: '#f87171' }}>cancelled</strong> and stock will be restored.
                   </div>
                   <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
@@ -1823,7 +1823,7 @@ export default function Orders() {
               {/* Step 2: New exchange order */}
               {exchangeStep === 2 && (
                 <div>
-                  <div style={{ marginBottom: 14, fontSize: 13, color: '#8892b0' }}>
+                  <div style={{ marginBottom: 14, fontSize: 13, color: 'var(--t2)' }}>
                     A new order will be created for the same customer. The client only pays the <strong style={{ color: '#00d48f' }}>delivery fee</strong>.
                   </div>
 
@@ -1885,11 +1885,11 @@ export default function Orders() {
                       Sell Bag (1 MAD)
                     </label>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ color: '#8892b0', fontSize: 13 }}>Packaging:</span>
+                      <span style={{ color: 'var(--t2)', fontSize: 13 }}>Packaging:</span>
                       <input className="form-input" type="number" min="0" style={{ width: 60, padding: '4px 8px' }}
                         value={exchangeExpenses.packaging}
                         onChange={e => setExchangeExpenses({ ...exchangeExpenses, packaging: parseFloat(e.target.value) || 0 })} />
-                      <span style={{ color: '#8892b0', fontSize: 13 }}>MAD</span>
+                      <span style={{ color: 'var(--t2)', fontSize: 13 }}>MAD</span>
                     </div>
                   </div>
                 </div>

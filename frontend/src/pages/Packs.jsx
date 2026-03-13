@@ -130,12 +130,12 @@ export default function Packs({ readOnly = false }) {
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <span style={{ color: '#8892b0', fontSize: 12 }}>
+                <span style={{ color: 'var(--t2)', fontSize: 12 }}>
                   {expandedPack === pack.id ? '▼' : '▶'}
                 </span>
                 <div>
                   <div style={{ fontWeight: 600, fontSize: 16 }}>📦 {pack.name}</div>
-                  <div style={{ color: '#8892b0', fontSize: 12, marginTop: 2 }}>
+                  <div style={{ color: 'var(--t2)', fontSize: 12, marginTop: 2 }}>
                     {pack.item_count} item{pack.item_count !== 1 ? 's' : ''} ·{' '}
                     <span style={{ color: '#60a5fa' }}>{pack.selling_price} MAD</span> ·{' '}
                     {pack.presets.length} preset{pack.presets.length !== 1 ? 's' : ''}
@@ -154,7 +154,7 @@ export default function Packs({ readOnly = false }) {
             {expandedPack === pack.id && (
               <div style={{ marginTop: 16 }} onClick={e => e.stopPropagation()}>
                 {pack.presets.length === 0 ? (
-                  <div style={{ color: '#8892b0', fontSize: 13, padding: '8px 0' }}>
+                  <div style={{ color: 'var(--t2)', fontSize: 13, padding: '8px 0' }}>
                     No presets yet — click "+ Preset" to add a saved composition.
                   </div>
                 ) : (
@@ -168,7 +168,7 @@ export default function Packs({ readOnly = false }) {
                         {preset.items.map(item => (
                           <span key={item.id} style={{ background: '#1e2235', borderRadius: 6, padding: '4px 10px', fontSize: 12, color: '#a5b4fc' }}>
                             {item.label} × {item.quantity}
-                            <span style={{ color: '#8892b0', marginLeft: 6 }}>(stock: {item.stock})</span>
+                            <span style={{ color: 'var(--t2)', marginLeft: 6 }}>(stock: {item.stock})</span>
                           </span>
                         ))}
                       </div>

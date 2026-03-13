@@ -105,7 +105,7 @@ export default function Team() {
                 {team.map(m => (
                   <tr key={m.id}>
                     <td style={{ fontWeight: 600 }}>{m.name}</td>
-                    <td style={{ color: '#8892b0' }}>{m.role || '—'}</td>
+                    <td style={{ color: 'var(--t2)' }}>{m.role || '—'}</td>
                     <td><span className="badge badge-purple">{m.payment_type}</span></td>
                     <td>{m.fixed_monthly ? `${m.fixed_monthly} MAD` : '—'}</td>
                     <td>{m.per_order_rate ? `${m.per_order_rate} MAD/order` : '—'}</td>

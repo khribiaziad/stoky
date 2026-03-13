@@ -175,7 +175,7 @@ export default function Stock({ readOnly = false }) {
                         <td style={{ fontWeight: 700, color: v.stock <= v.low_stock_threshold ? '#fbbf24' : '#4ade80' }}>
                           {v.stock}
                         </td>
-                        <td style={{ color: v.broken_stock > 0 ? '#f87171' : '#8892b0' }}>
+                        <td style={{ color: v.broken_stock > 0 ? '#f87171' : 'var(--t2)' }}>
                           {v.broken_stock || 0}
                         </td>
                         <td>
@@ -211,7 +211,7 @@ export default function Stock({ readOnly = false }) {
                 <tbody>
                   {arrivals.map(a => (
                     <tr key={a.id}>
-                      <td style={{ color: '#8892b0', fontSize: 12 }}>{a.date ? new Date(a.date).toLocaleDateString() : '—'}</td>
+                      <td style={{ color: 'var(--t2)', fontSize: 12 }}>{a.date ? new Date(a.date).toLocaleDateString() : '—'}</td>
                       <td style={{ fontWeight: 500 }}>{a.product_name}</td>
                       <td>
                         {(a.size || a.color)
@@ -219,16 +219,16 @@ export default function Stock({ readOnly = false }) {
                           : '—'}
                       </td>
                       <td style={{ fontWeight: 600 }}>+{a.quantity}</td>
-                      <td style={{ color: '#8892b0' }}>
+                      <td style={{ color: 'var(--t2)' }}>
                         {a.additional_fees > 0
                           ? `${(a.total_cost - a.additional_fees).toFixed(0)} MAD`
                           : `${a.total_cost} MAD`}
                       </td>
-                      <td style={{ color: a.additional_fees > 0 ? '#fbbf24' : '#8892b0' }}>
+                      <td style={{ color: a.additional_fees > 0 ? '#fbbf24' : 'var(--t2)' }}>
                         {a.additional_fees > 0 ? `${a.additional_fees} MAD` : '—'}
                       </td>
                       <td style={{ fontWeight: 600, color: '#f87171' }}>{a.total_cost} MAD</td>
-                      <td style={{ color: '#8892b0', fontSize: 12 }}>{a.description || '—'}</td>
+                      <td style={{ color: 'var(--t2)', fontSize: 12 }}>{a.description || '—'}</td>
                       <td><button className="btn btn-danger btn-sm" onClick={() => handleDeleteArrival(a.id)}>Delete</button></td>
                     </tr>
                   ))}
@@ -253,7 +253,7 @@ export default function Stock({ readOnly = false }) {
                 <tbody>
                   {broken.map(b => (
                     <tr key={b.id}>
-                      <td style={{ color: '#8892b0', fontSize: 12 }}>{b.date ? new Date(b.date).toLocaleDateString() : '—'}</td>
+                      <td style={{ color: 'var(--t2)', fontSize: 12 }}>{b.date ? new Date(b.date).toLocaleDateString() : '—'}</td>
                       <td style={{ fontWeight: 500 }}>{b.product_name}</td>
                       <td>
                         {(b.size || b.color)
@@ -267,7 +267,7 @@ export default function Stock({ readOnly = false }) {
                           ? <span className="badge badge-green">Yes</span>
                           : <span className="badge badge-red">No</span>}
                       </td>
-                      <td style={{ color: b.returnable_to_supplier ? '#8892b0' : '#f87171' }}>
+                      <td style={{ color: b.returnable_to_supplier ? 'var(--t2)' : '#f87171' }}>
                         {b.returnable_to_supplier ? '0 (refund)' : `${b.value_lost} MAD`}
                       </td>
                       <td>
@@ -298,7 +298,7 @@ export default function Stock({ readOnly = false }) {
 
               {/* Items */}
               <div style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 12, color: '#8892b0', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 10 }}>Products in this Shipment</div>
+                <div style={{ fontSize: 12, color: 'var(--t2)', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 10 }}>Products in this Shipment</div>
                 {items.map((item, index) => (
                   <div key={index} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 80px 36px', gap: 8, marginBottom: 8, alignItems: 'end' }}>
                     <div>
@@ -371,17 +371,17 @@ export default function Stock({ readOnly = false }) {
               {/* Cost preview */}
               <div style={{ background: '#0f1117', border: '1px solid #2d3248', borderRadius: 8, padding: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                  <div style={{ color: '#8892b0', fontSize: 12 }}>Stock cost</div>
+                  <div style={{ color: 'var(--t2)', fontSize: 12 }}>Stock cost</div>
                   <div style={{ fontWeight: 600 }}>{totalStockCost} MAD</div>
                 </div>
-                <div style={{ color: '#8892b0' }}>+</div>
+                <div style={{ color: 'var(--t2)' }}>+</div>
                 <div>
-                  <div style={{ color: '#8892b0', fontSize: 12 }}>Additional fees</div>
+                  <div style={{ color: 'var(--t2)', fontSize: 12 }}>Additional fees</div>
                   <div style={{ fontWeight: 600 }}>{parseFloat(additionalFees) || 0} MAD</div>
                 </div>
-                <div style={{ color: '#8892b0' }}>=</div>
+                <div style={{ color: 'var(--t2)' }}>=</div>
                 <div>
-                  <div style={{ color: '#8892b0', fontSize: 12 }}>Total withdrawn</div>
+                  <div style={{ color: 'var(--t2)', fontSize: 12 }}>Total withdrawn</div>
                   <div style={{ fontWeight: 700, fontSize: 18, color: '#f87171' }}>{totalCost} MAD</div>
                 </div>
               </div>
