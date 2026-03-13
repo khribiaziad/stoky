@@ -28,6 +28,9 @@ export const login = (data) => api.post('/auth/login', data);
 export const googleLogin = (data) => api.post('/auth/google', data);
 export const changePassword = (data) => api.post('/auth/change-password', data);
 export const updateStoreName = (data) => api.patch('/auth/update-store', data);
+export const updateUsername = (data) => api.patch('/auth/update-username', data);
+export const forgotPassword = (data) => api.post('/auth/forgot-password', data);
+export const resetPassword = (data) => api.post('/auth/reset-password', data);
 
 // Products
 export const getProducts = () => api.get('/products');
