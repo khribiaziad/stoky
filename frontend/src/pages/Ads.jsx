@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
-import { Megaphone, Plus, Trash2, Edit2, ChevronDown, ChevronUp, Calculator, RefreshCw, Zap, Unlink } from 'lucide-react';
+import { Megaphone, Plus, Trash2, Edit2, ChevronDown, ChevronUp, Calculator, RefreshCw, Link, Unlink, Play, Pause, ExternalLink } from 'lucide-react';
 import {
   getAdPlatforms, createAdPlatform, deleteAdPlatform,
   createAdCampaign, updateAdCampaign, deleteAdCampaign,
   getAdCostPerOrder, getSetting, setSetting,
-  getMetaStatus, connectMeta, disconnectMeta, syncMeta,
+  getMetaStatus, connectMeta, disconnectMeta,
+  getMetaCampaigns, pauseMetaCampaign, resumeMetaCampaign,
+  createMetaCampaign, getMetaSpend,
 } from '../api';
-import ErrorExplain from '../components/ErrorExplain';
-import { validateAmount, fieldErrorStyle } from '../utils/validate';
 
 // ── Predefined platform catalogue ──────────────────────────
 const PLATFORM_CATALOGUE = [
@@ -18,7 +18,16 @@ const PLATFORM_CATALOGUE = [
   { name: 'pinterest',label: 'Pinterest',        color: '#e60023' },
   { name: 'instagram',label: 'Instagram',        color: '#e1306c' },
   { name: 'twitter',  label: 'X / Twitter',      color: '#000000' },
-  { name: 'other',    label: 'Other',            color: 'var(--t2)' },
+  { name: 'other',    label: 'Other',            color: '#8892b0' },
+];
+
+const META_OBJECTIVES = [
+  { value: 'OUTCOME_SALES',       label: 'Sales' },
+  { value: 'OUTCOME_LEADS',       label: 'Leads' },
+  { value: 'OUTCOME_TRAFFIC',     label: 'Traffic' },
+  { value: 'OUTCOME_AWARENESS',   label: 'Awareness' },
+  { value: 'OUTCOME_ENGAGEMENT',  label: 'Engagement' },
+  { value: 'OUTCOME_APP_PROMOTION', label: 'App Promotion' },
 ];
 
 // ── Platform brand logos (Simple Icons paths) ───────────────
@@ -35,12 +44,7 @@ const PLATFORM_ICON_DATA = {
     d: 'M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z',
     fill: '#fff',
   },
-  google: {
-    bg: '#fff',
-    viewBox: '0 0 24 24',
-    // multicolor — rendered separately below
-    d: null,
-  },
+  google: { bg: '#fff', viewBox: '0 0 24 24', d: null },
   snapchat: {
     bg: '#FFFC00',
     viewBox: '0 0 24 24',
@@ -70,8 +74,6 @@ const PLATFORM_ICON_DATA = {
 function PlatformIcon({ name, size = 32 }) {
   const r = Math.round(size * 0.25);
   const data = PLATFORM_ICON_DATA[name];
-
-  // Google — multicolor SVG
   if (name === 'google') {
     return (
       <svg width={size} height={size} viewBox="0 0 32 32" fill="none" style={{ borderRadius: r, flexShrink: 0 }}>
@@ -83,9 +85,7 @@ function PlatformIcon({ name, size = 32 }) {
       </svg>
     );
   }
-
   if (!data) {
-    // fallback "Other"
     return (
       <div style={{ width: size, height: size, borderRadius: r, background: '#2d3248', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
         <svg width={size * 0.6} height={size * 0.6} viewBox="0 0 24 24" fill="none">
@@ -95,18 +95,22 @@ function PlatformIcon({ name, size = 32 }) {
       </div>
     );
   }
-
-  const isGradient = data.bg.startsWith('linear');
   return (
-    <div style={{
-      width: size, height: size, borderRadius: r, flexShrink: 0,
-      background: data.bg,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-    }}>
+    <div style={{ width: size, height: size, borderRadius: r, flexShrink: 0, background: data.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <svg width={size * 0.65} height={size * 0.65} viewBox={data.viewBox} fill={data.fill}>
         <path d={data.d}/>
       </svg>
     </div>
+  );
+}
+
+// Meta logo
+function MetaLogo({ size = 32 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" style={{ flexShrink: 0 }}>
+      <rect width="32" height="32" rx="8" fill="#0866FF"/>
+      <path d="M8 18.5c0 1.933.434 3.416 1.007 4.3.418.644.924.95 1.434.95.736 0 1.415-.42 2.162-1.65.588-.966 1.196-2.413 1.637-4.151l.47-1.82c.33-1.276.773-2.25 1.27-2.894.426-.558.894-.837 1.37-.837.843 0 1.647.782 2.275 2.2.557 1.27.913 2.99.913 4.687 0 1.45-.286 2.57-.84 3.39-.452.665-1.066 1.075-1.748 1.075v-2.25c.357 0 .641-.218.875-.67.27-.52.413-1.28.413-2.18 0-1.395-.294-2.82-.763-3.782-.35-.712-.733-1.084-1.066-1.084-.38 0-.744.34-1.066.983-.24.478-.474 1.23-.664 1.97l-.475 1.84c-.48 1.86-1.15 3.43-1.872 4.572C13.38 24.463 12.28 25 11.1 25c-.872 0-1.718-.397-2.384-1.152C7.49 22.67 7 20.82 7 18.5c0-2.5.58-4.655 1.69-6.24C9.8 10.654 11.13 10 12.532 10c.896 0 1.76.358 2.536 1.06.632.572 1.178 1.39 1.644 2.38.467-.99 1.013-1.808 1.645-2.38C19.133 10.358 20 10 20.893 10c1.407 0 2.74.656 3.845 2.263C25.845 13.847 26.4 16 26.4 18.5c0 2.335-.486 4.177-1.707 5.35-.666.653-1.5 1.15-2.393 1.15v-2.25c.596 0 1.096-.33 1.508-.99.533-.845.842-2.095.842-3.76 0-2.067-.4-3.8-1.082-4.92-.518-.845-1.136-1.23-1.775-1.23-.525 0-1.022.337-1.46.983-.526.778-.968 2.035-1.218 3.447l-.227 1.3-.456-1.445c-.384-1.217-.86-2.12-1.395-2.64-.486-.472-1.01-.735-1.538-.735-.87 0-1.644.498-2.275 1.5C8.39 15.36 8 16.8 8 18.5z" fill="white"/>
+    </svg>
   );
 }
 
@@ -133,23 +137,16 @@ export default function Ads() {
   const [platforms, setPlatforms] = useState([]);
   const [usdRate, setUsdRate] = useState(10);
   const [rateInput, setRateInput] = useState('10');
-  const [rateMode, setRateMode] = useState('manual'); // 'manual' | 'market'
+  const [rateMode, setRateMode] = useState('manual');
   const [marketRate, setMarketRate] = useState(null);
   const [marketDate, setMarketDate] = useState(null);
   const [fetchingRate, setFetchingRate] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [campaignFieldErrors, setCampaignFieldErrors] = useState({});
-
-  // Which platform cards are expanded
   const [expanded, setExpanded] = useState({});
-
-  // Add platform modal
   const [showAddPlatform, setShowAddPlatform] = useState(false);
-
-  // Add/Edit campaign modal
-  const [campaignModal, setCampaignModal] = useState(null); // { platformId, campaign? }
+  const [campaignModal, setCampaignModal] = useState(null);
   const [campaignForm, setCampaignForm] = useState({ daily_rate_usd: '', start_date: today(), end_date: '' });
 
   // Cost calculator
@@ -161,19 +158,19 @@ export default function Ads() {
   const [calcResult, setCalcResult] = useState(null);
   const [calcLoading, setCalcLoading] = useState(false);
 
-  // Meta Ads API
-  const [metaStatus, setMetaStatus] = useState(null); // null=loading, {connected, ...}
-  const [metaForm, setMetaForm] = useState({ token: '', accountId: '' });
+  // ── Meta state ──
+  const [metaStatus, setMetaStatus] = useState(null); // null = loading, { connected, account_name, ... }
+  const [metaCampaigns, setMetaCampaigns] = useState([]);
+  const [metaLoading, setMetaLoading] = useState(false);
   const [metaConnecting, setMetaConnecting] = useState(false);
-  const [metaConnectError, setMetaConnectError] = useState('');
-  const [metaShowForm, setMetaShowForm] = useState(false);
-  const [metaSyncing, setMetaSyncing] = useState(false);
-  const [metaData, setMetaData] = useState(null);
-  const [metaSyncStart, setMetaSyncStart] = useState(() => {
-    const d = new Date(); d.setDate(d.getDate() - 6);
-    return d.toISOString().slice(0, 10);
+  const [showMetaConnect, setShowMetaConnect] = useState(false);
+  const [metaForm, setMetaForm] = useState({ access_token: '', ad_account_id: '' });
+  const [showMetaCreate, setShowMetaCreate] = useState(false);
+  const [metaCreateForm, setMetaCreateForm] = useState({
+    name: '', objective: 'OUTCOME_SALES', daily_budget: '', status: 'PAUSED',
   });
-  const [metaSyncEnd, setMetaSyncEnd] = useState(today());
+  const [metaSpendResult, setMetaSpendResult] = useState(null);
+  const [metaSpendLoading, setMetaSpendLoading] = useState(false);
 
   const fetchMarketRate = async () => {
     setFetchingRate(true);
@@ -198,6 +195,18 @@ export default function Ads() {
     }
   };
 
+  const loadMetaCampaigns = async () => {
+    setMetaLoading(true);
+    try {
+      const res = await getMetaCampaigns();
+      setMetaCampaigns(res.data);
+    } catch (e) {
+      setError(e.response?.data?.detail || 'Failed to load Meta campaigns');
+    } finally {
+      setMetaLoading(false);
+    }
+  };
+
   const load = async () => {
     try {
       const [pRes, rateRes, modeRes, metaRes] = await Promise.all([
@@ -212,9 +221,10 @@ export default function Ads() {
       setUsdRate(rate);
       setRateInput(String(rate));
       setRateMode(mode);
+      if (mode === 'market') fetchMarketRate();
       setMetaStatus(metaRes.data);
-      if (mode === 'market') {
-        fetchMarketRate();
+      if (metaRes.data?.connected) {
+        loadMetaCampaigns();
       }
     } finally {
       setLoading(false);
@@ -232,9 +242,84 @@ export default function Ads() {
   const toggleRateMode = async (mode) => {
     setRateMode(mode);
     await setSetting('usd_rate_mode', mode);
-    if (mode === 'market') {
-      fetchMarketRate();
+    if (mode === 'market') fetchMarketRate();
+  };
+
+  // ── Meta actions ──
+  const handleMetaConnect = async () => {
+    if (!metaForm.access_token || !metaForm.ad_account_id) {
+      setError('Enter both Access Token and Ad Account ID'); return;
     }
+    setMetaConnecting(true);
+    setError('');
+    try {
+      const res = await connectMeta(metaForm);
+      setMetaStatus({ connected: true, ...res.data });
+      setShowMetaConnect(false);
+      setMetaForm({ access_token: '', ad_account_id: '' });
+      setSuccess(`Connected to Meta — ${res.data.account_name}`);
+      loadMetaCampaigns();
+    } catch (e) {
+      setError(e.response?.data?.detail || 'Connection failed. Check your token and account ID.');
+    } finally {
+      setMetaConnecting(false);
+    }
+  };
+
+  const handleMetaDisconnect = async () => {
+    if (!confirm('Disconnect your Meta account?')) return;
+    try {
+      await disconnectMeta();
+      setMetaStatus({ connected: false });
+      setMetaCampaigns([]);
+      setSuccess('Meta account disconnected');
+    } catch (e) {
+      setError(e.response?.data?.detail || 'Error disconnecting');
+    }
+  };
+
+  const handlePause = async (id) => {
+    try {
+      await pauseMetaCampaign(id);
+      loadMetaCampaigns();
+    } catch (e) { setError(e.response?.data?.detail || 'Failed to pause'); }
+  };
+
+  const handleResume = async (id) => {
+    try {
+      await resumeMetaCampaign(id);
+      loadMetaCampaigns();
+    } catch (e) { setError(e.response?.data?.detail || 'Failed to resume'); }
+  };
+
+  const handleMetaCreate = async () => {
+    setError('');
+    if (!metaCreateForm.name) { setError('Campaign name is required'); return; }
+    if (!metaCreateForm.daily_budget || parseFloat(metaCreateForm.daily_budget) <= 0) {
+      setError('Enter a valid daily budget'); return;
+    }
+    try {
+      await createMetaCampaign({
+        name: metaCreateForm.name,
+        objective: metaCreateForm.objective,
+        daily_budget: parseFloat(metaCreateForm.daily_budget),
+        status: metaCreateForm.status,
+      });
+      setShowMetaCreate(false);
+      setMetaCreateForm({ name: '', objective: 'OUTCOME_SALES', daily_budget: '', status: 'PAUSED' });
+      setSuccess('Campaign created in Meta');
+      loadMetaCampaigns();
+    } catch (e) { setError(e.response?.data?.detail || 'Failed to create campaign'); }
+  };
+
+  const runMetaSpend = async () => {
+    setMetaSpendLoading(true);
+    setMetaSpendResult(null);
+    try {
+      const res = await getMetaSpend(calcStart, calcEnd);
+      setMetaSpendResult(res.data);
+    } catch (e) { setError(e.response?.data?.detail || 'Failed to fetch Meta spend'); }
+    finally { setMetaSpendLoading(false); }
   };
 
   // ── Platform actions ──
@@ -254,11 +339,9 @@ export default function Ads() {
     } catch (e) { setError(e.response?.data?.detail || 'Error removing platform'); }
   };
 
-  // ── Campaign actions ──
   const openNewCampaign = (platformId) => {
     setCampaignModal({ platformId });
     setCampaignForm({ daily_rate_usd: '', start_date: today(), end_date: '' });
-    setCampaignFieldErrors({});
     setError('');
   };
 
@@ -269,15 +352,14 @@ export default function Ads() {
       start_date: campaign.start_date.slice(0, 10),
       end_date: campaign.end_date ? campaign.end_date.slice(0, 10) : '',
     });
-    setCampaignFieldErrors({});
     setError('');
   };
 
   const saveCampaign = async () => {
     setError('');
-    const rateErr = validateAmount(campaignForm.daily_rate_usd);
-    if (rateErr) { setCampaignFieldErrors({ daily_rate_usd: rateErr }); return; }
-    setCampaignFieldErrors({});
+    if (!campaignForm.daily_rate_usd || parseFloat(campaignForm.daily_rate_usd) <= 0) {
+      setError('Enter a valid daily rate'); return;
+    }
     try {
       const payload = {
         platform_id: campaignModal.platformId,
@@ -310,7 +392,7 @@ export default function Ads() {
         platform_id: platform.id,
         daily_rate_usd: campaign.daily_rate_usd,
         start_date: campaign.start_date.slice(0, 10),
-        end_date: isRunning ? today() : null,  // stop → set today, resume → clear
+        end_date: isRunning ? today() : null,
       });
       load();
     } catch (e) { setError(e.response?.data?.detail || 'Error updating campaign'); }
@@ -327,50 +409,11 @@ export default function Ads() {
     finally { setCalcLoading(false); }
   };
 
-  // ── Meta Ads handlers ──
-  const handleMetaConnect = async () => {
-    if (!metaForm.token || !metaForm.accountId) return;
-    setMetaConnecting(true);
-    setMetaConnectError('');
-    try {
-      const res = await connectMeta({ access_token: metaForm.token, ad_account_id: metaForm.accountId });
-      setMetaStatus({ connected: true, account_name: res.data.account_name, currency: res.data.currency });
-      setMetaShowForm(false);
-      setMetaForm({ token: '', accountId: '' });
-    } catch (e) {
-      setMetaConnectError(e?.response?.data?.detail || 'Connection failed. Check your token and account ID.');
-    } finally {
-      setMetaConnecting(false);
-    }
-  };
-
-  const handleMetaDisconnect = async () => {
-    if (!confirm('Disconnect Meta Ads API?')) return;
-    await disconnectMeta().catch(() => {});
-    setMetaStatus({ connected: false });
-    setMetaData(null);
-  };
-
-  const handleMetaSync = async () => {
-    setMetaSyncing(true);
-    setMetaData(null);
-    setError('');
-    try {
-      const res = await syncMeta(metaSyncStart, metaSyncEnd);
-      setMetaData(res.data);
-    } catch (e) {
-      setError(e?.response?.data?.detail || 'Meta sync failed.');
-    } finally {
-      setMetaSyncing(false);
-    }
-  };
-
-  // ── Summary totals ──
+  // ── Summary ──
   const grandTotalMAD = platforms.reduce((sum, p) => sum + platformTotal(p.campaigns, usdRate), 0);
   const activeCount = platforms.reduce((sum, p) => sum + p.campaigns.filter(c => !c.end_date).length, 0);
-
-  // Already-added platform names (to filter catalogue)
   const addedNames = new Set(platforms.map(p => p.name));
+  const metaActive = metaCampaigns.filter(c => c.status === 'ACTIVE').length;
 
   if (loading) return <div className="loading">Loading ads...</div>;
 
@@ -390,14 +433,13 @@ export default function Ads() {
       {/* Exchange rate bar */}
       <div className="card" style={{ marginBottom: 16, padding: '12px 16px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-          {/* Toggle */}
           <div style={{ display: 'flex', background: '#12121a', borderRadius: 8, padding: 3, gap: 2 }}>
             <button
               onClick={() => toggleRateMode('manual')}
               style={{
                 padding: '5px 14px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 500,
                 background: rateMode === 'manual' ? '#2d3248' : 'transparent',
-                color: rateMode === 'manual' ? '#fff' : 'var(--t2)',
+                color: rateMode === 'manual' ? '#fff' : '#8892b0',
                 transition: 'all 0.15s',
               }}
             >Manual</button>
@@ -406,15 +448,13 @@ export default function Ads() {
               style={{
                 padding: '5px 14px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 500,
                 background: rateMode === 'market' ? '#00d48f22' : 'transparent',
-                color: rateMode === 'market' ? '#00d48f' : 'var(--t2)',
+                color: rateMode === 'market' ? '#00d48f' : '#8892b0',
                 transition: 'all 0.15s',
               }}
             >● Market Price</button>
           </div>
-
-          {/* Rate display */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ color: 'var(--t2)', fontSize: 13 }}>1 USD =</span>
+            <span style={{ color: '#8892b0', fontSize: 13 }}>1 USD =</span>
             {rateMode === 'manual' ? (
               <input
                 className="form-input"
@@ -430,14 +470,12 @@ export default function Ads() {
                 {fetchingRate ? '…' : fmt(usdRate)}
               </span>
             )}
-            <span style={{ color: 'var(--t2)', fontSize: 13 }}>MAD</span>
+            <span style={{ color: '#8892b0', fontSize: 13 }}>MAD</span>
           </div>
-
-          {/* Market mode extras */}
           {rateMode === 'market' && (
             <>
               {marketDate && !fetchingRate && (
-                <span style={{ fontSize: 12, color: 'var(--t2)' }}>as of {marketDate}</span>
+                <span style={{ fontSize: 12, color: '#8892b0' }}>as of {marketDate}</span>
               )}
               <button
                 className="btn btn-secondary btn-sm"
@@ -453,165 +491,189 @@ export default function Ads() {
         </div>
       </div>
 
-      {/* Meta Ads API Section */}
-      <div className="card" style={{ marginBottom: 16, padding: '14px 16px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            {/* Meta logo */}
-            <div style={{ width: 32, height: 32, borderRadius: 8, background: 'linear-gradient(135deg,#0082fb,#0045b5)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
-                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-              </svg>
-            </div>
-            <div>
-              <div style={{ fontWeight: 600, fontSize: 14 }}>Meta Ads API</div>
-              {metaStatus?.connected ? (
-                <div style={{ fontSize: 12, color: '#00d48f' }}>
-                  ● Connected · {metaStatus.account_name}
-                  {metaStatus.currency && metaStatus.currency !== 'USD' && (
-                    <span style={{ color: '#f59e0b', marginLeft: 6 }}>⚠ Account currency: {metaStatus.currency} (will show as-is)</span>
-                  )}
-                </div>
-              ) : (
-                <div style={{ fontSize: 12, color: 'var(--t2)' }}>Not connected · Pull real spend from Meta</div>
-              )}
+      {error && <div className="alert alert-error">{error}<button style={{ float: 'right', background: 'none', border: 'none', color: 'inherit', cursor: 'pointer' }} onClick={() => setError('')}>✕</button></div>}
+      {success && <div className="alert alert-success">{success}<button style={{ float: 'right', background: 'none', border: 'none', color: 'inherit', cursor: 'pointer' }} onClick={() => setSuccess('')}>✕</button></div>}
+
+      {/* ── META ADS SECTION ── */}
+      <div className="card" style={{ marginBottom: 20, borderTop: '3px solid #0866FF' }}>
+        {/* Meta header */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: metaStatus?.connected ? 16 : 0 }}>
+          <MetaLogo size={36} />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 700, fontSize: 16 }}>Meta Ads</div>
+            <div style={{ fontSize: 12, color: '#8892b0', marginTop: 2 }}>
+              {metaStatus?.connected
+                ? <><span style={{ color: '#00d48f' }}>● Connected</span> · {metaStatus.account_name} · {metaActive} active campaign{metaActive !== 1 ? 's' : ''}</>
+                : <span style={{ color: '#8892b0' }}>Not connected</span>}
             </div>
           </div>
-
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 6 }}>
             {metaStatus?.connected ? (
               <>
-                <button className="btn btn-secondary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: 5 }}
-                  onClick={handleMetaDisconnect}>
-                  <Unlink size={12} /> Disconnect
+                <button className="btn btn-primary btn-sm" onClick={() => setShowMetaCreate(true)} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <Plus size={13} /> New Campaign
                 </button>
-                <button className="btn btn-primary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: 5 }}
-                  onClick={() => setMetaShowForm(f => !f)}>
-                  <Zap size={12} /> Sync Data
+                <button className="btn btn-secondary btn-sm" onClick={loadMetaCampaigns} disabled={metaLoading} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <RefreshCw size={12} style={{ animation: metaLoading ? 'spin 1s linear infinite' : 'none' }} />
+                </button>
+                <button className="btn btn-danger btn-sm" onClick={handleMetaDisconnect} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <Unlink size={12} /> Disconnect
                 </button>
               </>
             ) : (
-              <button className="btn btn-primary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: 5 }}
-                onClick={() => setMetaShowForm(f => !f)}>
-                <Zap size={12} /> Connect
+              <button className="btn btn-primary btn-sm" onClick={() => setShowMetaConnect(true)} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <Link size={12} /> Connect Meta
               </button>
             )}
           </div>
         </div>
 
-        {/* Connect form */}
-        {metaShowForm && !metaStatus?.connected && (
-          <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
-            <div style={{ fontSize: 12, color: 'var(--t2)', marginBottom: 10 }}>
-              Get your access token from{' '}
-              <a href="https://developers.facebook.com/tools/explorer/" target="_blank" rel="noopener noreferrer"
-                style={{ color: 'var(--accent)' }}>
-                Meta Graph API Explorer
+        {/* Not connected prompt */}
+        {!metaStatus?.connected && !showMetaConnect && (
+          <div style={{ padding: '16px 0 4px', color: '#8892b0', fontSize: 13 }}>
+            Connect your Meta Ads account to view, pause, resume, and create campaigns directly from Stocky.
+          </div>
+        )}
+
+        {/* Connect form (inline) */}
+        {!metaStatus?.connected && showMetaConnect && (
+          <div style={{ marginTop: 16, padding: 16, background: '#0f1117', borderRadius: 10, border: '1px solid #2d3248' }}>
+            <div style={{ fontSize: 13, color: '#8892b0', marginBottom: 14 }}>
+              You need a <strong style={{ color: '#fff' }}>Meta Access Token</strong> and your <strong style={{ color: '#fff' }}>Ad Account ID</strong>.
+              {' '}<a href="https://developers.facebook.com/tools/explorer/" target="_blank" rel="noreferrer" style={{ color: '#0866FF', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                Get token <ExternalLink size={11} />
               </a>
-              {' '}(request <code>ads_read</code> permission). Your Ad Account ID is in{' '}
-              <a href="https://business.facebook.com/" target="_blank" rel="noopener noreferrer"
-                style={{ color: 'var(--accent)' }}>
-                Meta Business Suite
-              </a>.
             </div>
-            {metaConnectError && (
-              <div style={{ marginBottom: 10, padding: '8px 12px', borderRadius: 6, background: '#f8717122', border: '1px solid #f8717150', color: '#f87171', fontSize: 13 }}>
-                {metaConnectError}
-              </div>
-            )}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
               <div>
-                <label className="form-label">Access Token</label>
-                <input className="form-input" type="password" placeholder="EAA…"
-                  value={metaForm.token} onChange={e => setMetaForm(f => ({ ...f, token: e.target.value }))} />
+                <label className="form-label">Access Token *</label>
+                <input
+                  className="form-input"
+                  type="password"
+                  placeholder="EAAxxxxxx..."
+                  value={metaForm.access_token}
+                  onChange={e => setMetaForm({ ...metaForm, access_token: e.target.value })}
+                />
               </div>
               <div>
-                <label className="form-label">Ad Account ID</label>
-                <input className="form-input" type="text" placeholder="act_123456789 or 123456789"
-                  value={metaForm.accountId} onChange={e => setMetaForm(f => ({ ...f, accountId: e.target.value }))} />
+                <label className="form-label">Ad Account ID *</label>
+                <input
+                  className="form-input"
+                  type="text"
+                  placeholder="act_123456789 or 123456789"
+                  value={metaForm.ad_account_id}
+                  onChange={e => setMetaForm({ ...metaForm, ad_account_id: e.target.value })}
+                />
               </div>
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
-              <button className="btn btn-primary" onClick={handleMetaConnect} disabled={metaConnecting || !metaForm.token || !metaForm.accountId}>
+              <button className="btn btn-primary" onClick={handleMetaConnect} disabled={metaConnecting}>
                 {metaConnecting ? 'Connecting…' : 'Connect'}
               </button>
-              <button className="btn btn-secondary" onClick={() => { setMetaShowForm(false); setMetaConnectError(''); }}>Cancel</button>
+              <button className="btn btn-secondary" onClick={() => setShowMetaConnect(false)}>Cancel</button>
             </div>
           </div>
         )}
 
-        {/* Sync form */}
-        {metaShowForm && metaStatus?.connected && (
-          <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
-            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap', marginBottom: metaData ? 14 : 0 }}>
-              <div>
-                <label className="form-label">From</label>
-                <input className="form-input" type="date" value={metaSyncStart} onChange={e => setMetaSyncStart(e.target.value)} style={{ width: 150 }} />
-              </div>
-              <div>
-                <label className="form-label">To</label>
-                <input className="form-input" type="date" value={metaSyncEnd} onChange={e => setMetaSyncEnd(e.target.value)} style={{ width: 150 }} />
-              </div>
-              <button className="btn btn-primary" onClick={handleMetaSync} disabled={metaSyncing}>
-                {metaSyncing ? 'Syncing…' : 'Fetch from Meta'}
+        {/* Meta campaigns list */}
+        {metaStatus?.connected && (
+          metaLoading ? (
+            <div style={{ color: '#8892b0', fontSize: 13 }}>Loading campaigns…</div>
+          ) : metaCampaigns.length === 0 ? (
+            <div style={{ color: '#8892b0', fontSize: 13 }}>No campaigns found in this account.</div>
+          ) : (
+            <div className="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Status</th>
+                    <th>Campaign</th>
+                    <th>Objective</th>
+                    <th>Daily Budget</th>
+                    <th>Total Spent</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {metaCampaigns.map(c => {
+                    const isActive = c.status === 'ACTIVE';
+                    return (
+                      <tr key={c.id}>
+                        <td>
+                          <span style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 5,
+                            padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600,
+                            background: isActive ? '#0d2a1e' : '#2d3248',
+                            color: isActive ? '#00d48f' : '#8892b0',
+                          }}>
+                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: isActive ? '#00d48f' : '#8892b0', display: 'inline-block' }} />
+                            {isActive ? 'Active' : c.status === 'PAUSED' ? 'Paused' : c.status}
+                          </span>
+                        </td>
+                        <td style={{ fontWeight: 500, maxWidth: 220 }}>
+                          <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
+                          {c.start_time && <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>{c.start_time.slice(0, 10)}</div>}
+                        </td>
+                        <td style={{ fontSize: 12, color: '#8892b0' }}>
+                          {c.objective?.replace('OUTCOME_', '') || '—'}
+                        </td>
+                        <td>
+                          {c.daily_budget_usd != null
+                            ? <><span style={{ color: '#60a5fa', fontWeight: 600 }}>${fmt(c.daily_budget_usd)}</span><span style={{ color: '#8892b0', fontSize: 11 }}>/day</span></>
+                            : <span style={{ color: '#8892b0' }}>—</span>}
+                        </td>
+                        <td>
+                          <div style={{ fontWeight: 700, color: '#f59e0b' }}>${fmt(c.spend_all_time_usd)}</div>
+                          <div style={{ fontSize: 11, color: '#8892b0' }}>{fmt(c.spend_all_time_usd * usdRate)} MAD</div>
+                        </td>
+                        <td>
+                          {isActive ? (
+                            <button className="btn btn-secondary btn-sm" onClick={() => handlePause(c.id)} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                              <Pause size={11} /> Pause
+                            </button>
+                          ) : c.status === 'PAUSED' ? (
+                            <button className="btn btn-primary btn-sm" onClick={() => handleResume(c.id)} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                              <Play size={11} /> Resume
+                            </button>
+                          ) : null}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )
+        )}
+
+        {/* Meta spend for date range (inside Meta card, only when connected) */}
+        {metaStatus?.connected && (
+          <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #2d3248' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 13, color: '#8892b0' }}>Real spend from Meta:</span>
+              <input className="form-input" type="date" value={calcStart} onChange={e => setCalcStart(e.target.value)} style={{ width: 140 }} />
+              <span style={{ color: '#8892b0' }}>→</span>
+              <input className="form-input" type="date" value={calcEnd} onChange={e => setCalcEnd(e.target.value)} style={{ width: 140 }} />
+              <button className="btn btn-secondary btn-sm" onClick={runMetaSpend} disabled={metaSpendLoading}>
+                {metaSpendLoading ? 'Loading…' : 'Fetch Spend'}
               </button>
             </div>
-
-            {metaData && (
-              <div style={{ background: 'var(--bg)', borderRadius: 10, padding: 16, border: '1px solid var(--border)' }}>
-                {/* Totals row */}
-                <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', marginBottom: 14 }}>
-                  <div>
-                    <div style={{ fontSize: 12, color: 'var(--t2)' }}>Total Spend</div>
-                    <div style={{ fontSize: 22, fontWeight: 700, color: '#f59e0b' }}>
-                      {metaData.total_spend.toLocaleString(undefined, { minimumFractionDigits: 2 })} {metaData.currency}
-                    </div>
-                    {metaData.currency === 'USD' && (
-                      <div style={{ fontSize: 12, color: 'var(--t2)' }}>
-                        ≈ {(metaData.total_spend * usdRate).toLocaleString(undefined, { maximumFractionDigits: 0 })} MAD
-                      </div>
-                    )}
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 12, color: 'var(--t2)' }}>Impressions</div>
-                    <div style={{ fontSize: 22, fontWeight: 700 }}>{metaData.total_impressions.toLocaleString()}</div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 12, color: 'var(--t2)' }}>Clicks</div>
-                    <div style={{ fontSize: 22, fontWeight: 700 }}>{metaData.total_clicks.toLocaleString()}</div>
-                  </div>
-                  {metaData.total_clicks > 0 && (
-                    <div>
-                      <div style={{ fontSize: 12, color: 'var(--t2)' }}>CTR</div>
-                      <div style={{ fontSize: 22, fontWeight: 700 }}>
-                        {((metaData.total_clicks / metaData.total_impressions) * 100).toFixed(2)}%
-                      </div>
-                    </div>
-                  )}
+            {metaSpendResult && (
+              <div style={{ marginTop: 12, display: 'flex', gap: 20, flexWrap: 'wrap', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontSize: 11, color: '#8892b0' }}>Total Spend</div>
+                  <div style={{ fontWeight: 700, fontSize: 18, color: '#f59e0b' }}>${fmt(metaSpendResult.total_spend_usd)} <span style={{ fontSize: 12, color: '#8892b0' }}>USD</span></div>
+                  <div style={{ fontSize: 12, color: '#8892b0' }}>{fmt(metaSpendResult.total_spend_usd * usdRate)} MAD</div>
                 </div>
-
-                {/* Campaign breakdown */}
-                {metaData.campaigns.length > 0 && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.04em', textTransform: 'uppercase', color: 'var(--t2)', marginBottom: 2 }}>
-                      Campaigns ({metaData.date_start} → {metaData.date_stop})
-                    </div>
-                    {metaData.campaigns.map((c, i) => (
-                      <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'var(--card)', borderRadius: 8 }}>
-                        <span style={{ fontSize: 13, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
-                        <div style={{ display: 'flex', gap: 16, flexShrink: 0 }}>
-                          <span style={{ fontSize: 13, color: 'var(--t2)' }}>{c.impressions.toLocaleString()} imp</span>
-                          <span style={{ fontSize: 13, fontWeight: 600, color: '#f59e0b', minWidth: 80, textAlign: 'right' }}>
-                            {c.spend.toLocaleString(undefined, { minimumFractionDigits: 2 })} {metaData.currency}
-                          </span>
-                        </div>
+                {metaSpendResult.breakdown.length > 0 && (
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    {metaSpendResult.breakdown.map(b => (
+                      <div key={b.campaign} style={{ background: '#1d1d27', borderRadius: 6, padding: '4px 10px', fontSize: 12 }}>
+                        <span style={{ color: '#8892b0' }}>{b.campaign}: </span>
+                        <span style={{ color: '#60a5fa' }}>${fmt(b.spend_usd)}</span>
                       </div>
                     ))}
                   </div>
-                )}
-
-                {metaData.campaigns.length === 0 && (
-                  <div style={{ fontSize: 13, color: 'var(--t2)' }}>No campaign data found for this period.</div>
                 )}
               </div>
             )}
@@ -619,15 +681,12 @@ export default function Ads() {
         )}
       </div>
 
-      {error && <ErrorExplain message={error} page="Ads" />}
-      {success && <div className="alert alert-success">{success}<button style={{ float: 'right', background: 'none', border: 'none', color: 'inherit', cursor: 'pointer' }} onClick={() => setSuccess('')}>✕</button></div>}
-
       {/* Global summary */}
       {platforms.length > 0 && (
         <div className="stat-grid" style={{ marginBottom: 24 }}>
           <div className="stat-card">
-            <div className="stat-label">Total Spent (All Time)</div>
-            <div className="stat-value">{fmt(grandTotalMAD)} <span style={{ fontSize: 14, color: 'var(--t2)' }}>MAD</span></div>
+            <div className="stat-label">Total Spent (Manual Platforms)</div>
+            <div className="stat-value">{fmt(grandTotalMAD)} <span style={{ fontSize: 14, color: '#8892b0' }}>MAD</span></div>
             <div className="stat-sub">{platforms.length} platform{platforms.length !== 1 ? 's' : ''}</div>
           </div>
           <div className="stat-card">
@@ -637,8 +696,8 @@ export default function Ads() {
           </div>
           <div className="stat-card">
             <div className="stat-label">Exchange Rate</div>
-            <div className="stat-value">{fmt(usdRate)} <span style={{ fontSize: 14, color: 'var(--t2)' }}>MAD/USD</span></div>
-            <div className="stat-sub" style={{ color: rateMode === 'market' ? '#00d48f' : 'var(--t2)' }}>
+            <div className="stat-value">{fmt(usdRate)} <span style={{ fontSize: 14, color: '#8892b0' }}>MAD/USD</span></div>
+            <div className="stat-sub" style={{ color: rateMode === 'market' ? '#00d48f' : '#8892b0' }}>
               {rateMode === 'market' ? `live · ${marketDate || '…'}` : 'manual'}
             </div>
           </div>
@@ -650,7 +709,7 @@ export default function Ads() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
           <Calculator size={16} strokeWidth={1.75} style={{ color: '#00d48f' }} />
           <span style={{ fontWeight: 600 }}>Cost Per Order Calculator</span>
-          <span style={{ fontSize: 12, color: 'var(--t2)', marginLeft: 4 }}>uses order date, not upload date</span>
+          <span style={{ fontSize: 12, color: '#8892b0', marginLeft: 4 }}>uses order date, not upload date</span>
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
           <div>
@@ -670,18 +729,18 @@ export default function Ads() {
           <div style={{ marginTop: 16, padding: 16, background: '#0f1117', borderRadius: 10, border: '1px solid #2d3248' }}>
             <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', marginBottom: 14 }}>
               <div>
-                <div style={{ fontSize: 12, color: 'var(--t2)' }}>Orders in period</div>
+                <div style={{ fontSize: 12, color: '#8892b0' }}>Orders in period</div>
                 <div style={{ fontSize: 22, fontWeight: 700 }}>{calcResult.order_count}</div>
               </div>
               <div>
-                <div style={{ fontSize: 12, color: 'var(--t2)' }}>Total Ad Spend</div>
-                <div style={{ fontSize: 22, fontWeight: 700 }}>${fmt(calcResult.total_usd)} <span style={{ fontSize: 13, color: 'var(--t2)' }}>USD</span></div>
-                <div style={{ fontSize: 13, color: 'var(--t2)' }}>{fmt(calcResult.total_usd * usdRate)} MAD</div>
+                <div style={{ fontSize: 12, color: '#8892b0' }}>Total Ad Spend</div>
+                <div style={{ fontSize: 22, fontWeight: 700 }}>${fmt(calcResult.total_usd)} <span style={{ fontSize: 13, color: '#8892b0' }}>USD</span></div>
+                <div style={{ fontSize: 13, color: '#8892b0' }}>{fmt(calcResult.total_usd * usdRate)} MAD</div>
               </div>
               <div>
-                <div style={{ fontSize: 12, color: 'var(--t2)' }}>Cost per Order</div>
+                <div style={{ fontSize: 12, color: '#8892b0' }}>Cost per Order</div>
                 <div style={{ fontSize: 22, fontWeight: 700, color: '#00d48f' }}>
-                  {calcResult.order_count > 0 ? fmt(calcResult.total_usd * usdRate / calcResult.order_count) : '—'} <span style={{ fontSize: 13, color: 'var(--t2)' }}>MAD</span>
+                  {calcResult.order_count > 0 ? fmt(calcResult.total_usd * usdRate / calcResult.order_count) : '—'} <span style={{ fontSize: 13, color: '#8892b0' }}>MAD</span>
                 </div>
               </div>
             </div>
@@ -691,7 +750,7 @@ export default function Ads() {
                   <div key={b.platform} style={{ background: '#1d1d27', borderRadius: 8, padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span style={{ width: 8, height: 8, borderRadius: '50%', background: b.color, display: 'inline-block' }} />
                     <span style={{ fontSize: 13 }}>{b.platform}</span>
-                    <span style={{ fontSize: 13, color: 'var(--t2)' }}>${fmt(b.total_usd)}</span>
+                    <span style={{ fontSize: 13, color: '#8892b0' }}>${fmt(b.total_usd)}</span>
                   </div>
                 ))}
               </div>
@@ -703,33 +762,32 @@ export default function Ads() {
         )}
       </div>
 
-      {/* Platform cards */}
+      {/* Manual Platform cards */}
       {platforms.length === 0 ? (
         <div className="card">
           <div className="empty-state">
-            <Megaphone size={40} strokeWidth={1} style={{ margin: '0 auto 12px', color: 'var(--t2)' }} />
-            <h3>No platforms yet</h3>
-            <p>Click "Add Platform" to start tracking your ad spend</p>
+            <Megaphone size={40} strokeWidth={1} style={{ margin: '0 auto 12px', color: '#8892b0' }} />
+            <h3>No manual platforms yet</h3>
+            <p>Click "Add Platform" to track ad spend manually for other platforms</p>
           </div>
         </div>
       ) : (
         platforms.map(platform => {
           const totalMAD = platformTotal(platform.campaigns, usdRate);
           const running = platform.campaigns.find(c => !c.end_date);
-          const isExpanded = expanded[platform.id] !== false; // default open
+          const isExpanded = expanded[platform.id] !== false;
 
           return (
             <div key={platform.id} className="card" style={{ marginBottom: 16, borderTop: `3px solid ${platform.color}` }}>
-              {/* Platform header */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: isExpanded ? 16 : 0 }}>
                 <PlatformIcon name={platform.name} size={36} />
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 700, fontSize: 16 }}>{platform.label}</div>
-                  <div style={{ fontSize: 12, color: 'var(--t2)', marginTop: 2 }}>
+                  <div style={{ fontSize: 12, color: '#8892b0', marginTop: 2 }}>
                     {fmt(totalMAD)} MAD total ·{' '}
                     {running
                       ? <span style={{ color: '#00d48f' }}>● ${fmt(running.daily_rate_usd)}/day running</span>
-                      : <span style={{ color: 'var(--t2)' }}>no active campaign</span>}
+                      : <span style={{ color: '#8892b0' }}>no active campaign</span>}
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 6 }}>
@@ -745,10 +803,9 @@ export default function Ads() {
                 </div>
               </div>
 
-              {/* Campaigns list */}
               {isExpanded && (
                 platform.campaigns.length === 0 ? (
-                  <div style={{ color: 'var(--t2)', fontSize: 13, padding: '8px 0' }}>
+                  <div style={{ color: '#8892b0', fontSize: 13, padding: '8px 0' }}>
                     No campaigns yet. Click "+ Campaign" to add one.
                   </div>
                 ) : (
@@ -778,27 +835,26 @@ export default function Ads() {
                                     display: 'inline-flex', alignItems: 'center', gap: 6,
                                     padding: '4px 10px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600,
                                     background: isRunning ? '#0d2a1e' : '#2d3248',
-                                    color: isRunning ? '#00d48f' : 'var(--t2)',
+                                    color: isRunning ? '#00d48f' : '#8892b0',
                                   }}
                                 >
-                                  <span style={{ width: 7, height: 7, borderRadius: '50%', background: isRunning ? '#00d48f' : 'var(--t2)', display: 'inline-block' }} />
+                                  <span style={{ width: 7, height: 7, borderRadius: '50%', background: isRunning ? '#00d48f' : '#8892b0', display: 'inline-block' }} />
                                   {isRunning ? 'Running · Stop' : 'Stopped · Resume'}
                                 </button>
                               </td>
-                              <td style={{ fontSize: 12, color: 'var(--t2)' }}>
+                              <td style={{ fontSize: 12, color: '#8892b0' }}>
                                 {c.start_date.slice(0, 10)}
                                 {!isRunning && (
                                   <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>→ {c.end_date.slice(0, 10)}</div>
                                 )}
                               </td>
                               <td style={{ fontWeight: 600 }}>
-                                {days}
-                                <span style={{ fontSize: 11, color: 'var(--t2)', marginLeft: 4 }}>days</span>
+                                {days}<span style={{ fontSize: 11, color: '#8892b0', marginLeft: 4 }}>days</span>
                               </td>
                               <td style={{ color: '#60a5fa' }}>${fmt(c.daily_rate_usd)}</td>
                               <td>
                                 <div style={{ fontWeight: 700, fontSize: 15, color: '#f59e0b' }}>{fmt(totalMAD)} MAD</div>
-                                <div style={{ fontSize: 11, color: 'var(--t2)' }}>${fmt(days * c.daily_rate_usd)} USD</div>
+                                <div style={{ fontSize: 11, color: '#8892b0' }}>${fmt(days * c.daily_rate_usd)} USD</div>
                               </td>
                               <td>
                                 <div style={{ display: 'flex', gap: 4 }}>
@@ -852,7 +908,7 @@ export default function Ads() {
                   </button>
                 ))}
                 {PLATFORM_CATALOGUE.every(p => addedNames.has(p.name)) && (
-                  <div style={{ color: 'var(--t2)', textAlign: 'center', padding: 16 }}>All platforms already added</div>
+                  <div style={{ color: '#8892b0', textAlign: 'center', padding: 16 }}>All platforms already added</div>
                 )}
               </div>
             </div>
@@ -878,9 +934,8 @@ export default function Ads() {
                 <input className="form-input" type="number" min="0" step="0.5" placeholder="e.g. 5"
                   value={campaignForm.daily_rate_usd}
                   onChange={e => setCampaignForm({ ...campaignForm, daily_rate_usd: e.target.value })} />
-                {campaignFieldErrors.daily_rate_usd && <div style={fieldErrorStyle}>{campaignFieldErrors.daily_rate_usd}</div>}
                 {campaignForm.daily_rate_usd && parseFloat(campaignForm.daily_rate_usd) > 0 && (
-                  <div style={{ marginTop: 4, fontSize: 12, color: 'var(--t2)' }}>
+                  <div style={{ marginTop: 4, fontSize: 12, color: '#8892b0' }}>
                     ≈ {fmt(parseFloat(campaignForm.daily_rate_usd) * usdRate)} MAD/day
                   </div>
                 )}
@@ -892,13 +947,13 @@ export default function Ads() {
                     onChange={e => setCampaignForm({ ...campaignForm, start_date: e.target.value })} />
                 </div>
                 <div>
-                  <label className="form-label">End Date <span style={{ color: 'var(--t2)', fontWeight: 400 }}>(optional)</span></label>
+                  <label className="form-label">End Date <span style={{ color: '#8892b0', fontWeight: 400 }}>(optional)</span></label>
                   <input className="form-input" type="date" value={campaignForm.end_date}
                     onChange={e => setCampaignForm({ ...campaignForm, end_date: e.target.value })} />
                 </div>
               </div>
               {!campaignForm.end_date && (
-                <div style={{ marginTop: 10, fontSize: 12, color: 'var(--t2)', background: '#1d1d27', padding: '8px 12px', borderRadius: 6 }}>
+                <div style={{ marginTop: 10, fontSize: 12, color: '#8892b0', background: '#1d1d27', padding: '8px 12px', borderRadius: 6 }}>
                   No end date = runs until you add a new campaign (auto-closes this one).
                 </div>
               )}
@@ -908,6 +963,64 @@ export default function Ads() {
               <button className="btn btn-primary" onClick={saveCampaign}>
                 {campaignModal.campaign ? 'Save Changes' : 'Add Campaign'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create Meta Campaign Modal */}
+      {showMetaCreate && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <div className="modal-header">
+              <h2>New Meta Campaign</h2>
+              <button className="btn-icon" onClick={() => { setShowMetaCreate(false); setError(''); }}>✕</button>
+            </div>
+            <div className="modal-body">
+              {error && <div className="alert alert-error">{error}</div>}
+              <div style={{ marginBottom: 14, padding: '10px 12px', background: '#1d1d27', borderRadius: 8, fontSize: 12, color: '#8892b0' }}>
+                This creates a campaign shell in Meta. You'll need to add Ad Sets and Ads inside Meta Business Manager before it can run.
+              </div>
+              <div style={{ marginBottom: 14 }}>
+                <label className="form-label">Campaign Name *</label>
+                <input className="form-input" type="text" placeholder="e.g. Summer Sale 2025"
+                  value={metaCreateForm.name}
+                  onChange={e => setMetaCreateForm({ ...metaCreateForm, name: e.target.value })} />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+                <div>
+                  <label className="form-label">Objective</label>
+                  <select className="form-input" value={metaCreateForm.objective}
+                    onChange={e => setMetaCreateForm({ ...metaCreateForm, objective: e.target.value })}>
+                    {META_OBJECTIVES.map(o => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="form-label">Start Status</label>
+                  <select className="form-input" value={metaCreateForm.status}
+                    onChange={e => setMetaCreateForm({ ...metaCreateForm, status: e.target.value })}>
+                    <option value="PAUSED">Paused (recommended)</option>
+                    <option value="ACTIVE">Active</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="form-label">Daily Budget (USD) *</label>
+                <input className="form-input" type="number" min="1" step="0.5" placeholder="e.g. 10"
+                  value={metaCreateForm.daily_budget}
+                  onChange={e => setMetaCreateForm({ ...metaCreateForm, daily_budget: e.target.value })} />
+                {metaCreateForm.daily_budget && parseFloat(metaCreateForm.daily_budget) > 0 && (
+                  <div style={{ marginTop: 4, fontSize: 12, color: '#8892b0' }}>
+                    ≈ {fmt(parseFloat(metaCreateForm.daily_budget) * usdRate)} MAD/day
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => { setShowMetaCreate(false); setError(''); }}>Cancel</button>
+              <button className="btn btn-primary" onClick={handleMetaCreate}>Create in Meta</button>
             </div>
           </div>
         </div>

@@ -26,12 +26,8 @@ api.interceptors.response.use(
 export const register = (data) => api.post('/auth/register', data);
 export const login = (data) => api.post('/auth/login', data);
 export const googleLogin = (data) => api.post('/auth/google', data);
-export const changePassword   = (data) => api.post('/auth/change-password', data);
-export const updateStoreName  = (data) => api.patch('/auth/update-store', data);
-export const updateUsername   = (data) => api.patch('/auth/update-username', data);
-export const updateProfile    = (data) => api.patch('/auth/update-profile', data);
-export const forgotPassword   = (data) => api.post('/auth/forgot-password', data);
-export const resetPassword    = (data) => api.post('/auth/reset-password', data);
+export const changePassword = (data) => api.post('/auth/change-password', data);
+export const updateStoreName = (data) => api.patch('/auth/update-store', data);
 
 // Products
 export const getProducts = () => api.get('/products');
@@ -66,7 +62,7 @@ export const deleteArrival = (id) => api.delete(`/stock/arrivals/${id}`);
 export const adjustStock = (variantId, stock) => api.put(`/stock/variants/${variantId}/stock`, { stock });
 
 // Orders
-export const getOrders = (params = {}) => api.get('/orders', { params });
+export const getOrders = (status) => api.get('/orders', { params: status ? { status } : {} });
 export const getOrder = (id) => api.get(`/orders/${id}`);
 export const uploadPickupPDF = (file) => {
   const form = new FormData();
@@ -83,17 +79,9 @@ export const processReturns = (returns) => api.post('/orders/process-returns', {
 export const updateOrder = (id, data) => api.put(`/orders/${id}`, data);
 export const updateOrderStatus = (id, status) => api.put(`/orders/${id}/status`, null, { params: { status } });
 export const bulkUpdateOrderStatus = (order_ids, status) => api.post('/orders/bulk-status', { order_ids, status });
-export const confirmPickup = () => api.post('/orders/confirm-pickup');
 export const updateOrderNotes = (id, notes) => api.patch(`/orders/${id}/notes`, { notes });
-export const reportOrder = (id, reported_date) => api.patch(`/orders/${id}/report`, null, { params: { reported_date } });
 export const deleteOrder = (id) => api.delete(`/orders/${id}`);
-export const sendToOlivraison    = (id) => api.post(`/olivraison/send/${id}`);
-export const sendToForcelog      = (id) => api.post(`/forcelog/send/${id}`);
-export const getForcelogStatus   = (id) => api.get(`/forcelog/status/${id}`);
-export const syncAllForcelog       = () => api.post('/forcelog/sync-all');
-export const syncAllOlivraison     = () => api.post('/olivraison/sync-all');
-export const requestOlivRamassage  = () => api.post('/olivraison/ramassage');
-export const requestForcelogRamassage = () => api.post('/forcelog/ramassage');
+export const sendToOlivraison = (id) => api.post(`/olivraison/send/${id}`);
 
 // Team
 export const getTeam = () => api.get('/team');
@@ -131,17 +119,18 @@ export const deleteAdCampaign = (id) => api.delete(`/expenses/campaigns/${id}`);
 // Cost per order
 export const getAdCostPerOrder = (start, end) => api.get('/expenses/cost-per-order', { params: { start, end } });
 
-// Meta Ads API
-export const getMetaStatus  = ()                     => api.get('/meta/status');
-export const connectMeta    = (data)                 => api.post('/meta/connect', data);
-export const disconnectMeta = ()                     => api.delete('/meta/disconnect');
-export const syncMeta       = (start, end)           => api.get('/meta/sync', { params: { start, end } });
+// Meta Ads
+export const getMetaStatus = () => api.get('/meta/status');
+export const connectMeta = (data) => api.post('/meta/connect', data);
+export const disconnectMeta = () => api.delete('/meta/disconnect');
+export const getMetaCampaigns = () => api.get('/meta/campaigns');
+export const pauseMetaCampaign = (id) => api.post(`/meta/campaigns/${id}/pause`);
+export const resumeMetaCampaign = (id) => api.post(`/meta/campaigns/${id}/resume`);
+export const createMetaCampaign = (data) => api.post('/meta/campaigns', data);
+export const getMetaSpend = (start, end) => api.get('/meta/spend', { params: { start, end } });
 
 // Reports
 export const getReportSummary = (params) => api.get('/reports/summary', { params });
-export const getDashboardStats       = (params) => api.get('/reports/dashboard', { params });
-export const getDashboardAttention   = ()       => api.get('/reports/attention');
-export const getDashboardWeekSummary = ()       => api.get('/reports/week-summary');
 export const getMyStats = (params) => api.get('/reports/my-stats', { params });
 export const getTopProducts = (params) => api.get('/reports/top-products', { params });
 export const getTopCities = (params) => api.get('/reports/top-cities', { params });
@@ -173,19 +162,12 @@ export const addSupplierPayment = (id, data) => api.post(`/suppliers/${id}/payme
 export const deleteSupplierPayment = (id) => api.delete(`/suppliers/payments/${id}`);
 
 // Leads
-export const getLeads         = ()              => api.get('/leads');
-export const deleteLead       = (id)             => api.delete(`/leads/${id}`);
-export const confirmLead      = (id)             => api.post(`/leads/${id}/confirm`);
-export const cancelLead       = (id)             => api.post(`/leads/${id}/cancel`);
-export const notAnsweringLead = (id)             => api.post(`/leads/${id}/not-answering`);
-export const reportLead       = (id, date)       => api.post(`/leads/${id}/report`, null, { params: { reported_date: date } });
+export const getLeads    = ()    => api.get('/leads');
+export const deleteLead  = (id)  => api.delete(`/leads/${id}`);
+export const confirmLead = (id)  => api.post(`/leads/${id}/confirm`);
+export const cancelLead  = (id)  => api.post(`/leads/${id}/cancel`);
 export const getApiKey   = ()    => api.get('/leads/api-key');
 export const rotateApiKey = ()   => api.post('/leads/api-key/rotate');
-
-// Notifications
-export const getNotifications    = ()   => api.get('/notifications');
-export const markNotificationRead = (id) => api.patch(`/notifications/${id}/read`);
-export const markAllNotificationsRead = () => api.patch('/notifications/read-all');
 
 // Platform (super admin)
 export const getPlatformStats        = () => api.get('/platform/stats');
@@ -196,12 +178,6 @@ export const updateStoreStatus       = (storeId, isApproved) => api.patch(`/plat
 export const updateStoreSubscription = (storeId, data) => api.patch(`/platform/stores/${storeId}/subscription`, data);
 export const updateStoreNotes        = (storeId, data) => api.patch(`/platform/stores/${storeId}/notes`, data);
 export const resetStorePassword      = (storeId, newPassword) => api.post(`/platform/stores/${storeId}/reset-password`, { new_password: newPassword });
-export const deleteStore             = (storeId) => api.delete(`/platform/stores/${storeId}`);
-export const importStoreExcel        = (storeId, file) => {
-  const form = new FormData();
-  form.append('file', file);
-  return api.post(`/platform/stores/${storeId}/import-excel`, form, { headers: { 'Content-Type': 'multipart/form-data' } });
-};
 export const getStorePayments        = (storeId) => api.get(`/platform/stores/${storeId}/payments`);
 export const addStorePayment         = (storeId, data) => api.post(`/platform/stores/${storeId}/payments`, data);
 export const deletePayment           = (paymentId) => api.delete(`/platform/payments/${paymentId}`);
@@ -212,18 +188,3 @@ export const getPlatformExpenses     = (month) => api.get('/platform/expenses', 
 export const createPlatformExpense   = (data) => api.post('/platform/expenses', data);
 export const updatePlatformExpense   = (id, data) => api.patch(`/platform/expenses/${id}`, data);
 export const deletePlatformExpense   = (id) => api.delete(`/platform/expenses/${id}`);
-
-// AI
-export const explainError = (data) => api.post('/ai/explain-error', data);
-
-// Shared error message helper
-export function errorMessage(e) {
-  if (!e.response) return "Cannot reach server — check your connection";
-  const detail = e.response?.data?.detail;
-  if (detail) return typeof detail === 'string' ? detail : JSON.stringify(detail);
-  if (e.response.status === 500) return "Server error — try again or contact support";
-  if (e.response.status === 422) return "Invalid data — check your inputs";
-  if (e.response.status === 403) return "You don't have permission to do this";
-  if (e.response.status === 404) return "Not found";
-  return `Something went wrong (${e.response.status})`;
-}
