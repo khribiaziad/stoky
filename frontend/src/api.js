@@ -140,6 +140,9 @@ export const getCities = () => api.get('/reports/cities');
 export const getSetting = (key) => api.get(`/settings/${key}`);
 export const setSetting = (key, value) => api.post(`/settings/${key}`, null, { params: { value } });
 
+// AI
+export const explainError = (data) => api.post('/ai/explain-error', data);
+
 // City management (CRUD)
 export const getCityList = () => api.get('/cities');
 export const createCity = (data) => api.post('/cities', data);
