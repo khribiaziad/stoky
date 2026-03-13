@@ -221,12 +221,14 @@ def delete_campaign(campaign_id: int, db: Session = Depends(get_db), user: model
 
 @router.get("/cost-per-order")
 def cost_per_order(start: str, end: str, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
-    """Calculate total ad spend and cost per order for a date range, using order_date."""
+    """Calculate total ad spend and cost per order for a date range, using order_date.
+    If Meta is connected, uses real Meta spend. Manual platforms cover non-Meta spend."""
+    import httpx
     from auth import get_store_id
     start_dt = datetime.fromisoformat(start)
     end_dt = datetime.fromisoformat(end).replace(hour=23, minute=59, second=59)
 
-    # Count orders in range using order_date (not created_at — handles late uploads)
+    # Count orders in range using order_date
     order_count = db.query(models.Order).filter(
         models.Order.user_id == get_store_id(user),
         models.Order.order_date >= start_dt,
@@ -234,16 +236,51 @@ def cost_per_order(start: str, end: str, db: Session = Depends(get_db), user: mo
         models.Order.status != "cancelled",
     ).count()
 
-    # Sum ad spend across all platforms for overlapping campaign days
-    platforms = db.query(models.AdPlatform).filter(models.AdPlatform.user_id == user.id).all()
     total_usd = 0.0
     breakdown = []
+
+    # ── Real Meta spend (if connected) ──────────────────────────
+    meta_token = db.query(models.AppSettings).filter(
+        models.AppSettings.key == "meta_access_token",
+        models.AppSettings.user_id == user.id,
+    ).first()
+    meta_account = db.query(models.AppSettings).filter(
+        models.AppSettings.key == "meta_ad_account_id",
+        models.AppSettings.user_id == user.id,
+    ).first()
+
+    meta_connected = bool(meta_token and meta_account)
+    if meta_connected:
+        try:
+            resp = httpx.get(
+                f"https://graph.facebook.com/v19.0/{meta_account.value}/insights",
+                params={
+                    "access_token": meta_token.value,
+                    "fields": "spend",
+                    "time_range": f'{{"since":"{start}","until":"{end}"}}',
+                    "level": "account",
+                },
+                timeout=15,
+            )
+            if resp.status_code == 200:
+                data = resp.json().get("data", [])
+                meta_spend = sum(float(d.get("spend", 0)) for d in data)
+                if meta_spend > 0:
+                    total_usd += meta_spend
+                    breakdown.append({"platform": "Meta Ads", "color": "#0866FF", "total_usd": round(meta_spend, 2)})
+        except Exception:
+            pass  # fall back to manual if Meta call fails
+
+    # ── Manual platforms (skip facebook platform if Meta is connected) ──
+    platforms = db.query(models.AdPlatform).filter(models.AdPlatform.user_id == user.id).all()
     for p in platforms:
+        # Skip facebook manual tracking if Meta API is connected
+        if meta_connected and p.name == "facebook":
+            continue
         platform_usd = 0.0
         for c in p.campaigns:
             c_start = c.start_date
             c_end = c.end_date if c.end_date else datetime.now()
-            # Find overlap between campaign and query range
             overlap_start = max(c_start, start_dt)
             overlap_end = min(c_end, end_dt)
             if overlap_end > overlap_start:
@@ -259,6 +296,7 @@ def cost_per_order(start: str, end: str, db: Session = Depends(get_db), user: mo
         "order_count": order_count,
         "total_usd": round(total_usd, 2),
         "breakdown": breakdown,
+        "meta_connected": meta_connected,
     }
 
 

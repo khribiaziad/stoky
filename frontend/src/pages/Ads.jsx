@@ -709,7 +709,10 @@ export default function Ads() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
           <Calculator size={16} strokeWidth={1.75} style={{ color: '#00d48f' }} />
           <span style={{ fontWeight: 600 }}>Cost Per Order Calculator</span>
-          <span style={{ fontSize: 12, color: '#8892b0', marginLeft: 4 }}>uses order date, not upload date</span>
+          {metaStatus?.connected
+            ? <span style={{ fontSize: 12, color: '#0866FF', marginLeft: 4 }}>● using real Meta spend</span>
+            : <span style={{ fontSize: 12, color: '#8892b0', marginLeft: 4 }}>uses manual platform rates</span>
+          }
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
           <div>
