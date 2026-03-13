@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   LayoutDashboard, Package, Tag, Gift, Warehouse,
-  Users, BarChart2, Megaphone, Receipt, LogOut, Menu, X, Settings as SettingsIcon, UserCheck, Truck, Bell,
+  Users, BarChart2, Megaphone, Receipt, LogOut, Menu, X, Settings as SettingsIcon, UserCheck, Truck, Bell, MessageCircle,
 } from 'lucide-react';
 import { getSetting, getNotifications, markNotificationRead, markAllNotificationsRead } from './api';
 import Dashboard from './pages/Dashboard';
@@ -16,6 +16,7 @@ import Expenses from './pages/Expenses';
 import Settings from './pages/Settings';
 import Leads from './pages/Leads';
 import Suppliers from './pages/Suppliers';
+import WhatsApp from './pages/WhatsApp';
 import Login from './pages/Login';
 import Setup from './pages/Setup';
 import PlatformLayout from './pages/platform/PlatformLayout';
@@ -27,18 +28,21 @@ const T = {
     packs: 'Packs',         stock: 'Stock',       team: 'Team',
     expenses: 'Expenses',   ads: 'Ads',           reports: 'Reports',
     settings: 'Settings',   leads: 'Leads',       suppliers: 'Suppliers',
+    whatsapp: 'WhatsApp',
   },
   fr: {
     dashboard: 'Tableau de bord', orders: 'Commandes', products: 'Produits',
     packs: 'Packs',               stock: 'Stock',      team: 'Équipe',
     expenses: 'Dépenses',         ads: 'Publicités',   reports: 'Rapports',
     settings: 'Paramètres',       leads: 'Prospects',  suppliers: 'Fournisseurs',
+    whatsapp: 'WhatsApp',
   },
   ar: {
     dashboard: 'لوحة التحكم', orders: 'الطلبات',    products: 'المنتجات',
     packs: 'الحزم',           stock: 'المخزون',      team: 'الفريق',
     expenses: 'المصاريف',     ads: 'الإعلانات',      reports: 'التقارير',
     settings: 'الإعدادات',    leads: 'العملاء',      suppliers: 'الموردون',
+    whatsapp: 'واتساب',
   },
 };
 
@@ -59,6 +63,7 @@ const ADMIN_NAV = [
 
 const CONFIRMER_NAV = [
   { id: 'dashboard', Icon: LayoutDashboard },
+  { id: 'whatsapp',  Icon: MessageCircle },
   { id: 'orders',    Icon: Package },
   { id: 'products',  Icon: Tag },
   { id: 'packs',     Icon: Gift },
@@ -265,6 +270,7 @@ export default function App() {
     orders:    <Orders user={user} />,
     leads:     <Leads />,
     suppliers: <Suppliers />,
+    whatsapp:  <WhatsApp />,
     products:  <Products readOnly={isConfirmer} />,
     packs:     <Packs readOnly={isConfirmer} />,
     stock:     <Stock readOnly={isConfirmer} />,
