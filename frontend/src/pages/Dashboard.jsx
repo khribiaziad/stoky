@@ -271,17 +271,17 @@ export default function Dashboard({ onNavigate, user, lang = 'en' }) {
                   { label: t.returned,  val: o.cancelled ?? 0, cls: 'badge-red' },
                 ].map(row => (
                   <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ color: '#8892b0' }}>{row.label}</span>
+                    <span style={{ color: 'var(--t2)' }}>{row.label}</span>
                     <span className={`badge ${row.cls}`}>{row.val}</span>
                   </div>
                 ))}
                 <hr className="divider" />
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#8892b0' }}>{t.deliveryRate}</span>
+                  <span style={{ color: 'var(--t2)' }}>{t.deliveryRate}</span>
                   <span style={{ color: '#4ade80', fontWeight: 600 }}>{o.delivery_rate ?? 0}%</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#8892b0' }}>{t.returnRate}</span>
+                  <span style={{ color: 'var(--t2)' }}>{t.returnRate}</span>
                   <span style={{ color: '#f87171', fontWeight: 600 }}>{o.return_rate ?? 0}%</span>
                 </div>
               </div>
@@ -347,7 +347,7 @@ export default function Dashboard({ onNavigate, user, lang = 'en' }) {
             <>
               <input className="form-input" type="date" style={{ width: isMobile ? '100%' : 'auto' }}
                 value={customStart} onChange={e => setCustomStart(e.target.value)} />
-              <span style={{ color: '#8892b0' }}>{t.to}</span>
+              <span style={{ color: 'var(--t2)' }}>{t.to}</span>
               <input className="form-input" type="date" style={{ width: isMobile ? '100%' : 'auto' }}
                 value={customEnd} onChange={e => setCustomEnd(e.target.value)} />
               <button className="btn btn-primary btn-sm"
@@ -388,7 +388,7 @@ export default function Dashboard({ onNavigate, user, lang = 'en' }) {
                     onClick={() => onNavigate(c.nav)}
                     style={{
                       position: 'relative', borderRadius: 10, padding: '14px 16px',
-                      background: active ? `${c.color}08` : 'var(--card)',
+                      background: active ? `${c.color}18` : 'var(--card)',
                       border: `1px solid var(--border)`,
                       borderLeft: `3px solid ${active ? c.color : 'var(--border)'}`,
                       opacity: active ? 1 : 0.45,
@@ -458,12 +458,12 @@ export default function Dashboard({ onNavigate, user, lang = 'en' }) {
           {returnAlert && (
             <div style={{
               display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16,
-              padding: '12px 16px', borderRadius: 10, background: '#f8717114', border: '1px solid #f8717144',
+              padding: '12px 16px', borderRadius: 10, background: '#f8717122', border: '1px solid #f8717155',
             }}>
               <span style={{ fontSize: 20 }}>⚠️</span>
               <div>
                 <span style={{ fontWeight: 700, color: '#f87171' }}>High return rate — {returnRate}%</span>
-                <span style={{ color: '#8892b0', fontSize: 13, marginLeft: 8 }}>for the selected period</span>
+                <span style={{ color: 'var(--t2)', fontSize: 13, marginLeft: 8 }}>for the selected period</span>
               </div>
             </div>
           )}
@@ -479,8 +479,8 @@ export default function Dashboard({ onNavigate, user, lang = 'en' }) {
                 {card.key === 'in_delivery' && inDeliveryAmount > 0 && (
                   <div style={{ fontSize: 12, color: '#60a5fa', marginTop: 4 }}>
                     {inDeliveryAmount.toLocaleString()} MAD
-                    {olivAmount > 0 && <span style={{ color: '#8892b0', marginLeft: 6 }}>🚚 {olivAmount.toLocaleString()}</span>}
-                    {forceAmount > 0 && <span style={{ color: '#8892b0', marginLeft: 6 }}>📦 {forceAmount.toLocaleString()}</span>}
+                    {olivAmount > 0 && <span style={{ color: 'var(--t2)', marginLeft: 6 }}>🚚 {olivAmount.toLocaleString()}</span>}
+                    {forceAmount > 0 && <span style={{ color: 'var(--t2)', marginLeft: 6 }}>📦 {forceAmount.toLocaleString()}</span>}
                   </div>
                 )}
                 {hasPrev && (
@@ -498,12 +498,12 @@ export default function Dashboard({ onNavigate, user, lang = 'en' }) {
                 {cleanProfit.toLocaleString()} MAD
               </div>
             </div>
-            <div className="stat-card" style={{ background: confRate !== null && confRate < 50 ? '#f8717108' : '#4ade8008', border: `1px solid ${confRate !== null && confRate < 50 ? '#f8717122' : '#4ade8022'}` }}>
+            <div className="stat-card" style={{ background: confRate !== null && confRate < 50 ? '#f8717118' : '#4ade8018', border: `1px solid ${confRate !== null && confRate < 50 ? '#f8717140' : '#4ade8040'}` }}>
               <div className="stat-label">Confirmation Rate</div>
-              <div className="stat-value" style={{ color: confRate === null ? '#8892b0' : confRate >= 70 ? '#4ade80' : confRate >= 50 ? '#fbbf24' : '#f87171' }}>
+              <div className="stat-value" style={{ color: confRate === null ? 'var(--t2)' : confRate >= 70 ? '#4ade80' : confRate >= 50 ? '#fbbf24' : '#f87171' }}>
                 {confRate !== null ? `${confRate}%` : '—'}
               </div>
-              <div style={{ fontSize: 12, color: '#8892b0', marginTop: 4 }}>of orders past confirmation</div>
+              <div style={{ fontSize: 12, color: 'var(--t2)', marginTop: 4 }}>of orders past confirmation</div>
             </div>
           </div>
 
@@ -526,11 +526,11 @@ export default function Dashboard({ onNavigate, user, lang = 'en' }) {
                   <div className="card-title" style={{ marginBottom: 16 }}>Orders — Last 7 Days</div>
                   <ResponsiveContainer width="100%" height={160}>
                     <LineChart data={dailyOrders} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
-                      <XAxis dataKey="day" tick={{ fill: '#8892b0', fontSize: 12 }} axisLine={false} tickLine={false} />
-                      <YAxis tick={{ fill: '#8892b0', fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
+                      <XAxis dataKey="day" tick={{ fill: 'var(--t2)', fontSize: 12 }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fill: 'var(--t2)', fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
                       <Tooltip
                         contentStyle={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13 }}
-                        labelStyle={{ color: '#e2e8f0' }}
+                        labelStyle={{ color: 'var(--t1)' }}
                         itemStyle={{ color: '#00d48f' }}
                       />
                       <Line type="monotone" dataKey="orders" stroke="#00d48f" strokeWidth={2.5} dot={{ fill: '#00d48f', r: 4 }} activeDot={{ r: 6 }} />
@@ -542,7 +542,7 @@ export default function Dashboard({ onNavigate, user, lang = 'en' }) {
                 <div className="card">
                   <div className="card-title" style={{ marginBottom: 16 }}>Order Pipeline</div>
                   {total === 0 ? (
-                    <div style={{ color: '#8892b0', fontSize: 13 }}>No orders for this period.</div>
+                    <div style={{ color: 'var(--t2)', fontSize: 13 }}>No orders for this period.</div>
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                       {funnelRows.map(row => {
@@ -550,8 +550,8 @@ export default function Dashboard({ onNavigate, user, lang = 'en' }) {
                         return (
                           <div key={row.label}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5, fontSize: 13 }}>
-                              <span style={{ color: '#8892b0' }}>{row.label}</span>
-                              <span style={{ fontWeight: 600, color: row.color }}>{row.val} <span style={{ color: '#8892b0', fontWeight: 400 }}>({pct}%)</span></span>
+                              <span style={{ color: 'var(--t2)' }}>{row.label}</span>
+                              <span style={{ fontWeight: 600, color: row.color }}>{row.val} <span style={{ color: 'var(--t2)', fontWeight: 400 }}>({pct}%)</span></span>
                             </div>
                             <div style={{ background: 'var(--bg)', borderRadius: 999, height: 7, overflow: 'hidden' }}>
                               <div style={{ height: '100%', borderRadius: 999, width: `${pct}%`, background: row.color, transition: 'width 0.4s ease' }} />
@@ -573,7 +573,7 @@ export default function Dashboard({ onNavigate, user, lang = 'en' }) {
             <div className="card">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
                 <div className="card-title" style={{ margin: 0 }}>{t.dailyGoal}</div>
-                <span style={{ fontSize: 11, color: '#8892b0', background: 'var(--bg)', padding: '2px 8px', borderRadius: 6, fontWeight: 500 }}>
+                <span style={{ fontSize: 11, color: 'var(--t2)', background: 'var(--bg)', padding: '2px 8px', borderRadius: 6, fontWeight: 500 }}>
                   {t.goalToday}
                 </span>
               </div>
@@ -598,12 +598,12 @@ export default function Dashboard({ onNavigate, user, lang = 'en' }) {
                   <span style={{ fontSize: 30, fontWeight: 700, color: '#60a5fa' }}>
                     {todayRevenue.toLocaleString()}
                   </span>
-                  <span style={{ color: '#8892b0', fontSize: 14 }}>
+                  <span style={{ color: 'var(--t2)', fontSize: 14 }}>
                     / {dailyGoal > 0 ? `${dailyGoal.toLocaleString()} MAD` : '— MAD'}
                   </span>
                   <button
                     onClick={() => { setGoalInput(dailyGoal > 0 ? String(dailyGoal) : ''); setEditingGoal(true); }}
-                    style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#8892b0', cursor: 'pointer', fontSize: 14, padding: 0 }}
+                    style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--t2)', cursor: 'pointer', fontSize: 14, padding: 0 }}
                     title="Set goal"
                   >✎</button>
                 </div>
@@ -619,10 +619,10 @@ export default function Dashboard({ onNavigate, user, lang = 'en' }) {
                     }} />
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-                    <span style={{ color: clampedPct >= 100 ? '#4ade80' : '#8892b0', fontWeight: 500 }}>
+                    <span style={{ color: clampedPct >= 100 ? '#4ade80' : 'var(--t2)', fontWeight: 500 }}>
                       {pct.toFixed(1)}%
                     </span>
-                    <span style={{ color: clampedPct >= 100 ? '#4ade80' : '#8892b0' }}>
+                    <span style={{ color: clampedPct >= 100 ? '#4ade80' : 'var(--t2)' }}>
                       {clampedPct >= 100
                         ? t.goalReached
                         : `${(dailyGoal - todayRevenue).toLocaleString(undefined, { maximumFractionDigits: 0 })} ${t.goalToGo}`}
@@ -630,7 +630,7 @@ export default function Dashboard({ onNavigate, user, lang = 'en' }) {
                   </div>
                 </>
               ) : (
-                <div style={{ fontSize: 13, color: '#8892b0' }}>{t.goalHint}</div>
+                <div style={{ fontSize: 13, color: 'var(--t2)' }}>{t.goalHint}</div>
               )}
             </div>
 
@@ -638,7 +638,7 @@ export default function Dashboard({ onNavigate, user, lang = 'en' }) {
             <div className="card">
               <div className="card-title">{t.teamToday}</div>
               {teamToday.length === 0 ? (
-                <div style={{ color: '#8892b0', fontSize: 13 }}>{t.noActivity}</div>
+                <div style={{ color: 'var(--t2)', fontSize: 13 }}>{t.noActivity}</div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {teamToday.map((m, i) => {
@@ -648,8 +648,8 @@ export default function Dashboard({ onNavigate, user, lang = 'en' }) {
                         display: 'flex', alignItems: 'center', gap: 10,
                         padding: '8px 12px', background: 'var(--bg)', borderRadius: 8,
                       }}>
-                        <span style={{ flex: 1, fontWeight: 600, color: '#e2e8f0', fontSize: 14 }}>{m.name}</span>
-                        <span style={{ fontSize: 13, color: '#8892b0' }}>{m.total} {t.orders}</span>
+                        <span style={{ flex: 1, fontWeight: 600, color: 'var(--t1)', fontSize: 14 }}>{m.name}</span>
+                        <span style={{ fontSize: 13, color: 'var(--t2)' }}>{m.total} {t.orders}</span>
                         <span style={{ fontSize: 13, color: '#4ade80', fontWeight: 600, minWidth: 48, textAlign: 'right' }}>{rate}%</span>
                       </div>
                     );
