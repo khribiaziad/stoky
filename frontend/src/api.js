@@ -139,38 +139,6 @@ export const getDashboardStats = (params) => api.get('/reports/dashboard', { par
 export const getDashboardAttention = () => api.get('/reports/attention');
 export const getDashboardWeekSummary = () => api.get('/reports/week-summary');
 
-// Leads
-export const getLeads = () => api.get('/leads');
-export const deleteLead = (id) => api.delete(`/leads/${id}`);
-export const confirmPickup = (id) => api.post(`/leads/${id}/confirm`);
-export const cancelLead = (id) => api.post(`/leads/${id}/cancel`);
-export const notAnsweringLead = (id) => api.post(`/leads/${id}/not-answering`);
-export const reportLead = (id) => api.post(`/leads/${id}/report`);
-
-// Suppliers
-export const getSuppliers = () => api.get('/suppliers');
-export const createSupplier = (data) => api.post('/suppliers', data);
-export const updateSupplier = (id, data) => api.put(`/suppliers/${id}`, data);
-export const deleteSupplier = (id) => api.delete(`/suppliers/${id}`);
-export const getSupplierDetail = (id) => api.get(`/suppliers/${id}/detail`);
-
-// Auth extras
-export const getApiKey = () => api.get('/auth/api-key');
-export const updateProfile = (data) => api.patch('/auth/update-profile', data);
-
-// Olivraison
-export const requestOlivRamassage = () => api.post('/olivraison/ramassage');
-export const syncAllOlivraison = () => api.post('/olivraison/sync-all');
-
-// Forcelog
-export const sendToForcelog = (orderId) => api.post(`/forcelog/send/${orderId}`);
-export const getForcelogStatus = (orderId) => api.get(`/forcelog/status/${orderId}`);
-export const requestForcelogRamassage = () => api.post('/forcelog/ramassage');
-export const syncAllForcelog = () => api.post('/forcelog/sync-all');
-
-// Utility
-export const errorMessage = (e) => e?.response?.data?.detail || e?.message || 'An error occurred';
-
 // Settings
 export const getSetting = (key) => api.get(`/settings/${key}`);
 export const setSetting = (key, value) => api.post(`/settings/${key}`, null, { params: { value } });
@@ -200,12 +168,15 @@ export const addSupplierPayment = (id, data) => api.post(`/suppliers/${id}/payme
 export const deleteSupplierPayment = (id) => api.delete(`/suppliers/payments/${id}`);
 
 // Leads
-export const getLeads    = ()    => api.get('/leads');
-export const deleteLead  = (id)  => api.delete(`/leads/${id}`);
-export const confirmLead = (id)  => api.post(`/leads/${id}/confirm`);
-export const cancelLead  = (id)  => api.post(`/leads/${id}/cancel`);
-export const getApiKey   = ()    => api.get('/leads/api-key');
-export const rotateApiKey = ()   => api.post('/leads/api-key/rotate');
+export const getLeads          = ()    => api.get('/leads');
+export const deleteLead        = (id)  => api.delete(`/leads/${id}`);
+export const confirmLead       = (id)  => api.post(`/leads/${id}/confirm`);
+export const confirmPickup     = (id)  => api.post(`/leads/${id}/confirm`);
+export const cancelLead        = (id)  => api.post(`/leads/${id}/cancel`);
+export const notAnsweringLead  = (id)  => api.post(`/leads/${id}/not-answering`);
+export const reportLead        = (id)  => api.post(`/leads/${id}/report`);
+export const getApiKey         = ()    => api.get('/leads/api-key');
+export const rotateApiKey      = ()    => api.post('/leads/api-key/rotate');
 
 // Platform (super admin)
 export const getPlatformStats        = () => api.get('/platform/stats');
@@ -226,3 +197,19 @@ export const getPlatformExpenses     = (month) => api.get('/platform/expenses', 
 export const createPlatformExpense   = (data) => api.post('/platform/expenses', data);
 export const updatePlatformExpense   = (id, data) => api.patch(`/platform/expenses/${id}`, data);
 export const deletePlatformExpense   = (id) => api.delete(`/platform/expenses/${id}`);
+
+// Auth extras
+export const updateProfile = (data) => api.patch('/auth/update-profile', data);
+
+// Olivraison extras
+export const requestOlivRamassage    = () => api.post('/olivraison/ramassage');
+export const syncAllOlivraison       = () => api.post('/olivraison/sync-all');
+
+// Forcelog
+export const sendToForcelog          = (orderId) => api.post(`/forcelog/send/${orderId}`);
+export const getForcelogStatus       = (orderId) => api.get(`/forcelog/status/${orderId}`);
+export const requestForcelogRamassage = () => api.post('/forcelog/ramassage');
+export const syncAllForcelog         = () => api.post('/forcelog/sync-all');
+
+// Utility
+export const errorMessage = (e) => e?.response?.data?.detail || e?.message || 'An error occurred';
