@@ -155,7 +155,7 @@ export default function MetaCampaignWizard({ onClose, onSuccess, usdRate }) {
 
   const next = () => {
     if (!validateStep()) return;
-    if (step === 3) loadPages();
+    if (step === 2) loadPages(); // preload pages before entering Creative step
     setStep(s => s + 1);
   };
 
@@ -528,7 +528,7 @@ export default function MetaCampaignWizard({ onClose, onSuccess, usdRate }) {
           </button>
           <div style={{ display: 'flex', gap: 8 }}>
             {step < 4 ? (
-              <button className="btn btn-primary" onClick={step === 3 ? () => { if (validateStep()) { loadPages(); setStep(4); } } : next} disabled={loading}>
+              <button className="btn btn-primary" onClick={next} disabled={loading}>
                 Next <ChevronRight size={14} />
               </button>
             ) : (
