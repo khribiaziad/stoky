@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Megaphone, Plus, Trash2, Edit2, ChevronDown, ChevronUp, Calculator, RefreshCw } from 'lucide-react';
+import { Megaphone, Plus, Trash2, Edit2, ChevronDown, ChevronUp, Calculator, RefreshCw, Zap, Unlink } from 'lucide-react';
 import {
   getAdPlatforms, createAdPlatform, deleteAdPlatform,
   createAdCampaign, updateAdCampaign, deleteAdCampaign,
   getAdCostPerOrder, getSetting, setSetting,
+  getMetaStatus, connectMeta, disconnectMeta, syncMeta,
 } from '../api';
 import ErrorExplain from '../components/ErrorExplain';
 import { validateAmount, fieldErrorStyle } from '../utils/validate';
@@ -160,6 +161,20 @@ export default function Ads() {
   const [calcResult, setCalcResult] = useState(null);
   const [calcLoading, setCalcLoading] = useState(false);
 
+  // Meta Ads API
+  const [metaStatus, setMetaStatus] = useState(null); // null=loading, {connected, ...}
+  const [metaForm, setMetaForm] = useState({ token: '', accountId: '' });
+  const [metaConnecting, setMetaConnecting] = useState(false);
+  const [metaConnectError, setMetaConnectError] = useState('');
+  const [metaShowForm, setMetaShowForm] = useState(false);
+  const [metaSyncing, setMetaSyncing] = useState(false);
+  const [metaData, setMetaData] = useState(null);
+  const [metaSyncStart, setMetaSyncStart] = useState(() => {
+    const d = new Date(); d.setDate(d.getDate() - 6);
+    return d.toISOString().slice(0, 10);
+  });
+  const [metaSyncEnd, setMetaSyncEnd] = useState(today());
+
   const fetchMarketRate = async () => {
     setFetchingRate(true);
     try {
@@ -185,10 +200,11 @@ export default function Ads() {
 
   const load = async () => {
     try {
-      const [pRes, rateRes, modeRes] = await Promise.all([
+      const [pRes, rateRes, modeRes, metaRes] = await Promise.all([
         getAdPlatforms(),
         getSetting('usd_rate').catch(() => ({ data: { value: '10' } })),
         getSetting('usd_rate_mode').catch(() => ({ data: { value: 'manual' } })),
+        getMetaStatus().catch(() => ({ data: { connected: false } })),
       ]);
       setPlatforms(pRes.data);
       const rate = parseFloat(rateRes.data?.value || '10') || 10;
@@ -196,8 +212,8 @@ export default function Ads() {
       setUsdRate(rate);
       setRateInput(String(rate));
       setRateMode(mode);
+      setMetaStatus(metaRes.data);
       if (mode === 'market') {
-        // Refresh market rate on load if mode is market
         fetchMarketRate();
       }
     } finally {
@@ -311,6 +327,44 @@ export default function Ads() {
     finally { setCalcLoading(false); }
   };
 
+  // ── Meta Ads handlers ──
+  const handleMetaConnect = async () => {
+    if (!metaForm.token || !metaForm.accountId) return;
+    setMetaConnecting(true);
+    setMetaConnectError('');
+    try {
+      const res = await connectMeta({ access_token: metaForm.token, ad_account_id: metaForm.accountId });
+      setMetaStatus({ connected: true, account_name: res.data.account_name, currency: res.data.currency });
+      setMetaShowForm(false);
+      setMetaForm({ token: '', accountId: '' });
+    } catch (e) {
+      setMetaConnectError(e?.response?.data?.detail || 'Connection failed. Check your token and account ID.');
+    } finally {
+      setMetaConnecting(false);
+    }
+  };
+
+  const handleMetaDisconnect = async () => {
+    if (!confirm('Disconnect Meta Ads API?')) return;
+    await disconnectMeta().catch(() => {});
+    setMetaStatus({ connected: false });
+    setMetaData(null);
+  };
+
+  const handleMetaSync = async () => {
+    setMetaSyncing(true);
+    setMetaData(null);
+    setError('');
+    try {
+      const res = await syncMeta(metaSyncStart, metaSyncEnd);
+      setMetaData(res.data);
+    } catch (e) {
+      setError(e?.response?.data?.detail || 'Meta sync failed.');
+    } finally {
+      setMetaSyncing(false);
+    }
+  };
+
   // ── Summary totals ──
   const grandTotalMAD = platforms.reduce((sum, p) => sum + platformTotal(p.campaigns, usdRate), 0);
   const activeCount = platforms.reduce((sum, p) => sum + p.campaigns.filter(c => !c.end_date).length, 0);
@@ -397,6 +451,172 @@ export default function Ads() {
             </>
           )}
         </div>
+      </div>
+
+      {/* Meta Ads API Section */}
+      <div className="card" style={{ marginBottom: 16, padding: '14px 16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            {/* Meta logo */}
+            <div style={{ width: 32, height: 32, borderRadius: 8, background: 'linear-gradient(135deg,#0082fb,#0045b5)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
+                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+              </svg>
+            </div>
+            <div>
+              <div style={{ fontWeight: 600, fontSize: 14 }}>Meta Ads API</div>
+              {metaStatus?.connected ? (
+                <div style={{ fontSize: 12, color: '#00d48f' }}>
+                  ● Connected · {metaStatus.account_name}
+                  {metaStatus.currency && metaStatus.currency !== 'USD' && (
+                    <span style={{ color: '#f59e0b', marginLeft: 6 }}>⚠ Account currency: {metaStatus.currency} (will show as-is)</span>
+                  )}
+                </div>
+              ) : (
+                <div style={{ fontSize: 12, color: 'var(--t2)' }}>Not connected · Pull real spend from Meta</div>
+              )}
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            {metaStatus?.connected ? (
+              <>
+                <button className="btn btn-secondary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: 5 }}
+                  onClick={handleMetaDisconnect}>
+                  <Unlink size={12} /> Disconnect
+                </button>
+                <button className="btn btn-primary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: 5 }}
+                  onClick={() => setMetaShowForm(f => !f)}>
+                  <Zap size={12} /> Sync Data
+                </button>
+              </>
+            ) : (
+              <button className="btn btn-primary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: 5 }}
+                onClick={() => setMetaShowForm(f => !f)}>
+                <Zap size={12} /> Connect
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Connect form */}
+        {metaShowForm && !metaStatus?.connected && (
+          <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+            <div style={{ fontSize: 12, color: 'var(--t2)', marginBottom: 10 }}>
+              Get your access token from{' '}
+              <a href="https://developers.facebook.com/tools/explorer/" target="_blank" rel="noopener noreferrer"
+                style={{ color: 'var(--accent)' }}>
+                Meta Graph API Explorer
+              </a>
+              {' '}(request <code>ads_read</code> permission). Your Ad Account ID is in{' '}
+              <a href="https://business.facebook.com/" target="_blank" rel="noopener noreferrer"
+                style={{ color: 'var(--accent)' }}>
+                Meta Business Suite
+              </a>.
+            </div>
+            {metaConnectError && (
+              <div style={{ marginBottom: 10, padding: '8px 12px', borderRadius: 6, background: '#f8717122', border: '1px solid #f8717150', color: '#f87171', fontSize: 13 }}>
+                {metaConnectError}
+              </div>
+            )}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+              <div>
+                <label className="form-label">Access Token</label>
+                <input className="form-input" type="password" placeholder="EAA…"
+                  value={metaForm.token} onChange={e => setMetaForm(f => ({ ...f, token: e.target.value }))} />
+              </div>
+              <div>
+                <label className="form-label">Ad Account ID</label>
+                <input className="form-input" type="text" placeholder="act_123456789 or 123456789"
+                  value={metaForm.accountId} onChange={e => setMetaForm(f => ({ ...f, accountId: e.target.value }))} />
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn btn-primary" onClick={handleMetaConnect} disabled={metaConnecting || !metaForm.token || !metaForm.accountId}>
+                {metaConnecting ? 'Connecting…' : 'Connect'}
+              </button>
+              <button className="btn btn-secondary" onClick={() => { setMetaShowForm(false); setMetaConnectError(''); }}>Cancel</button>
+            </div>
+          </div>
+        )}
+
+        {/* Sync form */}
+        {metaShowForm && metaStatus?.connected && (
+          <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap', marginBottom: metaData ? 14 : 0 }}>
+              <div>
+                <label className="form-label">From</label>
+                <input className="form-input" type="date" value={metaSyncStart} onChange={e => setMetaSyncStart(e.target.value)} style={{ width: 150 }} />
+              </div>
+              <div>
+                <label className="form-label">To</label>
+                <input className="form-input" type="date" value={metaSyncEnd} onChange={e => setMetaSyncEnd(e.target.value)} style={{ width: 150 }} />
+              </div>
+              <button className="btn btn-primary" onClick={handleMetaSync} disabled={metaSyncing}>
+                {metaSyncing ? 'Syncing…' : 'Fetch from Meta'}
+              </button>
+            </div>
+
+            {metaData && (
+              <div style={{ background: 'var(--bg)', borderRadius: 10, padding: 16, border: '1px solid var(--border)' }}>
+                {/* Totals row */}
+                <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', marginBottom: 14 }}>
+                  <div>
+                    <div style={{ fontSize: 12, color: 'var(--t2)' }}>Total Spend</div>
+                    <div style={{ fontSize: 22, fontWeight: 700, color: '#f59e0b' }}>
+                      {metaData.total_spend.toLocaleString(undefined, { minimumFractionDigits: 2 })} {metaData.currency}
+                    </div>
+                    {metaData.currency === 'USD' && (
+                      <div style={{ fontSize: 12, color: 'var(--t2)' }}>
+                        ≈ {(metaData.total_spend * usdRate).toLocaleString(undefined, { maximumFractionDigits: 0 })} MAD
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 12, color: 'var(--t2)' }}>Impressions</div>
+                    <div style={{ fontSize: 22, fontWeight: 700 }}>{metaData.total_impressions.toLocaleString()}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 12, color: 'var(--t2)' }}>Clicks</div>
+                    <div style={{ fontSize: 22, fontWeight: 700 }}>{metaData.total_clicks.toLocaleString()}</div>
+                  </div>
+                  {metaData.total_clicks > 0 && (
+                    <div>
+                      <div style={{ fontSize: 12, color: 'var(--t2)' }}>CTR</div>
+                      <div style={{ fontSize: 22, fontWeight: 700 }}>
+                        {((metaData.total_clicks / metaData.total_impressions) * 100).toFixed(2)}%
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Campaign breakdown */}
+                {metaData.campaigns.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.04em', textTransform: 'uppercase', color: 'var(--t2)', marginBottom: 2 }}>
+                      Campaigns ({metaData.date_start} → {metaData.date_stop})
+                    </div>
+                    {metaData.campaigns.map((c, i) => (
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'var(--card)', borderRadius: 8 }}>
+                        <span style={{ fontSize: 13, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
+                        <div style={{ display: 'flex', gap: 16, flexShrink: 0 }}>
+                          <span style={{ fontSize: 13, color: 'var(--t2)' }}>{c.impressions.toLocaleString()} imp</span>
+                          <span style={{ fontSize: 13, fontWeight: 600, color: '#f59e0b', minWidth: 80, textAlign: 'right' }}>
+                            {c.spend.toLocaleString(undefined, { minimumFractionDigits: 2 })} {metaData.currency}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {metaData.campaigns.length === 0 && (
+                  <div style={{ fontSize: 13, color: 'var(--t2)' }}>No campaign data found for this period.</div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {error && <ErrorExplain message={error} page="Ads" />}

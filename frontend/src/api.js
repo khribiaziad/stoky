@@ -131,6 +131,12 @@ export const deleteAdCampaign = (id) => api.delete(`/expenses/campaigns/${id}`);
 // Cost per order
 export const getAdCostPerOrder = (start, end) => api.get('/expenses/cost-per-order', { params: { start, end } });
 
+// Meta Ads API
+export const getMetaStatus  = ()                     => api.get('/meta/status');
+export const connectMeta    = (data)                 => api.post('/meta/connect', data);
+export const disconnectMeta = ()                     => api.delete('/meta/disconnect');
+export const syncMeta       = (start, end)           => api.get('/meta/sync', { params: { start, end } });
+
 // Reports
 export const getReportSummary = (params) => api.get('/reports/summary', { params });
 export const getDashboardStats       = (params) => api.get('/reports/dashboard', { params });
