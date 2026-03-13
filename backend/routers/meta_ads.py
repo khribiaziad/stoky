@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 import httpx
+import json
 from database import get_db
 from auth import get_current_user
 import models
@@ -29,11 +30,101 @@ class MetaConnect(BaseModel):
 class CreateCampaignData(BaseModel):
     name: str
     objective: str = "OUTCOME_SALES"
-    daily_budget: Optional[float] = None   # USD
-    lifetime_budget: Optional[float] = None  # USD
+    daily_budget: Optional[float] = None
+    lifetime_budget: Optional[float] = None
     start_time: Optional[str] = None
     stop_time: Optional[str] = None
     status: str = "PAUSED"
+
+
+class TargetingData(BaseModel):
+    countries: List[str] = ["MA"]
+    age_min: int = 18
+    age_max: int = 65
+    genders: List[int] = []  # empty=all, 1=male, 2=female
+    interests: List[dict] = []  # [{"id": "...", "name": "..."}]
+    placements: List[str] = ["facebook_feed", "instagram_feed"]  # facebook_feed, facebook_story, instagram_feed, instagram_story, instagram_reels
+
+
+class CreativeData(BaseModel):
+    page_id: str
+    headline: str
+    body: str
+    cta: str = "SHOP_NOW"  # SHOP_NOW, LEARN_MORE, CONTACT_US, WHATSAPP_MESSAGE, SIGN_UP
+    url: str = ""
+    whatsapp_number: str = ""
+    image_hash: str = ""   # from uploaded image
+    image_url: str = ""    # external image URL
+
+
+class FullCampaignCreate(BaseModel):
+    # Step 1 — Campaign
+    campaign_name: str
+    objective: str = "OUTCOME_SALES"
+    budget_type: str = "daily"   # daily | lifetime
+    budget_usd: float
+    start_time: Optional[str] = None
+    end_time: Optional[str] = None
+    # Step 2 — Audience
+    targeting: TargetingData = TargetingData()
+    # Step 3+4 — Creative
+    adset_name: str = ""
+    ad_name: str = ""
+    creative: CreativeData
+    status: str = "PAUSED"
+
+
+# Optimization goal per objective
+OPTIM_GOAL = {
+    "OUTCOME_SALES":       "LINK_CLICKS",
+    "OUTCOME_TRAFFIC":     "LINK_CLICKS",
+    "OUTCOME_LEADS":       "LEAD_GENERATION",
+    "OUTCOME_AWARENESS":   "REACH",
+    "OUTCOME_ENGAGEMENT":  "POST_ENGAGEMENT",
+    "OUTCOME_APP_PROMOTION": "APP_INSTALLS",
+}
+
+
+def _build_targeting(t: TargetingData) -> dict:
+    targeting = {
+        "geo_locations": {"countries": t.countries},
+        "age_min": t.age_min,
+        "age_max": t.age_max,
+    }
+    if t.genders:
+        targeting["genders"] = t.genders
+    if t.interests:
+        targeting["flexible_spec"] = [{"interests": t.interests}]
+
+    publisher_platforms = set()
+    facebook_positions = []
+    instagram_positions = []
+
+    for p in t.placements:
+        if p == "facebook_feed":
+            publisher_platforms.add("facebook")
+            facebook_positions.append("feed")
+        elif p == "facebook_story":
+            publisher_platforms.add("facebook")
+            facebook_positions.append("story")
+        elif p == "instagram_feed":
+            publisher_platforms.add("instagram")
+            instagram_positions.append("stream")
+        elif p == "instagram_story":
+            publisher_platforms.add("instagram")
+            instagram_positions.append("story")
+        elif p == "instagram_reels":
+            publisher_platforms.add("instagram")
+            instagram_positions.append("reels")
+
+    if publisher_platforms:
+        targeting["publisher_platforms"] = list(publisher_platforms)
+    if facebook_positions:
+        targeting["facebook_positions"] = list(set(facebook_positions))
+    if instagram_positions:
+        targeting["instagram_positions"] = list(set(instagram_positions))
+
+    return targeting
 
 
 def _get_credentials(user: models.User, db: Session):
@@ -248,3 +339,161 @@ def get_spend(start: str, end: str, db: Session = Depends(get_db), user: models.
         for d in data if float(d.get("spend", 0)) > 0
     ]
     return {"total_spend_usd": round(total, 2), "breakdown": breakdown, "start": start, "end": end}
+
+
+# ── Pages ────────────────────────────────────────────────────
+
+@router.get("/pages")
+def get_pages(db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
+    """Get user's Facebook Pages."""
+    token, _ = _get_credentials(user, db)
+    resp = httpx.get(
+        f"{META_API_BASE}/me/accounts",
+        params={"access_token": token, "fields": "id,name,picture"},
+        timeout=10,
+    )
+    if resp.status_code != 200:
+        msg = resp.json().get("error", {}).get("message", "Failed to fetch pages")
+        raise HTTPException(status_code=400, detail=msg)
+    return resp.json().get("data", [])
+
+
+# ── Interest search ──────────────────────────────────────────
+
+@router.get("/interests")
+def search_interests(q: str, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
+    """Search Meta interest targeting options."""
+    token, _ = _get_credentials(user, db)
+    resp = httpx.get(
+        f"{META_API_BASE}/search",
+        params={"access_token": token, "type": "adinterest", "q": q, "limit": 20},
+        timeout=10,
+    )
+    if resp.status_code != 200:
+        return []
+    return resp.json().get("data", [])
+
+
+# ── Image upload ─────────────────────────────────────────────
+
+@router.post("/upload-image")
+async def upload_image(file: UploadFile = File(...), db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
+    """Upload an image to Meta Ad Images."""
+    token, account_id = _get_credentials(user, db)
+    contents = await file.read()
+    resp = httpx.post(
+        f"{META_API_BASE}/{account_id}/adimages",
+        params={"access_token": token},
+        files={"filename": (file.filename, contents, file.content_type)},
+        timeout=30,
+    )
+    if resp.status_code != 200:
+        msg = resp.json().get("error", {}).get("message", "Failed to upload image")
+        raise HTTPException(status_code=400, detail=msg)
+    images = resp.json().get("images", {})
+    first = list(images.values())[0] if images else {}
+    return {"hash": first.get("hash"), "url": first.get("url")}
+
+
+# ── Full campaign wizard ─────────────────────────────────────
+
+@router.post("/full-campaign")
+def create_full_campaign(data: FullCampaignCreate, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
+    """Create a full campaign: Campaign → Ad Set → Ad Creative → Ad."""
+    token, account_id = _get_credentials(user, db)
+
+    # ── 1. Campaign ──────────────────────────────────────────
+    campaign_payload = {
+        "name": data.campaign_name,
+        "objective": data.objective,
+        "status": data.status,
+        "special_ad_categories": "[]",
+    }
+    if data.budget_type == "daily":
+        campaign_payload["daily_budget"] = str(int(data.budget_usd * 100))
+    else:
+        campaign_payload["lifetime_budget"] = str(int(data.budget_usd * 100))
+    if data.start_time:
+        campaign_payload["start_time"] = data.start_time
+    if data.end_time:
+        campaign_payload["stop_time"] = data.end_time
+
+    r = httpx.post(f"{META_API_BASE}/{account_id}/campaigns", params={"access_token": token}, data=campaign_payload, timeout=15)
+    if r.status_code != 200:
+        raise HTTPException(status_code=400, detail=r.json().get("error", {}).get("message", "Failed to create campaign"))
+    campaign_id = r.json()["id"]
+
+    # ── 2. Ad Set ────────────────────────────────────────────
+    targeting_spec = _build_targeting(data.targeting)
+    adset_payload = {
+        "name": data.adset_name or f"{data.campaign_name} - Ad Set",
+        "campaign_id": campaign_id,
+        "targeting": json.dumps(targeting_spec),
+        "optimization_goal": OPTIM_GOAL.get(data.objective, "LINK_CLICKS"),
+        "billing_event": "IMPRESSIONS",
+        "status": data.status,
+    }
+    if data.budget_type == "daily":
+        adset_payload["daily_budget"] = str(int(data.budget_usd * 100))
+    else:
+        adset_payload["lifetime_budget"] = str(int(data.budget_usd * 100))
+        if data.end_time:
+            adset_payload["end_time"] = data.end_time
+    if data.start_time:
+        adset_payload["start_time"] = data.start_time
+
+    r = httpx.post(f"{META_API_BASE}/{account_id}/adsets", params={"access_token": token}, data=adset_payload, timeout=15)
+    if r.status_code != 200:
+        raise HTTPException(status_code=400, detail=r.json().get("error", {}).get("message", "Failed to create ad set"))
+    adset_id = r.json()["id"]
+
+    # ── 3. Ad Creative ───────────────────────────────────────
+    link_data = {
+        "message": data.creative.body,
+        "name": data.creative.headline,
+        "link": data.creative.url or "https://www.facebook.com",
+    }
+    if data.creative.image_hash:
+        link_data["image_hash"] = data.creative.image_hash
+    elif data.creative.image_url:
+        link_data["picture"] = data.creative.image_url
+
+    if data.creative.cta == "WHATSAPP_MESSAGE" and data.creative.whatsapp_number:
+        link_data["call_to_action"] = json.dumps({
+            "type": "WHATSAPP_MESSAGE",
+            "value": {"app_destination": "WHATSAPP", "whatsapp_number": data.creative.whatsapp_number},
+        })
+    elif data.creative.cta and data.creative.url:
+        link_data["call_to_action"] = json.dumps({
+            "type": data.creative.cta,
+            "value": {"link": data.creative.url},
+        })
+
+    object_story_spec = json.dumps({"page_id": data.creative.page_id, "link_data": link_data})
+    creative_payload = {
+        "name": f"{data.campaign_name} - Creative",
+        "object_story_spec": object_story_spec,
+    }
+    r = httpx.post(f"{META_API_BASE}/{account_id}/adcreatives", params={"access_token": token}, data=creative_payload, timeout=15)
+    if r.status_code != 200:
+        raise HTTPException(status_code=400, detail=r.json().get("error", {}).get("message", "Failed to create ad creative"))
+    creative_id = r.json()["id"]
+
+    # ── 4. Ad ────────────────────────────────────────────────
+    ad_payload = {
+        "name": data.ad_name or f"{data.campaign_name} - Ad",
+        "adset_id": adset_id,
+        "creative": json.dumps({"creative_id": creative_id}),
+        "status": data.status,
+    }
+    r = httpx.post(f"{META_API_BASE}/{account_id}/ads", params={"access_token": token}, data=ad_payload, timeout=15)
+    if r.status_code != 200:
+        raise HTTPException(status_code=400, detail=r.json().get("error", {}).get("message", "Failed to create ad"))
+
+    return {
+        "success": True,
+        "campaign_id": campaign_id,
+        "adset_id": adset_id,
+        "creative_id": creative_id,
+        "ad_id": r.json()["id"],
+    }

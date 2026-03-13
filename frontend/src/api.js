@@ -131,6 +131,10 @@ export const pauseMetaCampaign = (id) => api.post(`/meta/campaigns/${id}/pause`)
 export const resumeMetaCampaign = (id) => api.post(`/meta/campaigns/${id}/resume`);
 export const createMetaCampaign = (data) => api.post('/meta/campaigns', data);
 export const getMetaSpend = (start, end) => api.get('/meta/spend', { params: { start, end } });
+export const getMetaPages = () => api.get('/meta/pages');
+export const searchMetaInterests = (q) => api.get('/meta/interests', { params: { q } });
+export const uploadMetaImage = (file) => { const form = new FormData(); form.append('file', file); return api.post('/meta/upload-image', form, { headers: { 'Content-Type': 'multipart/form-data' } }); };
+export const createFullCampaign = (data) => api.post('/meta/full-campaign', data);
 
 // Reports
 export const getReportSummary = (params) => api.get('/reports/summary', { params });

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Megaphone, Plus, Trash2, Edit2, ChevronDown, ChevronUp, Calculator, RefreshCw, Link, Unlink, Play, Pause, ExternalLink } from 'lucide-react';
+import MetaCampaignWizard from '../components/MetaCampaignWizard';
 import {
   getAdPlatforms, createAdPlatform, deleteAdPlatform,
   createAdCampaign, updateAdCampaign, deleteAdCampaign,
@@ -166,6 +167,7 @@ export default function Ads() {
   const [showMetaConnect, setShowMetaConnect] = useState(false);
   const [metaForm, setMetaForm] = useState({ access_token: '', ad_account_id: '' });
   const [showMetaCreate, setShowMetaCreate] = useState(false);
+  const [showWizard, setShowWizard] = useState(false);
   const [metaCreateForm, setMetaCreateForm] = useState({
     name: '', objective: 'OUTCOME_SALES', daily_budget: '', status: 'PAUSED',
   });
@@ -510,7 +512,7 @@ export default function Ads() {
           <div style={{ display: 'flex', gap: 6 }}>
             {metaStatus?.connected ? (
               <>
-                <button className="btn btn-primary btn-sm" onClick={() => setShowMetaCreate(true)} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <button className="btn btn-primary btn-sm" onClick={() => setShowWizard(true)} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                   <Plus size={13} /> New Campaign
                 </button>
                 <button className="btn btn-secondary btn-sm" onClick={loadMetaCampaigns} disabled={metaLoading} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -971,7 +973,16 @@ export default function Ads() {
         </div>
       )}
 
-      {/* Create Meta Campaign Modal */}
+      {/* Full Campaign Wizard */}
+      {showWizard && (
+        <MetaCampaignWizard
+          usdRate={usdRate}
+          onClose={() => setShowWizard(false)}
+          onSuccess={(msg) => { setSuccess(msg); loadMetaCampaigns(); }}
+        />
+      )}
+
+      {/* Create Meta Campaign Modal (simple) */}
       {showMetaCreate && (
         <div className="modal-overlay">
           <div className="modal">
