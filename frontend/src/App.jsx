@@ -50,6 +50,7 @@ const ADMIN_NAV = [
   { id: 'dashboard', Icon: LayoutDashboard },
   { id: 'orders',    Icon: Package },
   { id: 'leads',     Icon: UserCheck },
+  { id: 'whatsapp',  Icon: MessageCircle },
   { id: 'products',  Icon: Tag },
   { id: 'suppliers', Icon: Truck },
   { id: 'packs',     Icon: Gift },
