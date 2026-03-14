@@ -48,13 +48,14 @@ class TargetingData(BaseModel):
 
 class CreativeData(BaseModel):
     page_id: str
-    headline: str
-    body: str
+    headline: str = ""
+    body: str = ""
     cta: str = "SHOP_NOW"  # SHOP_NOW, LEARN_MORE, CONTACT_US, WHATSAPP_MESSAGE, SIGN_UP
     url: str = ""
     whatsapp_number: str = ""
-    image_hash: str = ""   # from uploaded image
-    image_url: str = ""    # external image URL
+    image_hash: str = ""        # from uploaded image
+    image_url: str = ""         # external image URL
+    existing_post_id: str = ""  # use an existing page post/reel
 
 
 class FullCampaignCreate(BaseModel):
@@ -448,32 +449,34 @@ def create_full_campaign(data: FullCampaignCreate, db: Session = Depends(get_db)
     adset_id = r.json()["id"]
 
     # ── 3. Ad Creative ───────────────────────────────────────
-    link_data = {
-        "message": data.creative.body,
-        "name": data.creative.headline,
-        "link": data.creative.url or "https://www.facebook.com",
-    }
-    if data.creative.image_hash:
-        link_data["image_hash"] = data.creative.image_hash
-    elif data.creative.image_url:
-        link_data["picture"] = data.creative.image_url
+    creative_payload = {"name": f"{data.campaign_name} - Creative"}
 
-    if data.creative.cta == "WHATSAPP_MESSAGE" and data.creative.whatsapp_number:
-        link_data["call_to_action"] = json.dumps({
-            "type": "WHATSAPP_MESSAGE",
-            "value": {"app_destination": "WHATSAPP", "whatsapp_number": data.creative.whatsapp_number},
-        })
-    elif data.creative.cta and data.creative.url:
-        link_data["call_to_action"] = json.dumps({
-            "type": data.creative.cta,
-            "value": {"link": data.creative.url},
-        })
+    if data.creative.existing_post_id:
+        # Use an existing page post or Reel — user provides full PAGE_ID_POST_ID
+        creative_payload["object_story_id"] = data.creative.existing_post_id
+    else:
+        link_data = {
+            "message": data.creative.body,
+            "name": data.creative.headline,
+            "link": data.creative.url or "https://www.facebook.com",
+        }
+        if data.creative.image_hash:
+            link_data["image_hash"] = data.creative.image_hash
+        elif data.creative.image_url:
+            link_data["picture"] = data.creative.image_url
 
-    object_story_spec = json.dumps({"page_id": data.creative.page_id, "link_data": link_data})
-    creative_payload = {
-        "name": f"{data.campaign_name} - Creative",
-        "object_story_spec": object_story_spec,
-    }
+        if data.creative.cta == "WHATSAPP_MESSAGE" and data.creative.whatsapp_number:
+            link_data["call_to_action"] = json.dumps({
+                "type": "WHATSAPP_MESSAGE",
+                "value": {"app_destination": "WHATSAPP", "whatsapp_number": data.creative.whatsapp_number},
+            })
+        elif data.creative.cta and data.creative.url:
+            link_data["call_to_action"] = json.dumps({
+                "type": data.creative.cta,
+                "value": {"link": data.creative.url},
+            })
+
+        creative_payload["object_story_spec"] = json.dumps({"page_id": data.creative.page_id, "link_data": link_data})
     r = httpx.post(f"{META_API_BASE}/{account_id}/adcreatives", params={"access_token": token}, data=creative_payload, timeout=15)
     if r.status_code != 200:
         raise HTTPException(status_code=400, detail=r.json().get("error", {}).get("message", "Failed to create ad creative"))

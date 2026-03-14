@@ -72,6 +72,8 @@ export default function MetaCampaignWizard({ onClose, onSuccess, usdRate }) {
   const [pages, setPages] = useState([]);
   const [pagesLoaded, setPagesLoaded] = useState(false);
   const [pageId, setPageId] = useState('');
+  const [useExistingPost, setUseExistingPost] = useState(false);
+  const [existingPostId, setExistingPostId] = useState('');
   const [headline, setHeadline] = useState('');
   const [body, setBody] = useState('');
   const [cta, setCta] = useState('SHOP_NOW');
@@ -143,12 +145,16 @@ export default function MetaCampaignWizard({ onClose, onSuccess, usdRate }) {
       if (placements.length === 0) { setError('Select at least one placement'); return false; }
     }
     if (step === 3) {
+      if (useExistingPost) {
+        if (!existingPostId.trim()) { setError('Enter the Post ID'); return false; }
+      } else {
       if (!pageId) { setError('Select a Facebook Page'); return false; }
-      if (!headline.trim()) { setError('Headline is required'); return false; }
-      if (!body.trim()) { setError('Ad text is required'); return false; }
-      if (cta === 'WHATSAPP_MESSAGE' && !whatsappNumber.trim()) { setError('WhatsApp number is required'); return false; }
-      if (cta !== 'WHATSAPP_MESSAGE' && !url.trim()) { setError('Destination URL is required'); return false; }
-      if (!imageHash && !imagePreview) { setError('Upload an image for your ad'); return false; }
+        if (!headline.trim()) { setError('Headline is required'); return false; }
+        if (!body.trim()) { setError('Ad text is required'); return false; }
+        if (cta === 'WHATSAPP_MESSAGE' && !whatsappNumber.trim()) { setError('WhatsApp number is required'); return false; }
+        if (cta !== 'WHATSAPP_MESSAGE' && !url.trim()) { setError('Destination URL is required'); return false; }
+        if (!imageHash && !imagePreview) { setError('Upload an image for your ad'); return false; }
+        }
     }
     return true;
   };
@@ -180,7 +186,16 @@ export default function MetaCampaignWizard({ onClose, onSuccess, usdRate }) {
           interests: selectedInterests,
           placements,
         },
-        creative: {
+        creative: useExistingPost ? {
+          page_id: '',
+          existing_post_id: existingPostId,
+          headline: '',
+          body: '',
+          cta: '',
+          url: '',
+          whatsapp_number: '',
+          image_hash: '',
+        } : {
           page_id: pageId,
           headline,
           body,
@@ -387,19 +402,61 @@ export default function MetaCampaignWizard({ onClose, onSuccess, usdRate }) {
           {/* ── Step 4: Creative ── */}
           {step === 3 && (
             <div>
-              {/* Page selector */}
-              <div style={{ marginBottom: 14 }}>
-                <label className="form-label">Facebook Page *</label>
-                {pages.length === 0 ? (
-                  <div style={{ ...s, padding: '10px 0' }}>Loading pages...</div>
-                ) : (
-                  <select className="form-input" value={pageId} onChange={e => setPageId(e.target.value)}>
-                    <option value="">Select a page</option>
-                    {pages.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                  </select>
-                )}
+              {/* Page selector — only needed for new creatives */}
+              {!useExistingPost && (
+                <div style={{ marginBottom: 14 }}>
+                  <label className="form-label">Facebook Page *</label>
+                  {pages.length === 0 ? (
+                    <div style={{ ...s, padding: '10px 0' }}>Loading pages...</div>
+                  ) : (
+                    <select className="form-input" value={pageId} onChange={e => setPageId(e.target.value)}>
+                      <option value="">Select a page</option>
+                      {pages.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </select>
+                  )}
+                </div>
+              )}
+
+              {/* Creative type toggle */}
+              <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+                <button
+                  onClick={() => setUseExistingPost(false)}
+                  style={{
+                    flex: 1, padding: '9px 0', borderRadius: 8, border: `1px solid ${!useExistingPost ? '#0866FF' : '#2d3248'}`,
+                    background: !useExistingPost ? '#0866FF22' : '#1d1d27', color: !useExistingPost ? '#60a5fa' : '#8892b0',
+                    cursor: 'pointer', fontWeight: 600, fontSize: 13,
+                  }}>
+                  🖼 New Creative
+                </button>
+                <button
+                  onClick={() => setUseExistingPost(true)}
+                  style={{
+                    flex: 1, padding: '9px 0', borderRadius: 8, border: `1px solid ${useExistingPost ? '#0866FF' : '#2d3248'}`,
+                    background: useExistingPost ? '#0866FF22' : '#1d1d27', color: useExistingPost ? '#60a5fa' : '#8892b0',
+                    cursor: 'pointer', fontWeight: 600, fontSize: 13,
+                  }}>
+                  🎬 Use Existing Post / Reel
+                </button>
               </div>
 
+              {/* Existing post mode */}
+              {useExistingPost && (
+                <div style={{ marginBottom: 14 }}>
+                  <label className="form-label">Post ID *</label>
+                  <input
+                    className="form-input"
+                    placeholder="e.g. 123456789_987654321"
+                    value={existingPostId}
+                    onChange={e => setExistingPostId(e.target.value)}
+                  />
+                  <div style={{ fontSize: 11, color: '#8892b0', marginTop: 5 }}>
+                    Format: <code style={{ color: '#60a5fa' }}>PAGE_ID_POST_ID</code> — go to your Facebook post/Reel → click the date → copy both IDs from the URL (e.g. <code style={{ color: '#60a5fa' }}>facebook.com/PAGE_ID/posts/POST_ID</code>)
+                  </div>
+                </div>
+              )}
+
+              {/* New creative mode */}
+              {!useExistingPost && <>
               {/* Image upload */}
               <div style={{ marginBottom: 14 }}>
                 <label className="form-label">Ad Image *</label>
@@ -466,6 +523,7 @@ export default function MetaCampaignWizard({ onClose, onSuccess, usdRate }) {
                   )}
                 </div>
               </div>
+              </>}
             </div>
           )}
 
@@ -505,17 +563,28 @@ export default function MetaCampaignWizard({ onClose, onSuccess, usdRate }) {
 
               <div style={card}>
                 <div style={{ fontWeight: 600, marginBottom: 10, color: '#0866FF' }}>Creative</div>
-                {imagePreview && <img src={imagePreview} alt="ad" style={{ width: '100%', maxHeight: 160, objectFit: 'cover', borderRadius: 6, marginBottom: 10 }} />}
-                <div style={{ fontSize: 13 }}>
-                  <div style={{ fontWeight: 600, marginBottom: 4 }}>{headline}</div>
-                  <div style={{ ...s, marginBottom: 6 }}>{body}</div>
-                  <div><span style={s}>CTA:</span> {CTAS.find(c => c.value === cta)?.label}</div>
-                  {cta === 'WHATSAPP_MESSAGE' ? (
-                    <div><span style={s}>WhatsApp:</span> {whatsappNumber}</div>
-                  ) : (
-                    <div><span style={s}>URL:</span> {url}</div>
-                  )}
-                </div>
+                {useExistingPost ? (
+                  <div style={{ fontSize: 13 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                      <span style={{ fontSize: 20 }}>🎬</span>
+                      <span style={{ fontWeight: 600 }}>Existing Post / Reel</span>
+                    </div>
+                    <div><span style={s}>Page:</span> {pages.find(p => p.id === pageId)?.name || pageId}</div>
+                    <div><span style={s}>Post ID:</span> {existingPostId}</div>
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 13 }}>
+                    {imagePreview && <img src={imagePreview} alt="ad" style={{ width: '100%', maxHeight: 160, objectFit: 'cover', borderRadius: 6, marginBottom: 10 }} />}
+                    <div style={{ fontWeight: 600, marginBottom: 4 }}>{headline}</div>
+                    <div style={{ ...s, marginBottom: 6 }}>{body}</div>
+                    <div><span style={s}>CTA:</span> {CTAS.find(c => c.value === cta)?.label}</div>
+                    {cta === 'WHATSAPP_MESSAGE' ? (
+                      <div><span style={s}>WhatsApp:</span> {whatsappNumber}</div>
+                    ) : (
+                      <div><span style={s}>URL:</span> {url}</div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           )}
