@@ -135,6 +135,7 @@ export const getMetaSpend = (start, end) => api.get('/meta/spend', { params: { s
 export const getMetaPages = () => api.get('/meta/pages');
 export const searchMetaInterests = (q) => api.get('/meta/interests', { params: { q } });
 export const uploadMetaImage = (file) => { const form = new FormData(); form.append('file', file); return api.post('/meta/upload-image', form, { headers: { 'Content-Type': 'multipart/form-data' } }); };
+export const uploadMetaVideo = (file) => { const form = new FormData(); form.append('file', file); return api.post('/meta/upload-video', form, { headers: { 'Content-Type': 'multipart/form-data' } }); };
 export const createFullCampaign = (data) => api.post('/meta/full-campaign', data);
 
 // Reports

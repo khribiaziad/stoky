@@ -55,6 +55,7 @@ class CreativeData(BaseModel):
     whatsapp_number: str = ""
     image_hash: str = ""        # from uploaded image
     image_url: str = ""         # external image URL
+    video_id: str = ""          # from uploaded video/reel
     existing_post_id: str = ""  # use an existing page post/reel
 
 
@@ -412,6 +413,26 @@ async def upload_image(file: UploadFile = File(...), db: Session = Depends(get_d
     return {"hash": first.get("hash"), "url": first.get("url")}
 
 
+# ── Video upload ─────────────────────────────────────────────
+
+@router.post("/upload-video")
+async def upload_video(file: UploadFile = File(...), db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
+    """Upload a video to Meta Ad Videos."""
+    token, account_id = _get_credentials(user, db)
+    contents = await file.read()
+    resp = httpx.post(
+        f"{META_API_BASE}/{account_id}/advideos",
+        params={"access_token": token},
+        files={"source": (file.filename, contents, file.content_type)},
+        timeout=120,
+    )
+    if resp.status_code != 200:
+        msg = resp.json().get("error", {}).get("message", "Failed to upload video")
+        raise HTTPException(status_code=400, detail=msg)
+    data = resp.json()
+    return {"video_id": data.get("id")}
+
+
 # ── Full campaign wizard ─────────────────────────────────────
 
 @router.post("/full-campaign")
@@ -470,6 +491,24 @@ def create_full_campaign(data: FullCampaignCreate, db: Session = Depends(get_db)
     if data.creative.existing_post_id:
         # Use an existing page post or Reel — user provides full PAGE_ID_POST_ID
         creative_payload["object_story_id"] = data.creative.existing_post_id
+    elif data.creative.video_id:
+        # Video / Reel creative
+        video_data = {
+            "video_id": data.creative.video_id,
+            "message": data.creative.body,
+            "title": data.creative.headline,
+        }
+        if data.creative.cta == "WHATSAPP_MESSAGE" and data.creative.whatsapp_number:
+            video_data["call_to_action"] = json.dumps({
+                "type": "WHATSAPP_MESSAGE",
+                "value": {"app_destination": "WHATSAPP", "whatsapp_number": data.creative.whatsapp_number},
+            })
+        elif data.creative.cta and data.creative.url:
+            video_data["call_to_action"] = json.dumps({
+                "type": data.creative.cta,
+                "value": {"link": data.creative.url},
+            })
+        creative_payload["object_story_spec"] = json.dumps({"page_id": data.creative.page_id, "video_data": video_data})
     else:
         link_data = {
             "message": data.creative.body,

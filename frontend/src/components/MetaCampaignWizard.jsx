@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { ChevronRight, ChevronLeft, Upload, X, Search, Check } from 'lucide-react';
-import { getMetaPages, searchMetaInterests, uploadMetaImage, createFullCampaign } from '../api';
+import { getMetaPages, searchMetaInterests, uploadMetaImage, uploadMetaVideo, createFullCampaign } from '../api';
 
 const OBJECTIVES = [
   { value: 'OUTCOME_SALES',      label: 'Sales',      desc: 'Drive purchases on your website or app' },
@@ -82,6 +82,8 @@ export default function MetaCampaignWizard({ onClose, onSuccess, usdRate }) {
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState('');
   const [imageHash, setImageHash] = useState('');
+  const [videoId, setVideoId] = useState('');
+  const [isVideo, setIsVideo] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const fileRef = useRef();
 
@@ -119,17 +121,26 @@ export default function MetaCampaignWizard({ onClose, onSuccess, usdRate }) {
     );
   };
 
-  const handleImageSelect = async (file) => {
+  const handleFileSelect = async (file) => {
     if (!file) return;
+    const isVid = file.type.startsWith('video/');
+    setIsVideo(isVid);
     setImageFile(file);
     setImagePreview(URL.createObjectURL(file));
+    setImageHash('');
+    setVideoId('');
     setUploadingImage(true);
     setError('');
     try {
-      const res = await uploadMetaImage(file);
-      setImageHash(res.data.hash);
+      if (isVid) {
+        const res = await uploadMetaVideo(file);
+        setVideoId(res.data.video_id);
+      } else {
+        const res = await uploadMetaImage(file);
+        setImageHash(res.data.hash);
+      }
     } catch (e) {
-      setError(e.response?.data?.detail || 'Failed to upload image');
+      setError(e.response?.data?.detail || 'Failed to upload file');
       setImageFile(null);
       setImagePreview('');
     } finally { setUploadingImage(false); }
@@ -153,7 +164,7 @@ export default function MetaCampaignWizard({ onClose, onSuccess, usdRate }) {
         if (!body.trim()) { setError('Ad text is required'); return false; }
         if (cta === 'WHATSAPP_MESSAGE' && !whatsappNumber.trim()) { setError('WhatsApp number is required'); return false; }
         if (cta !== 'WHATSAPP_MESSAGE' && !url.trim()) { setError('Destination URL is required'); return false; }
-        if (!imageHash && !imagePreview) { setError('Upload an image for your ad'); return false; }
+        if (!imageHash && !videoId && !imagePreview) { setError('Upload an image or video for your ad'); return false; }
         }
     }
     return true;
@@ -195,6 +206,7 @@ export default function MetaCampaignWizard({ onClose, onSuccess, usdRate }) {
           url: '',
           whatsapp_number: '',
           image_hash: '',
+          video_id: '',
         } : {
           page_id: pageId,
           headline,
@@ -203,6 +215,7 @@ export default function MetaCampaignWizard({ onClose, onSuccess, usdRate }) {
           url: cta !== 'WHATSAPP_MESSAGE' ? url : '',
           whatsapp_number: cta === 'WHATSAPP_MESSAGE' ? whatsappNumber : '',
           image_hash: imageHash,
+          video_id: videoId,
         },
         status,
       };
@@ -457,24 +470,28 @@ export default function MetaCampaignWizard({ onClose, onSuccess, usdRate }) {
 
               {/* New creative mode */}
               {!useExistingPost && <>
-              {/* Image upload */}
+              {/* Media upload */}
               <div style={{ marginBottom: 14 }}>
-                <label className="form-label">Ad Image *</label>
+                <label className="form-label">Ad Image or Video *</label>
                 {imagePreview ? (
-                  <div style={{ position: 'relative', display: 'inline-block' }}>
-                    <img src={imagePreview} alt="preview" style={{ width: '100%', maxHeight: 200, objectFit: 'cover', borderRadius: 8 }} />
+                  <div style={{ position: 'relative' }}>
+                    {isVideo ? (
+                      <video src={imagePreview} controls style={{ width: '100%', maxHeight: 200, borderRadius: 8, background: '#000' }} />
+                    ) : (
+                      <img src={imagePreview} alt="preview" style={{ width: '100%', maxHeight: 200, objectFit: 'cover', borderRadius: 8 }} />
+                    )}
                     {uploadingImage && (
                       <div style={{ position: 'absolute', inset: 0, background: '#00000088', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, fontSize: 13, color: '#fff' }}>
                         Uploading to Meta...
                       </div>
                     )}
                     {!uploadingImage && (
-                      <button onClick={() => { setImageFile(null); setImagePreview(''); setImageHash(''); }}
+                      <button onClick={() => { setImageFile(null); setImagePreview(''); setImageHash(''); setVideoId(''); setIsVideo(false); }}
                         style={{ position: 'absolute', top: 6, right: 6, background: '#00000099', border: 'none', borderRadius: '50%', padding: 4, cursor: 'pointer', color: '#fff', display: 'flex' }}>
                         <X size={14} />
                       </button>
                     )}
-                    {imageHash && <div style={{ fontSize: 11, color: '#00d48f', marginTop: 4 }}>✓ Uploaded to Meta</div>}
+                    {(imageHash || videoId) && <div style={{ fontSize: 11, color: '#00d48f', marginTop: 4 }}>✓ {isVideo ? 'Video' : 'Image'} uploaded to Meta</div>}
                   </div>
                 ) : (
                   <div onClick={() => fileRef.current?.click()} style={{
@@ -482,11 +499,11 @@ export default function MetaCampaignWizard({ onClose, onSuccess, usdRate }) {
                     textAlign: 'center', cursor: 'pointer', color: '#8892b0', fontSize: 13,
                   }}>
                     <Upload size={24} style={{ margin: '0 auto 8px', display: 'block' }} />
-                    Click to upload image (JPG, PNG)
-                    <div style={{ fontSize: 11, marginTop: 4 }}>Recommended: 1200×628px for feed, 1080×1920px for stories</div>
+                    Click to upload image or video
+                    <div style={{ fontSize: 11, marginTop: 4 }}>Image: JPG, PNG (1200×628px feed / 1080×1920px story) · Video: MP4, MOV</div>
                   </div>
                 )}
-                <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => handleImageSelect(e.target.files[0])} />
+                <input ref={fileRef} type="file" accept="image/*,video/*" style={{ display: 'none' }} onChange={e => handleFileSelect(e.target.files[0])} />
               </div>
 
               {/* Headline */}
