@@ -1,6 +1,6 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { ChevronRight, ChevronLeft, Upload, X, Search, Check } from 'lucide-react';
-import { getMetaPages, searchMetaInterests, uploadMetaImage, uploadMetaVideo, createFullCampaign } from '../api';
+import { getMetaPages, searchMetaInterests, uploadMetaImage, uploadMetaVideo, createFullCampaign, getSetting, setSetting } from '../api';
 
 const OBJECTIVES = [
   { value: 'OUTCOME_SALES',      label: 'Sales',      desc: 'Drive purchases on your website or app' },
@@ -86,6 +86,13 @@ export default function MetaCampaignWizard({ onClose, onSuccess, usdRate }) {
   const [isVideo, setIsVideo] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const fileRef = useRef();
+
+  // Load saved page ID on mount
+  useEffect(() => {
+    getSetting('meta_page_id').then(res => {
+      if (res.data?.value) setPageId(res.data.value);
+    }).catch(() => {});
+  }, []);
 
   const loadPages = async () => {
     if (pagesLoaded) return;
@@ -220,6 +227,7 @@ export default function MetaCampaignWizard({ onClose, onSuccess, usdRate }) {
         status,
       };
       await createFullCampaign(payload);
+      if (pageId) setSetting('meta_page_id', pageId).catch(() => {});
       onSuccess(status === 'ACTIVE' ? 'Campaign launched successfully!' : 'Campaign saved as draft!');
       onClose();
     } catch (e) {
