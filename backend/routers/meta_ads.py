@@ -458,7 +458,8 @@ def create_full_campaign(data: FullCampaignCreate, db: Session = Depends(get_db)
 
     r = httpx.post(f"{META_API_BASE}/{account_id}/campaigns", params={"access_token": token}, data=campaign_payload, timeout=15)
     if r.status_code != 200:
-        raise HTTPException(status_code=400, detail=r.json().get("error", {}).get("message", "Failed to create campaign"))
+        err = r.json().get("error", {})
+        raise HTTPException(status_code=400, detail=f"Campaign: {err.get('error_user_msg') or err.get('message', 'Failed to create campaign')}")
     campaign_id = r.json()["id"]
 
     # ── 2. Ad Set ────────────────────────────────────────────
@@ -482,7 +483,8 @@ def create_full_campaign(data: FullCampaignCreate, db: Session = Depends(get_db)
 
     r = httpx.post(f"{META_API_BASE}/{account_id}/adsets", params={"access_token": token}, data=adset_payload, timeout=15)
     if r.status_code != 200:
-        raise HTTPException(status_code=400, detail=r.json().get("error", {}).get("message", "Failed to create ad set"))
+        err = r.json().get("error", {})
+        raise HTTPException(status_code=400, detail=f"Ad Set: {err.get('error_user_msg') or err.get('message', 'Failed to create ad set')}")
     adset_id = r.json()["id"]
 
     # ── 3. Ad Creative ───────────────────────────────────────
@@ -521,9 +523,10 @@ def create_full_campaign(data: FullCampaignCreate, db: Session = Depends(get_db)
             link_data["picture"] = data.creative.image_url
 
         if data.creative.cta == "WHATSAPP_MESSAGE" and data.creative.whatsapp_number:
+            wa_number = data.creative.whatsapp_number.lstrip("+")
             link_data["call_to_action"] = json.dumps({
                 "type": "WHATSAPP_MESSAGE",
-                "value": {"app_destination": "WHATSAPP", "whatsapp_number": data.creative.whatsapp_number},
+                "value": {"app_destination": "WHATSAPP", "whatsapp_number": wa_number},
             })
         elif data.creative.cta and data.creative.url:
             link_data["call_to_action"] = json.dumps({
@@ -534,7 +537,8 @@ def create_full_campaign(data: FullCampaignCreate, db: Session = Depends(get_db)
         creative_payload["object_story_spec"] = json.dumps({"page_id": data.creative.page_id, "link_data": link_data})
     r = httpx.post(f"{META_API_BASE}/{account_id}/adcreatives", params={"access_token": token}, data=creative_payload, timeout=15)
     if r.status_code != 200:
-        raise HTTPException(status_code=400, detail=r.json().get("error", {}).get("message", "Failed to create ad creative"))
+        err = r.json().get("error", {})
+        raise HTTPException(status_code=400, detail=f"Creative: {err.get('error_user_msg') or err.get('message', 'Failed to create ad creative')}")
     creative_id = r.json()["id"]
 
     # ── 4. Ad ────────────────────────────────────────────────
@@ -546,7 +550,8 @@ def create_full_campaign(data: FullCampaignCreate, db: Session = Depends(get_db)
     }
     r = httpx.post(f"{META_API_BASE}/{account_id}/ads", params={"access_token": token}, data=ad_payload, timeout=15)
     if r.status_code != 200:
-        raise HTTPException(status_code=400, detail=r.json().get("error", {}).get("message", "Failed to create ad"))
+        err = r.json().get("error", {})
+        raise HTTPException(status_code=400, detail=f"Ad: {err.get('error_user_msg') or err.get('message', 'Failed to create ad')}")
 
     return {
         "success": True,
