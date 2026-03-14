@@ -124,6 +124,7 @@ export const getAdCostPerOrder = (start, end) => api.get('/expenses/cost-per-ord
 
 // Meta Ads
 export const getMetaStatus = () => api.get('/meta/status');
+export const getMetaAdAccounts = (token) => api.get('/meta/adaccounts', { params: { token } });
 export const connectMeta = (data) => api.post('/meta/connect', data);
 export const disconnectMeta = () => api.delete('/meta/disconnect');
 export const getMetaCampaigns = () => api.get('/meta/campaigns');

@@ -7,7 +7,7 @@ import {
   getAdCostPerOrder, getSetting, setSetting,
   getMetaStatus, connectMeta, disconnectMeta,
   getMetaCampaigns, pauseMetaCampaign, resumeMetaCampaign,
-  createMetaCampaign, getMetaSpend,
+  createMetaCampaign, getMetaSpend, getMetaAdAccounts,
 } from '../api';
 
 // ── Predefined platform catalogue ──────────────────────────
@@ -166,6 +166,8 @@ export default function Ads() {
   const [metaConnecting, setMetaConnecting] = useState(false);
   const [showMetaConnect, setShowMetaConnect] = useState(false);
   const [metaForm, setMetaForm] = useState({ access_token: '', ad_account_id: '' });
+  const [metaAdAccounts, setMetaAdAccounts] = useState([]);
+  const [fetchingAccounts, setFetchingAccounts] = useState(false);
   const [showMetaCreate, setShowMetaCreate] = useState(false);
   const [showWizard, setShowWizard] = useState(false);
   const [metaCreateForm, setMetaCreateForm] = useState({
@@ -248,6 +250,17 @@ export default function Ads() {
   };
 
   // ── Meta actions ──
+  const handleFetchAccounts = async () => {
+    if (!metaForm.access_token) { setError('Enter your Access Token first'); return; }
+    setFetchingAccounts(true); setError('');
+    try {
+      const res = await getMetaAdAccounts(metaForm.access_token);
+      setMetaAdAccounts(res.data);
+      if (res.data.length === 1) setMetaForm(f => ({ ...f, ad_account_id: res.data[0].id }));
+    } catch (e) { setError(e.response?.data?.detail || 'Failed to fetch accounts'); }
+    finally { setFetchingAccounts(false); }
+  };
+
   const handleMetaConnect = async () => {
     if (!metaForm.access_token || !metaForm.ad_account_id) {
       setError('Enter both Access Token and Ad Account ID'); return;
@@ -546,28 +559,33 @@ export default function Ads() {
                 Get token <ExternalLink size={11} />
               </a>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
-              <div>
-                <label className="form-label">Access Token *</label>
+            <div style={{ marginBottom: 12 }}>
+              <label className="form-label">Access Token *</label>
+              <div style={{ display: 'flex', gap: 8 }}>
                 <input
                   className="form-input"
                   type="password"
                   placeholder="EAAxxxxxx..."
                   value={metaForm.access_token}
-                  onChange={e => setMetaForm({ ...metaForm, access_token: e.target.value })}
+                  onChange={e => { setMetaForm({ ...metaForm, access_token: e.target.value }); setMetaAdAccounts([]); }}
+                  style={{ flex: 1 }}
                 />
-              </div>
-              <div>
-                <label className="form-label">Ad Account ID *</label>
-                <input
-                  className="form-input"
-                  type="text"
-                  placeholder="act_123456789 or 123456789"
-                  value={metaForm.ad_account_id}
-                  onChange={e => setMetaForm({ ...metaForm, ad_account_id: e.target.value })}
-                />
+                <button className="btn btn-secondary" onClick={handleFetchAccounts} disabled={fetchingAccounts} style={{ whiteSpace: 'nowrap' }}>
+                  {fetchingAccounts ? '...' : 'Fetch Accounts'}
+                </button>
               </div>
             </div>
+            {metaAdAccounts.length > 0 && (
+              <div style={{ marginBottom: 12 }}>
+                <label className="form-label">Ad Account *</label>
+                <select className="form-input" value={metaForm.ad_account_id} onChange={e => setMetaForm({ ...metaForm, ad_account_id: e.target.value })}>
+                  <option value="">Select an account</option>
+                  {metaAdAccounts.map(a => (
+                    <option key={a.id} value={a.id}>{a.name} ({a.id}) — {a.currency}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div style={{ display: 'flex', gap: 8 }}>
               <button className="btn btn-primary" onClick={handleMetaConnect} disabled={metaConnecting}>
                 {metaConnecting ? 'Connecting…' : 'Connect'}

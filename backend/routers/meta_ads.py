@@ -152,6 +152,22 @@ def _save_setting(db: Session, user_id: int, key: str, value: str):
         db.add(models.AppSettings(key=key, value=value, user_id=user_id))
 
 
+# ── Ad Accounts list (for connect flow) ─────────────────────
+
+@router.get("/adaccounts")
+def get_ad_accounts(token: str, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
+    """Fetch all ad accounts accessible to a given token."""
+    resp = httpx.get(
+        f"{META_API_BASE}/me/adaccounts",
+        params={"access_token": token, "fields": "id,name,account_status,currency", "limit": 50},
+        timeout=10,
+    )
+    if resp.status_code != 200:
+        msg = resp.json().get("error", {}).get("message", "Invalid token")
+        raise HTTPException(status_code=400, detail=msg)
+    return resp.json().get("data", [])
+
+
 # ── Connect / Status / Disconnect ───────────────────────────
 
 @router.post("/connect")
