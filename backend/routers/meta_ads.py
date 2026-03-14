@@ -470,6 +470,7 @@ def create_full_campaign(data: FullCampaignCreate, db: Session = Depends(get_db)
         "targeting": json.dumps(targeting_spec),
         "optimization_goal": OPTIM_GOAL.get(data.objective, "LINK_CLICKS"),
         "billing_event": "IMPRESSIONS",
+        "bid_strategy": "LOWEST_COST_WITHOUT_CAP",
         "status": data.status,
     }
     if data.budget_type == "daily":
