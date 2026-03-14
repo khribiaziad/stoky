@@ -138,6 +138,33 @@ export const uploadMetaImage = (file) => { const form = new FormData(); form.app
 export const uploadMetaVideo = (file) => { const form = new FormData(); form.append('file', file); return api.post('/meta/upload-video', form, { headers: { 'Content-Type': 'multipart/form-data' } }); };
 export const createFullCampaign = (data) => api.post('/meta/full-campaign', data);
 
+// TikTok Ads
+export const getTikTokStatus = () => api.get('/tiktok/status');
+export const connectTikTok = (data) => api.post('/tiktok/connect', data);
+export const disconnectTikTok = () => api.delete('/tiktok/disconnect');
+export const getTikTokCampaigns = () => api.get('/tiktok/campaigns');
+export const pauseTikTokCampaign = (id) => api.post(`/tiktok/campaigns/${id}/pause`);
+export const resumeTikTokCampaign = (id) => api.post(`/tiktok/campaigns/${id}/resume`);
+export const getTikTokSpend = (start, end) => api.get('/tiktok/spend', { params: { start, end } });
+
+// Snapchat Ads
+export const getSnapchatStatus = () => api.get('/snapchat/status');
+export const connectSnapchat = (data) => api.post('/snapchat/connect', data);
+export const disconnectSnapchat = () => api.delete('/snapchat/disconnect');
+export const getSnapchatCampaigns = () => api.get('/snapchat/campaigns');
+export const pauseSnapchatCampaign = (id) => api.post(`/snapchat/campaigns/${id}/pause`);
+export const resumeSnapchatCampaign = (id) => api.post(`/snapchat/campaigns/${id}/resume`);
+export const getSnapchatSpend = (start, end) => api.get('/snapchat/spend', { params: { start, end } });
+
+// Pinterest Ads
+export const getPinterestStatus = () => api.get('/pinterest/status');
+export const connectPinterest = (data) => api.post('/pinterest/connect', data);
+export const disconnectPinterest = () => api.delete('/pinterest/disconnect');
+export const getPinterestCampaigns = () => api.get('/pinterest/campaigns');
+export const pausePinterestCampaign = (id) => api.post(`/pinterest/campaigns/${id}/pause`);
+export const resumePinterestCampaign = (id) => api.post(`/pinterest/campaigns/${id}/resume`);
+export const getPinterestSpend = (start, end) => api.get('/pinterest/spend', { params: { start, end } });
+
 // Reports
 export const getReportSummary = (params) => api.get('/reports/summary', { params });
 export const getMyStats = (params) => api.get('/reports/my-stats', { params });

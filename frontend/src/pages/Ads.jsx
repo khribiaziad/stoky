@@ -8,6 +8,9 @@ import {
   getMetaStatus, connectMeta, disconnectMeta,
   getMetaCampaigns, pauseMetaCampaign, resumeMetaCampaign,
   createMetaCampaign, getMetaSpend, getMetaAdAccounts,
+  getTikTokStatus, connectTikTok, disconnectTikTok, getTikTokCampaigns, pauseTikTokCampaign, resumeTikTokCampaign,
+  getSnapchatStatus, connectSnapchat, disconnectSnapchat, getSnapchatCampaigns, pauseSnapchatCampaign, resumeSnapchatCampaign,
+  getPinterestStatus, connectPinterest, disconnectPinterest, getPinterestCampaigns, pausePinterestCampaign, resumePinterestCampaign,
 } from '../api';
 
 // ── Predefined platform catalogue ──────────────────────────
@@ -176,6 +179,30 @@ export default function Ads() {
   const [metaSpendResult, setMetaSpendResult] = useState(null);
   const [metaSpendLoading, setMetaSpendLoading] = useState(false);
 
+  // ── TikTok state ──
+  const [ttStatus, setTtStatus] = useState(null);
+  const [ttCampaigns, setTtCampaigns] = useState([]);
+  const [ttLoading, setTtLoading] = useState(false);
+  const [ttConnecting, setTtConnecting] = useState(false);
+  const [showTtConnect, setShowTtConnect] = useState(false);
+  const [ttForm, setTtForm] = useState({ access_token: '', advertiser_id: '' });
+
+  // ── Snapchat state ──
+  const [scStatus, setScStatus] = useState(null);
+  const [scCampaigns, setScCampaigns] = useState([]);
+  const [scLoading, setScLoading] = useState(false);
+  const [scConnecting, setScConnecting] = useState(false);
+  const [showScConnect, setShowScConnect] = useState(false);
+  const [scForm, setScForm] = useState({ access_token: '', ad_account_id: '' });
+
+  // ── Pinterest state ──
+  const [ptStatus, setPtStatus] = useState(null);
+  const [ptCampaigns, setPtCampaigns] = useState([]);
+  const [ptLoading, setPtLoading] = useState(false);
+  const [ptConnecting, setPtConnecting] = useState(false);
+  const [showPtConnect, setShowPtConnect] = useState(false);
+  const [ptForm, setPtForm] = useState({ access_token: '', ad_account_id: '' });
+
   const fetchMarketRate = async () => {
     setFetchingRate(true);
     try {
@@ -213,11 +240,14 @@ export default function Ads() {
 
   const load = async () => {
     try {
-      const [pRes, rateRes, modeRes, metaRes] = await Promise.all([
+      const [pRes, rateRes, modeRes, metaRes, ttRes, scRes, ptRes] = await Promise.all([
         getAdPlatforms(),
         getSetting('usd_rate').catch(() => ({ data: { value: '10' } })),
         getSetting('usd_rate_mode').catch(() => ({ data: { value: 'manual' } })),
         getMetaStatus().catch(() => ({ data: { connected: false } })),
+        getTikTokStatus().catch(() => ({ data: { connected: false } })),
+        getSnapchatStatus().catch(() => ({ data: { connected: false } })),
+        getPinterestStatus().catch(() => ({ data: { connected: false } })),
       ]);
       setPlatforms(pRes.data);
       const rate = parseFloat(rateRes.data?.value || '10') || 10;
@@ -227,9 +257,13 @@ export default function Ads() {
       setRateMode(mode);
       if (mode === 'market') fetchMarketRate();
       setMetaStatus(metaRes.data);
-      if (metaRes.data?.connected) {
-        loadMetaCampaigns();
-      }
+      if (metaRes.data?.connected) loadMetaCampaigns();
+      setTtStatus(ttRes.data);
+      if (ttRes.data?.connected) loadTtCampaigns();
+      setScStatus(scRes.data);
+      if (scRes.data?.connected) loadScCampaigns();
+      setPtStatus(ptRes.data);
+      if (ptRes.data?.connected) loadPtCampaigns();
     } finally {
       setLoading(false);
     }
@@ -294,17 +328,87 @@ export default function Ads() {
   };
 
   const handlePause = async (id) => {
-    try {
-      await pauseMetaCampaign(id);
-      loadMetaCampaigns();
-    } catch (e) { setError(e.response?.data?.detail || 'Failed to pause'); }
+    try { await pauseMetaCampaign(id); loadMetaCampaigns(); }
+    catch (e) { setError(e.response?.data?.detail || 'Failed to pause'); }
+  };
+  const handleResume = async (id) => {
+    try { await resumeMetaCampaign(id); loadMetaCampaigns(); }
+    catch (e) { setError(e.response?.data?.detail || 'Failed to resume'); }
   };
 
-  const handleResume = async (id) => {
+  // ── TikTok handlers ──
+  const loadTtCampaigns = async () => {
+    setTtLoading(true);
+    try { const res = await getTikTokCampaigns(); setTtCampaigns(res.data); }
+    catch (e) { setError(e.response?.data?.detail || 'Failed to load TikTok campaigns'); }
+    finally { setTtLoading(false); }
+  };
+  const handleTtConnect = async () => {
+    if (!ttForm.access_token || !ttForm.advertiser_id) { setError('Enter both fields'); return; }
+    setTtConnecting(true); setError('');
     try {
-      await resumeMetaCampaign(id);
-      loadMetaCampaigns();
-    } catch (e) { setError(e.response?.data?.detail || 'Failed to resume'); }
+      const res = await connectTikTok(ttForm);
+      setTtStatus({ connected: true, ...res.data });
+      setShowTtConnect(false); setTtForm({ access_token: '', advertiser_id: '' });
+      setSuccess(`Connected to TikTok — ${res.data.account_name}`);
+      loadTtCampaigns();
+    } catch (e) { setError(e.response?.data?.detail || 'TikTok connection failed'); }
+    finally { setTtConnecting(false); }
+  };
+  const handleTtDisconnect = async () => {
+    if (!confirm('Disconnect TikTok?')) return;
+    await disconnectTikTok(); setTtStatus({ connected: false }); setTtCampaigns([]);
+    setSuccess('TikTok disconnected');
+  };
+
+  // ── Snapchat handlers ──
+  const loadScCampaigns = async () => {
+    setScLoading(true);
+    try { const res = await getSnapchatCampaigns(); setScCampaigns(res.data); }
+    catch (e) { setError(e.response?.data?.detail || 'Failed to load Snapchat campaigns'); }
+    finally { setScLoading(false); }
+  };
+  const handleScConnect = async () => {
+    if (!scForm.access_token || !scForm.ad_account_id) { setError('Enter both fields'); return; }
+    setScConnecting(true); setError('');
+    try {
+      const res = await connectSnapchat(scForm);
+      setScStatus({ connected: true, ...res.data });
+      setShowScConnect(false); setScForm({ access_token: '', ad_account_id: '' });
+      setSuccess(`Connected to Snapchat — ${res.data.account_name}`);
+      loadScCampaigns();
+    } catch (e) { setError(e.response?.data?.detail || 'Snapchat connection failed'); }
+    finally { setScConnecting(false); }
+  };
+  const handleScDisconnect = async () => {
+    if (!confirm('Disconnect Snapchat?')) return;
+    await disconnectSnapchat(); setScStatus({ connected: false }); setScCampaigns([]);
+    setSuccess('Snapchat disconnected');
+  };
+
+  // ── Pinterest handlers ──
+  const loadPtCampaigns = async () => {
+    setPtLoading(true);
+    try { const res = await getPinterestCampaigns(); setPtCampaigns(res.data); }
+    catch (e) { setError(e.response?.data?.detail || 'Failed to load Pinterest campaigns'); }
+    finally { setPtLoading(false); }
+  };
+  const handlePtConnect = async () => {
+    if (!ptForm.access_token || !ptForm.ad_account_id) { setError('Enter both fields'); return; }
+    setPtConnecting(true); setError('');
+    try {
+      const res = await connectPinterest(ptForm);
+      setPtStatus({ connected: true, ...res.data });
+      setShowPtConnect(false); setPtForm({ access_token: '', ad_account_id: '' });
+      setSuccess(`Connected to Pinterest — ${res.data.account_name}`);
+      loadPtCampaigns();
+    } catch (e) { setError(e.response?.data?.detail || 'Pinterest connection failed'); }
+    finally { setPtConnecting(false); }
+  };
+  const handlePtDisconnect = async () => {
+    if (!confirm('Disconnect Pinterest?')) return;
+    await disconnectPinterest(); setPtStatus({ connected: false }); setPtCampaigns([]);
+    setSuccess('Pinterest disconnected');
   };
 
   const handleMetaCreate = async () => {
@@ -698,6 +802,205 @@ export default function Ads() {
               </div>
             )}
           </div>
+        )}
+      </div>
+
+      {/* ── TIKTOK ADS SECTION ── */}
+      <div className="card" style={{ marginBottom: 20, borderTop: '3px solid #010101' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: ttStatus?.connected ? 16 : 0 }}>
+          <PlatformIcon name="tiktok" size={36} />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 700, fontSize: 16 }}>TikTok Ads</div>
+            <div style={{ fontSize: 12, color: '#8892b0', marginTop: 2 }}>
+              {ttStatus?.connected ? <><span style={{ color: '#00d48f' }}>● Connected</span> · {ttStatus.account_name}</> : <span style={{ color: '#8892b0' }}>Not connected</span>}
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {ttStatus?.connected ? (
+              <>
+                <button className="btn btn-secondary btn-sm" onClick={loadTtCampaigns} disabled={ttLoading}><RefreshCw size={12} /></button>
+                <button className="btn btn-danger btn-sm" onClick={handleTtDisconnect}><Unlink size={12} /> Disconnect</button>
+              </>
+            ) : (
+              <button className="btn btn-primary btn-sm" onClick={() => setShowTtConnect(v => !v)}><Link size={12} /> Connect TikTok</button>
+            )}
+          </div>
+        </div>
+        {!ttStatus?.connected && showTtConnect && (
+          <div style={{ marginTop: 16, padding: 16, background: '#0f1117', borderRadius: 10, border: '1px solid #2d3248' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+              <div>
+                <label className="form-label">Access Token *</label>
+                <input className="form-input" type="password" placeholder="TikTok access token..." value={ttForm.access_token} onChange={e => setTtForm({ ...ttForm, access_token: e.target.value })} />
+              </div>
+              <div>
+                <label className="form-label">Advertiser ID *</label>
+                <input className="form-input" placeholder="e.g. 7012345678901234567" value={ttForm.advertiser_id} onChange={e => setTtForm({ ...ttForm, advertiser_id: e.target.value })} />
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn btn-primary" onClick={handleTtConnect} disabled={ttConnecting}>{ttConnecting ? 'Connecting…' : 'Connect'}</button>
+              <button className="btn btn-secondary" onClick={() => setShowTtConnect(false)}>Cancel</button>
+            </div>
+          </div>
+        )}
+        {ttStatus?.connected && (
+          ttLoading ? <div style={{ color: '#8892b0', fontSize: 13 }}>Loading campaigns…</div>
+          : ttCampaigns.length === 0 ? <div style={{ color: '#8892b0', fontSize: 13 }}>No campaigns found.</div>
+          : (
+            <div className="table-wrapper">
+              <table><thead><tr><th>Status</th><th>Campaign</th><th>Objective</th><th>Budget</th><th></th></tr></thead>
+                <tbody>
+                  {ttCampaigns.map(c => (
+                    <tr key={c.id}>
+                      <td><span style={{ color: c.status === 'ENABLE' ? '#00d48f' : '#8892b0', fontWeight: 600, fontSize: 12 }}>{c.status === 'ENABLE' ? '● Active' : '● Paused'}</span></td>
+                      <td style={{ fontWeight: 500 }}>{c.name}</td>
+                      <td style={{ color: '#8892b0', fontSize: 13 }}>{c.objective_type}</td>
+                      <td style={{ fontSize: 13 }}>${fmt(c.budget)}/day</td>
+                      <td>
+                        {c.status === 'ENABLE'
+                          ? <button className="btn btn-secondary btn-sm" onClick={() => pauseTikTokCampaign(c.id).then(loadTtCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))}><Pause size={12} /></button>
+                          : <button className="btn btn-primary btn-sm" onClick={() => resumeTikTokCampaign(c.id).then(loadTtCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))}><Play size={12} /></button>
+                        }
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )
+        )}
+      </div>
+
+      {/* ── SNAPCHAT ADS SECTION ── */}
+      <div className="card" style={{ marginBottom: 20, borderTop: '3px solid #FFFC00' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: scStatus?.connected ? 16 : 0 }}>
+          <PlatformIcon name="snapchat" size={36} />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 700, fontSize: 16 }}>Snapchat Ads</div>
+            <div style={{ fontSize: 12, color: '#8892b0', marginTop: 2 }}>
+              {scStatus?.connected ? <><span style={{ color: '#00d48f' }}>● Connected</span> · {scStatus.account_name}</> : <span style={{ color: '#8892b0' }}>Not connected</span>}
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {scStatus?.connected ? (
+              <>
+                <button className="btn btn-secondary btn-sm" onClick={loadScCampaigns} disabled={scLoading}><RefreshCw size={12} /></button>
+                <button className="btn btn-danger btn-sm" onClick={handleScDisconnect}><Unlink size={12} /> Disconnect</button>
+              </>
+            ) : (
+              <button className="btn btn-primary btn-sm" onClick={() => setShowScConnect(v => !v)}><Link size={12} /> Connect Snapchat</button>
+            )}
+          </div>
+        </div>
+        {!scStatus?.connected && showScConnect && (
+          <div style={{ marginTop: 16, padding: 16, background: '#0f1117', borderRadius: 10, border: '1px solid #2d3248' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+              <div>
+                <label className="form-label">Access Token *</label>
+                <input className="form-input" type="password" placeholder="Snapchat access token..." value={scForm.access_token} onChange={e => setScForm({ ...scForm, access_token: e.target.value })} />
+              </div>
+              <div>
+                <label className="form-label">Ad Account ID *</label>
+                <input className="form-input" placeholder="e.g. 12345678-..." value={scForm.ad_account_id} onChange={e => setScForm({ ...scForm, ad_account_id: e.target.value })} />
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn btn-primary" onClick={handleScConnect} disabled={scConnecting}>{scConnecting ? 'Connecting…' : 'Connect'}</button>
+              <button className="btn btn-secondary" onClick={() => setShowScConnect(false)}>Cancel</button>
+            </div>
+          </div>
+        )}
+        {scStatus?.connected && (
+          scLoading ? <div style={{ color: '#8892b0', fontSize: 13 }}>Loading campaigns…</div>
+          : scCampaigns.length === 0 ? <div style={{ color: '#8892b0', fontSize: 13 }}>No campaigns found.</div>
+          : (
+            <div className="table-wrapper">
+              <table><thead><tr><th>Status</th><th>Campaign</th><th>Daily Budget</th><th></th></tr></thead>
+                <tbody>
+                  {scCampaigns.map(c => (
+                    <tr key={c.id}>
+                      <td><span style={{ color: c.status === 'ACTIVE' ? '#00d48f' : '#8892b0', fontWeight: 600, fontSize: 12 }}>{c.status === 'ACTIVE' ? '● Active' : '● Paused'}</span></td>
+                      <td style={{ fontWeight: 500 }}>{c.name}</td>
+                      <td style={{ fontSize: 13 }}>{c.daily_budget_usd ? `$${fmt(c.daily_budget_usd)}/day` : '—'}</td>
+                      <td>
+                        {c.status === 'ACTIVE'
+                          ? <button className="btn btn-secondary btn-sm" onClick={() => pauseSnapchatCampaign(c.id).then(loadScCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))}><Pause size={12} /></button>
+                          : <button className="btn btn-primary btn-sm" onClick={() => resumeSnapchatCampaign(c.id).then(loadScCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))}><Play size={12} /></button>
+                        }
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )
+        )}
+      </div>
+
+      {/* ── PINTEREST ADS SECTION ── */}
+      <div className="card" style={{ marginBottom: 20, borderTop: '3px solid #E60023' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: ptStatus?.connected ? 16 : 0 }}>
+          <PlatformIcon name="pinterest" size={36} />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 700, fontSize: 16 }}>Pinterest Ads</div>
+            <div style={{ fontSize: 12, color: '#8892b0', marginTop: 2 }}>
+              {ptStatus?.connected ? <><span style={{ color: '#00d48f' }}>● Connected</span> · {ptStatus.account_name}</> : <span style={{ color: '#8892b0' }}>Not connected</span>}
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {ptStatus?.connected ? (
+              <>
+                <button className="btn btn-secondary btn-sm" onClick={loadPtCampaigns} disabled={ptLoading}><RefreshCw size={12} /></button>
+                <button className="btn btn-danger btn-sm" onClick={handlePtDisconnect}><Unlink size={12} /> Disconnect</button>
+              </>
+            ) : (
+              <button className="btn btn-primary btn-sm" onClick={() => setShowPtConnect(v => !v)}><Link size={12} /> Connect Pinterest</button>
+            )}
+          </div>
+        </div>
+        {!ptStatus?.connected && showPtConnect && (
+          <div style={{ marginTop: 16, padding: 16, background: '#0f1117', borderRadius: 10, border: '1px solid #2d3248' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+              <div>
+                <label className="form-label">Access Token *</label>
+                <input className="form-input" type="password" placeholder="Pinterest access token..." value={ptForm.access_token} onChange={e => setPtForm({ ...ptForm, access_token: e.target.value })} />
+              </div>
+              <div>
+                <label className="form-label">Ad Account ID *</label>
+                <input className="form-input" placeholder="e.g. 549755885175" value={ptForm.ad_account_id} onChange={e => setPtForm({ ...ptForm, ad_account_id: e.target.value })} />
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn btn-primary" onClick={handlePtConnect} disabled={ptConnecting}>{ptConnecting ? 'Connecting…' : 'Connect'}</button>
+              <button className="btn btn-secondary" onClick={() => setShowPtConnect(false)}>Cancel</button>
+            </div>
+          </div>
+        )}
+        {ptStatus?.connected && (
+          ptLoading ? <div style={{ color: '#8892b0', fontSize: 13 }}>Loading campaigns…</div>
+          : ptCampaigns.length === 0 ? <div style={{ color: '#8892b0', fontSize: 13 }}>No campaigns found.</div>
+          : (
+            <div className="table-wrapper">
+              <table><thead><tr><th>Status</th><th>Campaign</th><th>Daily Budget</th><th></th></tr></thead>
+                <tbody>
+                  {ptCampaigns.map(c => (
+                    <tr key={c.id}>
+                      <td><span style={{ color: c.status === 'ACTIVE' ? '#00d48f' : '#8892b0', fontWeight: 600, fontSize: 12 }}>{c.status === 'ACTIVE' ? '● Active' : '● Paused'}</span></td>
+                      <td style={{ fontWeight: 500 }}>{c.name}</td>
+                      <td style={{ fontSize: 13 }}>{c.daily_budget_usd ? `$${fmt(c.daily_budget_usd)}/day` : '—'}</td>
+                      <td>
+                        {c.status === 'ACTIVE'
+                          ? <button className="btn btn-secondary btn-sm" onClick={() => pausePinterestCampaign(c.id).then(loadPtCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))}><Pause size={12} /></button>
+                          : <button className="btn btn-primary btn-sm" onClick={() => resumePinterestCampaign(c.id).then(loadPtCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))}><Play size={12} /></button>
+                        }
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )
         )}
       </div>
 
