@@ -419,13 +419,23 @@ export default function MetaCampaignWizard({ onClose, onSuccess, usdRate }) {
               {!useExistingPost && (
                 <div style={{ marginBottom: 14 }}>
                   <label className="form-label">Facebook Page *</label>
-                  {pages.length === 0 ? (
-                    <div style={{ ...s, padding: '10px 0' }}>Loading pages...</div>
-                  ) : (
+                  {pages.length > 0 ? (
                     <select className="form-input" value={pageId} onChange={e => setPageId(e.target.value)}>
                       <option value="">Select a page</option>
                       {pages.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                     </select>
+                  ) : (
+                    <div>
+                      <input
+                        className="form-input"
+                        placeholder="Enter Page ID manually (e.g. 123456789)"
+                        value={pageId}
+                        onChange={e => setPageId(e.target.value)}
+                      />
+                      <div style={{ fontSize: 11, color: '#8892b0', marginTop: 4 }}>
+                        Find your Page ID: go to your Facebook Page → About → scroll to bottom → "Page ID"
+                      </div>
+                    </div>
                   )}
                 </div>
               )}
