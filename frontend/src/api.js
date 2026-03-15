@@ -50,9 +50,24 @@ export const deleteVariant = (variantId) => api.delete(`/products/variants/${var
 export const getPacks = () => api.get('/packs');
 export const createPack = (data) => api.post('/packs', data);
 export const updatePack = (id, data) => api.put(`/packs/${id}`, data);
+export const togglePack = (id) => api.patch(`/packs/${id}/toggle`);
 export const deletePack = (id) => api.delete(`/packs/${id}`);
 export const addPackPreset = (packId, data) => api.post(`/packs/${packId}/presets`, data);
 export const deletePackPreset = (presetId) => api.delete(`/packs/presets/${presetId}`);
+
+// Offers
+export const getOffers = () => api.get('/offers');
+export const createOffer = (data) => api.post('/offers', data);
+export const updateOffer = (id, data) => api.put(`/offers/${id}`, data);
+export const toggleOffer = (id) => api.patch(`/offers/${id}/toggle`);
+export const deleteOffer = (id) => api.delete(`/offers/${id}`);
+
+// Promo Codes
+export const getPromoCodes = () => api.get('/promo-codes');
+export const createPromoCode = (data) => api.post('/promo-codes', data);
+export const updatePromoCode = (id, data) => api.put(`/promo-codes/${id}`, data);
+export const togglePromoCode = (id) => api.patch(`/promo-codes/${id}/toggle`);
+export const deletePromoCode = (id) => api.delete(`/promo-codes/${id}`);
 
 // Stock
 export const getStockArrivals = () => api.get('/stock/arrivals');
