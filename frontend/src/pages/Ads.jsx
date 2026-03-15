@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, RefreshCw, Link, Unlink, Play, Pause, ExternalLink } from 'lucide-react';
+import { Plus, RefreshCw, Link, Unlink, Play, Pause, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react';
 import MetaCampaignWizard from '../components/MetaCampaignWizard';
 import {
   getSetting, setSetting,
@@ -122,6 +122,8 @@ export default function Ads() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [showAddPlatform, setShowAddPlatform] = useState(false);
+  const [connectingPlatform, setConnectingPlatform] = useState(null); // 'meta'|'google'|'tiktok'|'snapchat'|'pinterest'
+  const [expanded, setExpanded] = useState({});
 
   // Date range (shared by spend sections)
   const [calcStart, setCalcStart] = useState(() => {
@@ -135,7 +137,6 @@ export default function Ads() {
   const [metaCampaigns, setMetaCampaigns] = useState([]);
   const [metaLoading, setMetaLoading] = useState(false);
   const [metaConnecting, setMetaConnecting] = useState(false);
-  const [showMetaConnect, setShowMetaConnect] = useState(false);
   const [metaForm, setMetaForm] = useState({ access_token: '', ad_account_id: '' });
   const [metaAdAccounts, setMetaAdAccounts] = useState([]);
   const [fetchingAccounts, setFetchingAccounts] = useState(false);
@@ -152,7 +153,6 @@ export default function Ads() {
   const [ggCampaigns, setGgCampaigns] = useState([]);
   const [ggLoading, setGgLoading] = useState(false);
   const [ggConnecting, setGgConnecting] = useState(false);
-  const [showGgConnect, setShowGgConnect] = useState(false);
   const [ggForm, setGgForm] = useState({ access_token: '', customer_id: '', developer_token: '' });
 
   // ── TikTok state ──
@@ -160,7 +160,6 @@ export default function Ads() {
   const [ttCampaigns, setTtCampaigns] = useState([]);
   const [ttLoading, setTtLoading] = useState(false);
   const [ttConnecting, setTtConnecting] = useState(false);
-  const [showTtConnect, setShowTtConnect] = useState(false);
   const [ttForm, setTtForm] = useState({ access_token: '', advertiser_id: '' });
 
   // ── Snapchat state ──
@@ -168,7 +167,6 @@ export default function Ads() {
   const [scCampaigns, setScCampaigns] = useState([]);
   const [scLoading, setScLoading] = useState(false);
   const [scConnecting, setScConnecting] = useState(false);
-  const [showScConnect, setShowScConnect] = useState(false);
   const [scForm, setScForm] = useState({ access_token: '', ad_account_id: '' });
 
   // ── Pinterest state ──
@@ -176,7 +174,6 @@ export default function Ads() {
   const [ptCampaigns, setPtCampaigns] = useState([]);
   const [ptLoading, setPtLoading] = useState(false);
   const [ptConnecting, setPtConnecting] = useState(false);
-  const [showPtConnect, setShowPtConnect] = useState(false);
   const [ptForm, setPtForm] = useState({ access_token: '', ad_account_id: '' });
 
   const fetchMarketRate = async () => {
@@ -281,7 +278,7 @@ export default function Ads() {
     try {
       const res = await connectMeta(metaForm);
       setMetaStatus({ connected: true, ...res.data });
-      setShowMetaConnect(false);
+      setConnectingPlatform(null); setShowAddPlatform(false);
       setMetaForm({ access_token: '', ad_account_id: '' });
       setSuccess(`Connected to Meta — ${res.data.account_name}`);
       loadMetaCampaigns();
@@ -326,7 +323,7 @@ export default function Ads() {
     try {
       const res = await connectGoogle(ggForm);
       setGgStatus({ connected: true, ...res.data });
-      setShowGgConnect(false); setGgForm({ access_token: '', customer_id: '', developer_token: '' });
+      setConnectingPlatform(null); setShowAddPlatform(false); setGgForm({ access_token: '', customer_id: '', developer_token: '' });
       setSuccess(`Connected to Google Ads — ${res.data.account_name}`);
       loadGgCampaigns();
     } catch (e) { setError(e.response?.data?.detail || 'Google connection failed'); }
@@ -351,7 +348,7 @@ export default function Ads() {
     try {
       const res = await connectTikTok(ttForm);
       setTtStatus({ connected: true, ...res.data });
-      setShowTtConnect(false); setTtForm({ access_token: '', advertiser_id: '' });
+      setConnectingPlatform(null); setShowAddPlatform(false); setTtForm({ access_token: '', advertiser_id: '' });
       setSuccess(`Connected to TikTok — ${res.data.account_name}`);
       loadTtCampaigns();
     } catch (e) { setError(e.response?.data?.detail || 'TikTok connection failed'); }
@@ -376,7 +373,7 @@ export default function Ads() {
     try {
       const res = await connectSnapchat(scForm);
       setScStatus({ connected: true, ...res.data });
-      setShowScConnect(false); setScForm({ access_token: '', ad_account_id: '' });
+      setConnectingPlatform(null); setShowAddPlatform(false); setScForm({ access_token: '', ad_account_id: '' });
       setSuccess(`Connected to Snapchat — ${res.data.account_name}`);
       loadScCampaigns();
     } catch (e) { setError(e.response?.data?.detail || 'Snapchat connection failed'); }
@@ -401,7 +398,7 @@ export default function Ads() {
     try {
       const res = await connectPinterest(ptForm);
       setPtStatus({ connected: true, ...res.data });
-      setShowPtConnect(false); setPtForm({ access_token: '', ad_account_id: '' });
+      setConnectingPlatform(null); setShowAddPlatform(false); setPtForm({ access_token: '', ad_account_id: '' });
       setSuccess(`Connected to Pinterest — ${res.data.account_name}`);
       loadPtCampaigns();
     } catch (e) { setError(e.response?.data?.detail || 'Pinterest connection failed'); }
@@ -524,519 +521,432 @@ export default function Ads() {
       {error && <div className="alert alert-error">{error}<button style={{ float: 'right', background: 'none', border: 'none', color: 'inherit', cursor: 'pointer' }} onClick={() => setError('')}>✕</button></div>}
       {success && <div className="alert alert-success">{success}<button style={{ float: 'right', background: 'none', border: 'none', color: 'inherit', cursor: 'pointer' }} onClick={() => setSuccess('')}>✕</button></div>}
 
-      {/* ── META ADS SECTION ── */}
-      <div className="card" style={{ marginBottom: 20, borderTop: '3px solid #0866FF' }}>
-        {/* Meta header */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: metaStatus?.connected ? 16 : 0 }}>
-          <MetaLogo size={36} />
-          <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 700, fontSize: 16 }}>Meta Ads</div>
-            <div style={{ fontSize: 12, color: '#8892b0', marginTop: 2 }}>
-              {metaStatus?.connected
-                ? <><span style={{ color: '#00d48f' }}>● Connected</span> · {metaStatus.account_name} · {metaActive} active campaign{metaActive !== 1 ? 's' : ''}</>
-                : <span style={{ color: '#8892b0' }}>Not connected</span>}
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: 6 }}>
-            {metaStatus?.connected ? (
-              <>
-                <button className="btn btn-primary btn-sm" onClick={() => setShowWizard(true)} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <Plus size={13} /> New Campaign
-                </button>
-                <button className="btn btn-secondary btn-sm" onClick={loadMetaCampaigns} disabled={metaLoading} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <RefreshCw size={12} style={{ animation: metaLoading ? 'spin 1s linear infinite' : 'none' }} />
-                </button>
-                <button className="btn btn-danger btn-sm" onClick={handleMetaDisconnect} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <Unlink size={12} /> Disconnect
-                </button>
-              </>
-            ) : (
-              <button className="btn btn-primary btn-sm" onClick={() => setShowMetaConnect(true)} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <Link size={12} /> Connect Meta
-              </button>
-            )}
-          </div>
-        </div>
+      {/* ── PLATFORM CARDS (only shown when connected) ── */}
 
-        {/* Not connected prompt */}
-        {!metaStatus?.connected && !showMetaConnect && (
-          <div style={{ padding: '16px 0 4px', color: '#8892b0', fontSize: 13 }}>
-            Connect your Meta Ads account to view, pause, resume, and create campaigns directly from Stocky.
-          </div>
-        )}
-
-        {/* Connect form (inline) */}
-        {!metaStatus?.connected && showMetaConnect && (
-          <div style={{ marginTop: 16, padding: 16, background: '#0f1117', borderRadius: 10, border: '1px solid #2d3248' }}>
-            <div style={{ fontSize: 13, color: '#8892b0', marginBottom: 14 }}>
-              You need a <strong style={{ color: '#fff' }}>Meta Access Token</strong> and your <strong style={{ color: '#fff' }}>Ad Account ID</strong>.
-              {' '}<a href="https://developers.facebook.com/tools/explorer/" target="_blank" rel="noreferrer" style={{ color: '#0866FF', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                Get token <ExternalLink size={11} />
-              </a>
-            </div>
-            <div style={{ marginBottom: 12 }}>
-              <label className="form-label">Access Token *</label>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <input
-                  className="form-input"
-                  type="password"
-                  placeholder="EAAxxxxxx..."
-                  value={metaForm.access_token}
-                  onChange={e => { setMetaForm({ ...metaForm, access_token: e.target.value }); setMetaAdAccounts([]); }}
-                  style={{ flex: 1 }}
-                />
-                <button className="btn btn-secondary" onClick={handleFetchAccounts} disabled={fetchingAccounts} style={{ whiteSpace: 'nowrap' }}>
-                  {fetchingAccounts ? '...' : 'Fetch Accounts'}
-                </button>
-              </div>
-            </div>
-            {metaAdAccounts.length > 0 && (
-              <div style={{ marginBottom: 12 }}>
-                <label className="form-label">Ad Account *</label>
-                <select className="form-input" value={metaForm.ad_account_id} onChange={e => setMetaForm({ ...metaForm, ad_account_id: e.target.value })}>
-                  <option value="">Select an account</option>
-                  {metaAdAccounts.map(a => (
-                    <option key={a.id} value={a.id}>{a.name} ({a.id}) — {a.currency}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button className="btn btn-primary" onClick={handleMetaConnect} disabled={metaConnecting}>
-                {metaConnecting ? 'Connecting…' : 'Connect'}
-              </button>
-              <button className="btn btn-secondary" onClick={() => setShowMetaConnect(false)}>Cancel</button>
-            </div>
-          </div>
-        )}
-
-        {/* Meta campaigns list */}
-        {metaStatus?.connected && (
-          metaLoading ? (
-            <div style={{ color: '#8892b0', fontSize: 13 }}>Loading campaigns…</div>
-          ) : metaCampaigns.length === 0 ? (
-            <div style={{ color: '#8892b0', fontSize: 13 }}>No campaigns found in this account.</div>
-          ) : (
-            <div className="table-wrapper">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Status</th>
-                    <th>Campaign</th>
-                    <th>Objective</th>
-                    <th>Daily Budget</th>
-                    <th>Total Spent</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {metaCampaigns.map(c => {
-                    const isActive = c.status === 'ACTIVE';
-                    return (
-                      <tr key={c.id}>
-                        <td>
-                          <span style={{
-                            display: 'inline-flex', alignItems: 'center', gap: 5,
-                            padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600,
-                            background: isActive ? '#0d2a1e' : '#2d3248',
-                            color: isActive ? '#00d48f' : '#8892b0',
-                          }}>
-                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: isActive ? '#00d48f' : '#8892b0', display: 'inline-block' }} />
-                            {isActive ? 'Active' : c.status === 'PAUSED' ? 'Paused' : c.status}
-                          </span>
-                        </td>
-                        <td style={{ fontWeight: 500, maxWidth: 220 }}>
-                          <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
-                          {c.start_time && <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>{c.start_time.slice(0, 10)}</div>}
-                        </td>
-                        <td style={{ fontSize: 12, color: '#8892b0' }}>
-                          {c.objective?.replace('OUTCOME_', '') || '—'}
-                        </td>
-                        <td>
-                          {c.daily_budget_usd != null
-                            ? <><span style={{ color: '#60a5fa', fontWeight: 600 }}>${fmt(c.daily_budget_usd)}</span><span style={{ color: '#8892b0', fontSize: 11 }}>/day</span></>
-                            : <span style={{ color: '#8892b0' }}>—</span>}
-                        </td>
-                        <td>
-                          <div style={{ fontWeight: 700, color: '#f59e0b' }}>${fmt(c.spend_all_time_usd)}</div>
-                          <div style={{ fontSize: 11, color: '#8892b0' }}>{fmt(c.spend_all_time_usd * usdRate)} MAD</div>
-                        </td>
-                        <td>
-                          {isActive ? (
-                            <button className="btn btn-secondary btn-sm" onClick={() => handlePause(c.id)} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                              <Pause size={11} /> Pause
-                            </button>
-                          ) : c.status === 'PAUSED' ? (
-                            <button className="btn btn-primary btn-sm" onClick={() => handleResume(c.id)} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                              <Play size={11} /> Resume
-                            </button>
-                          ) : null}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )
-        )}
-
-        {/* Meta spend for date range (inside Meta card, only when connected) */}
-        {metaStatus?.connected && (
-          <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #2d3248' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 13, color: '#8892b0' }}>Real spend from Meta:</span>
-              <input className="form-input" type="date" value={calcStart} onChange={e => setCalcStart(e.target.value)} style={{ width: 140 }} />
-              <span style={{ color: '#8892b0' }}>→</span>
-              <input className="form-input" type="date" value={calcEnd} onChange={e => setCalcEnd(e.target.value)} style={{ width: 140 }} />
-              <button className="btn btn-secondary btn-sm" onClick={runMetaSpend} disabled={metaSpendLoading}>
-                {metaSpendLoading ? 'Loading…' : 'Fetch Spend'}
-              </button>
-            </div>
-            {metaSpendResult && (
-              <div style={{ marginTop: 12, display: 'flex', gap: 20, flexWrap: 'wrap', alignItems: 'center' }}>
-                <div>
-                  <div style={{ fontSize: 11, color: '#8892b0' }}>Total Spend</div>
-                  <div style={{ fontWeight: 700, fontSize: 18, color: '#f59e0b' }}>${fmt(metaSpendResult.total_spend_usd)} <span style={{ fontSize: 12, color: '#8892b0' }}>USD</span></div>
-                  <div style={{ fontSize: 12, color: '#8892b0' }}>{fmt(metaSpendResult.total_spend_usd * usdRate)} MAD</div>
+      {/* META */}
+      {metaStatus?.connected && (() => {
+        const isOpen = expanded['meta'] !== false;
+        return (
+          <div className="card" style={{ marginBottom: 20, borderTop: '3px solid #0866FF' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }} onClick={() => setExpanded(e => ({ ...e, meta: !isOpen }))}>
+              <MetaLogo size={36} />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 700, fontSize: 16 }}>Meta Ads</div>
+                <div style={{ fontSize: 12, color: '#8892b0', marginTop: 2 }}>
+                  <span style={{ color: '#00d48f' }}>● Connected</span> · {metaStatus.account_name} · {metaActive} active campaign{metaActive !== 1 ? 's' : ''}
                 </div>
-                {metaSpendResult.breakdown.length > 0 && (
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    {metaSpendResult.breakdown.map(b => (
-                      <div key={b.campaign} style={{ background: '#1d1d27', borderRadius: 6, padding: '4px 10px', fontSize: 12 }}>
-                        <span style={{ color: '#8892b0' }}>{b.campaign}: </span>
-                        <span style={{ color: '#60a5fa' }}>${fmt(b.spend_usd)}</span>
+              </div>
+              <div style={{ display: 'flex', gap: 6 }} onClick={e => e.stopPropagation()}>
+                <button className="btn btn-primary btn-sm" onClick={() => setShowWizard(true)} style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Plus size={13} /> New Campaign</button>
+                <button className="btn btn-secondary btn-sm" onClick={loadMetaCampaigns} disabled={metaLoading}><RefreshCw size={12} style={{ animation: metaLoading ? 'spin 1s linear infinite' : 'none' }} /></button>
+                <button className="btn btn-danger btn-sm" onClick={handleMetaDisconnect}><Unlink size={12} /> Disconnect</button>
+              </div>
+              <div style={{ color: '#8892b0', marginLeft: 4 }}>{isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</div>
+            </div>
+            {isOpen && (
+              <div style={{ marginTop: 16 }}>
+                {metaLoading ? <div style={{ color: '#8892b0', fontSize: 13 }}>Loading campaigns…</div>
+                : metaCampaigns.length === 0 ? <div style={{ color: '#8892b0', fontSize: 13 }}>No campaigns found in this account.</div>
+                : (
+                  <div className="table-wrapper">
+                    <table>
+                      <thead><tr><th>Status</th><th>Campaign</th><th>Objective</th><th>Daily Budget</th><th>Total Spent</th><th></th></tr></thead>
+                      <tbody>
+                        {metaCampaigns.map(c => {
+                          const isActive = c.status === 'ACTIVE';
+                          return (
+                            <tr key={c.id}>
+                              <td>
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600, background: isActive ? '#0d2a1e' : '#2d3248', color: isActive ? '#00d48f' : '#8892b0' }}>
+                                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: isActive ? '#00d48f' : '#8892b0', display: 'inline-block' }} />
+                                  {isActive ? 'Active' : c.status === 'PAUSED' ? 'Paused' : c.status}
+                                </span>
+                              </td>
+                              <td style={{ fontWeight: 500, maxWidth: 220 }}>
+                                <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
+                                {c.start_time && <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>{c.start_time.slice(0, 10)}</div>}
+                              </td>
+                              <td style={{ fontSize: 12, color: '#8892b0' }}>{c.objective?.replace('OUTCOME_', '') || '—'}</td>
+                              <td>{c.daily_budget_usd != null ? <><span style={{ color: '#60a5fa', fontWeight: 600 }}>${fmt(c.daily_budget_usd)}</span><span style={{ color: '#8892b0', fontSize: 11 }}>/day</span></> : <span style={{ color: '#8892b0' }}>—</span>}</td>
+                              <td>
+                                <div style={{ fontWeight: 700, color: '#f59e0b' }}>${fmt(c.spend_all_time_usd)}</div>
+                                <div style={{ fontSize: 11, color: '#8892b0' }}>{fmt(c.spend_all_time_usd * usdRate)} MAD</div>
+                              </td>
+                              <td>
+                                {isActive ? <button className="btn btn-secondary btn-sm" onClick={() => handlePause(c.id)} style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Pause size={11} /> Pause</button>
+                                : c.status === 'PAUSED' ? <button className="btn btn-primary btn-sm" onClick={() => handleResume(c.id)} style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Play size={11} /> Resume</button>
+                                : null}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+                <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #2d3248' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 13, color: '#8892b0' }}>Real spend from Meta:</span>
+                    <input className="form-input" type="date" value={calcStart} onChange={e => setCalcStart(e.target.value)} style={{ width: 140 }} />
+                    <span style={{ color: '#8892b0' }}>→</span>
+                    <input className="form-input" type="date" value={calcEnd} onChange={e => setCalcEnd(e.target.value)} style={{ width: 140 }} />
+                    <button className="btn btn-secondary btn-sm" onClick={runMetaSpend} disabled={metaSpendLoading}>{metaSpendLoading ? 'Loading…' : 'Fetch Spend'}</button>
+                  </div>
+                  {metaSpendResult && (
+                    <div style={{ marginTop: 12, display: 'flex', gap: 20, flexWrap: 'wrap', alignItems: 'center' }}>
+                      <div>
+                        <div style={{ fontSize: 11, color: '#8892b0' }}>Total Spend</div>
+                        <div style={{ fontWeight: 700, fontSize: 18, color: '#f59e0b' }}>${fmt(metaSpendResult.total_spend_usd)} <span style={{ fontSize: 12, color: '#8892b0' }}>USD</span></div>
+                        <div style={{ fontSize: 12, color: '#8892b0' }}>{fmt(metaSpendResult.total_spend_usd * usdRate)} MAD</div>
                       </div>
-                    ))}
+                      {metaSpendResult.breakdown.length > 0 && (
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                          {metaSpendResult.breakdown.map(b => (
+                            <div key={b.campaign} style={{ background: '#1d1d27', borderRadius: 6, padding: '4px 10px', fontSize: 12 }}>
+                              <span style={{ color: '#8892b0' }}>{b.campaign}: </span>
+                              <span style={{ color: '#60a5fa' }}>${fmt(b.spend_usd)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* TIKTOK */}
+      {ttStatus?.connected && (() => {
+        const isOpen = expanded['tiktok'] !== false;
+        return (
+          <div className="card" style={{ marginBottom: 20, borderTop: '3px solid #010101' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }} onClick={() => setExpanded(e => ({ ...e, tiktok: !isOpen }))}>
+              <PlatformIcon name="tiktok" size={36} />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 700, fontSize: 16 }}>TikTok Ads</div>
+                <div style={{ fontSize: 12, color: '#8892b0', marginTop: 2 }}><span style={{ color: '#00d48f' }}>● Connected</span> · {ttStatus.account_name}</div>
+              </div>
+              <div style={{ display: 'flex', gap: 6 }} onClick={e => e.stopPropagation()}>
+                <button className="btn btn-secondary btn-sm" onClick={loadTtCampaigns} disabled={ttLoading}><RefreshCw size={12} /></button>
+                <button className="btn btn-danger btn-sm" onClick={handleTtDisconnect}><Unlink size={12} /> Disconnect</button>
+              </div>
+              <div style={{ color: '#8892b0', marginLeft: 4 }}>{isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</div>
+            </div>
+            {isOpen && (
+              <div style={{ marginTop: 16 }}>
+                {ttLoading ? <div style={{ color: '#8892b0', fontSize: 13 }}>Loading campaigns…</div>
+                : ttCampaigns.length === 0 ? <div style={{ color: '#8892b0', fontSize: 13 }}>No campaigns found.</div>
+                : (
+                  <div className="table-wrapper">
+                    <table><thead><tr><th>Status</th><th>Campaign</th><th>Objective</th><th>Budget</th><th></th></tr></thead>
+                      <tbody>
+                        {ttCampaigns.map(c => (
+                          <tr key={c.id}>
+                            <td><span style={{ color: c.status === 'ENABLE' ? '#00d48f' : '#8892b0', fontWeight: 600, fontSize: 12 }}>{c.status === 'ENABLE' ? '● Active' : '● Paused'}</span></td>
+                            <td style={{ fontWeight: 500 }}>{c.name}</td>
+                            <td style={{ color: '#8892b0', fontSize: 13 }}>{c.objective_type}</td>
+                            <td style={{ fontSize: 13 }}>${fmt(c.budget)}/day</td>
+                            <td>
+                              {c.status === 'ENABLE'
+                                ? <button className="btn btn-secondary btn-sm" onClick={() => pauseTikTokCampaign(c.id).then(loadTtCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))}><Pause size={12} /></button>
+                                : <button className="btn btn-primary btn-sm" onClick={() => resumeTikTokCampaign(c.id).then(loadTtCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))}><Play size={12} /></button>
+                              }
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 )}
               </div>
             )}
           </div>
-        )}
-      </div>
+        );
+      })()}
 
-      {/* ── TIKTOK ADS SECTION ── */}
-      <div className="card" style={{ marginBottom: 20, borderTop: '3px solid #010101' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: ttStatus?.connected ? 16 : 0 }}>
-          <PlatformIcon name="tiktok" size={36} />
-          <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 700, fontSize: 16 }}>TikTok Ads</div>
-            <div style={{ fontSize: 12, color: '#8892b0', marginTop: 2 }}>
-              {ttStatus?.connected ? <><span style={{ color: '#00d48f' }}>● Connected</span> · {ttStatus.account_name}</> : <span style={{ color: '#8892b0' }}>Not connected</span>}
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: 6 }}>
-            {ttStatus?.connected ? (
-              <>
-                <button className="btn btn-secondary btn-sm" onClick={loadTtCampaigns} disabled={ttLoading}><RefreshCw size={12} /></button>
-                <button className="btn btn-danger btn-sm" onClick={handleTtDisconnect}><Unlink size={12} /> Disconnect</button>
-              </>
-            ) : (
-              <button className="btn btn-primary btn-sm" onClick={() => setShowTtConnect(v => !v)}><Link size={12} /> Connect TikTok</button>
-            )}
-          </div>
-        </div>
-        {!ttStatus?.connected && showTtConnect && (
-          <div style={{ marginTop: 16, padding: 16, background: '#0f1117', borderRadius: 10, border: '1px solid #2d3248' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
-              <div>
-                <label className="form-label">Access Token *</label>
-                <input className="form-input" type="password" placeholder="TikTok access token..." value={ttForm.access_token} onChange={e => setTtForm({ ...ttForm, access_token: e.target.value })} />
+      {/* SNAPCHAT */}
+      {scStatus?.connected && (() => {
+        const isOpen = expanded['snapchat'] !== false;
+        return (
+          <div className="card" style={{ marginBottom: 20, borderTop: '3px solid #FFFC00' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }} onClick={() => setExpanded(e => ({ ...e, snapchat: !isOpen }))}>
+              <PlatformIcon name="snapchat" size={36} />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 700, fontSize: 16 }}>Snapchat Ads</div>
+                <div style={{ fontSize: 12, color: '#8892b0', marginTop: 2 }}><span style={{ color: '#00d48f' }}>● Connected</span> · {scStatus.account_name}</div>
               </div>
-              <div>
-                <label className="form-label">Advertiser ID *</label>
-                <input className="form-input" placeholder="e.g. 7012345678901234567" value={ttForm.advertiser_id} onChange={e => setTtForm({ ...ttForm, advertiser_id: e.target.value })} />
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button className="btn btn-primary" onClick={handleTtConnect} disabled={ttConnecting}>{ttConnecting ? 'Connecting…' : 'Connect'}</button>
-              <button className="btn btn-secondary" onClick={() => setShowTtConnect(false)}>Cancel</button>
-            </div>
-          </div>
-        )}
-        {ttStatus?.connected && (
-          ttLoading ? <div style={{ color: '#8892b0', fontSize: 13 }}>Loading campaigns…</div>
-          : ttCampaigns.length === 0 ? <div style={{ color: '#8892b0', fontSize: 13 }}>No campaigns found.</div>
-          : (
-            <div className="table-wrapper">
-              <table><thead><tr><th>Status</th><th>Campaign</th><th>Objective</th><th>Budget</th><th></th></tr></thead>
-                <tbody>
-                  {ttCampaigns.map(c => (
-                    <tr key={c.id}>
-                      <td><span style={{ color: c.status === 'ENABLE' ? '#00d48f' : '#8892b0', fontWeight: 600, fontSize: 12 }}>{c.status === 'ENABLE' ? '● Active' : '● Paused'}</span></td>
-                      <td style={{ fontWeight: 500 }}>{c.name}</td>
-                      <td style={{ color: '#8892b0', fontSize: 13 }}>{c.objective_type}</td>
-                      <td style={{ fontSize: 13 }}>${fmt(c.budget)}/day</td>
-                      <td>
-                        {c.status === 'ENABLE'
-                          ? <button className="btn btn-secondary btn-sm" onClick={() => pauseTikTokCampaign(c.id).then(loadTtCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))}><Pause size={12} /></button>
-                          : <button className="btn btn-primary btn-sm" onClick={() => resumeTikTokCampaign(c.id).then(loadTtCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))}><Play size={12} /></button>
-                        }
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )
-        )}
-      </div>
-
-      {/* ── SNAPCHAT ADS SECTION ── */}
-      <div className="card" style={{ marginBottom: 20, borderTop: '3px solid #FFFC00' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: scStatus?.connected ? 16 : 0 }}>
-          <PlatformIcon name="snapchat" size={36} />
-          <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 700, fontSize: 16 }}>Snapchat Ads</div>
-            <div style={{ fontSize: 12, color: '#8892b0', marginTop: 2 }}>
-              {scStatus?.connected ? <><span style={{ color: '#00d48f' }}>● Connected</span> · {scStatus.account_name}</> : <span style={{ color: '#8892b0' }}>Not connected</span>}
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: 6 }}>
-            {scStatus?.connected ? (
-              <>
+              <div style={{ display: 'flex', gap: 6 }} onClick={e => e.stopPropagation()}>
                 <button className="btn btn-secondary btn-sm" onClick={loadScCampaigns} disabled={scLoading}><RefreshCw size={12} /></button>
                 <button className="btn btn-danger btn-sm" onClick={handleScDisconnect}><Unlink size={12} /> Disconnect</button>
-              </>
-            ) : (
-              <button className="btn btn-primary btn-sm" onClick={() => setShowScConnect(v => !v)}><Link size={12} /> Connect Snapchat</button>
+              </div>
+              <div style={{ color: '#8892b0', marginLeft: 4 }}>{isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</div>
+            </div>
+            {isOpen && (
+              <div style={{ marginTop: 16 }}>
+                {scLoading ? <div style={{ color: '#8892b0', fontSize: 13 }}>Loading campaigns…</div>
+                : scCampaigns.length === 0 ? <div style={{ color: '#8892b0', fontSize: 13 }}>No campaigns found.</div>
+                : (
+                  <div className="table-wrapper">
+                    <table><thead><tr><th>Status</th><th>Campaign</th><th>Daily Budget</th><th></th></tr></thead>
+                      <tbody>
+                        {scCampaigns.map(c => (
+                          <tr key={c.id}>
+                            <td><span style={{ color: c.status === 'ACTIVE' ? '#00d48f' : '#8892b0', fontWeight: 600, fontSize: 12 }}>{c.status === 'ACTIVE' ? '● Active' : '● Paused'}</span></td>
+                            <td style={{ fontWeight: 500 }}>{c.name}</td>
+                            <td style={{ fontSize: 13 }}>{c.daily_budget_usd ? `$${fmt(c.daily_budget_usd)}/day` : '—'}</td>
+                            <td>
+                              {c.status === 'ACTIVE'
+                                ? <button className="btn btn-secondary btn-sm" onClick={() => pauseSnapchatCampaign(c.id).then(loadScCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))}><Pause size={12} /></button>
+                                : <button className="btn btn-primary btn-sm" onClick={() => resumeSnapchatCampaign(c.id).then(loadScCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))}><Play size={12} /></button>
+                              }
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
             )}
           </div>
-        </div>
-        {!scStatus?.connected && showScConnect && (
-          <div style={{ marginTop: 16, padding: 16, background: '#0f1117', borderRadius: 10, border: '1px solid #2d3248' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
-              <div>
-                <label className="form-label">Access Token *</label>
-                <input className="form-input" type="password" placeholder="Snapchat access token..." value={scForm.access_token} onChange={e => setScForm({ ...scForm, access_token: e.target.value })} />
-              </div>
-              <div>
-                <label className="form-label">Ad Account ID *</label>
-                <input className="form-input" placeholder="e.g. 12345678-..." value={scForm.ad_account_id} onChange={e => setScForm({ ...scForm, ad_account_id: e.target.value })} />
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button className="btn btn-primary" onClick={handleScConnect} disabled={scConnecting}>{scConnecting ? 'Connecting…' : 'Connect'}</button>
-              <button className="btn btn-secondary" onClick={() => setShowScConnect(false)}>Cancel</button>
-            </div>
-          </div>
-        )}
-        {scStatus?.connected && (
-          scLoading ? <div style={{ color: '#8892b0', fontSize: 13 }}>Loading campaigns…</div>
-          : scCampaigns.length === 0 ? <div style={{ color: '#8892b0', fontSize: 13 }}>No campaigns found.</div>
-          : (
-            <div className="table-wrapper">
-              <table><thead><tr><th>Status</th><th>Campaign</th><th>Daily Budget</th><th></th></tr></thead>
-                <tbody>
-                  {scCampaigns.map(c => (
-                    <tr key={c.id}>
-                      <td><span style={{ color: c.status === 'ACTIVE' ? '#00d48f' : '#8892b0', fontWeight: 600, fontSize: 12 }}>{c.status === 'ACTIVE' ? '● Active' : '● Paused'}</span></td>
-                      <td style={{ fontWeight: 500 }}>{c.name}</td>
-                      <td style={{ fontSize: 13 }}>{c.daily_budget_usd ? `$${fmt(c.daily_budget_usd)}/day` : '—'}</td>
-                      <td>
-                        {c.status === 'ACTIVE'
-                          ? <button className="btn btn-secondary btn-sm" onClick={() => pauseSnapchatCampaign(c.id).then(loadScCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))}><Pause size={12} /></button>
-                          : <button className="btn btn-primary btn-sm" onClick={() => resumeSnapchatCampaign(c.id).then(loadScCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))}><Play size={12} /></button>
-                        }
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )
-        )}
-      </div>
+        );
+      })()}
 
-      {/* ── PINTEREST ADS SECTION ── */}
-      <div className="card" style={{ marginBottom: 20, borderTop: '3px solid #E60023' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: ptStatus?.connected ? 16 : 0 }}>
-          <PlatformIcon name="pinterest" size={36} />
-          <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 700, fontSize: 16 }}>Pinterest Ads</div>
-            <div style={{ fontSize: 12, color: '#8892b0', marginTop: 2 }}>
-              {ptStatus?.connected ? <><span style={{ color: '#00d48f' }}>● Connected</span> · {ptStatus.account_name}</> : <span style={{ color: '#8892b0' }}>Not connected</span>}
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: 6 }}>
-            {ptStatus?.connected ? (
-              <>
+      {/* PINTEREST */}
+      {ptStatus?.connected && (() => {
+        const isOpen = expanded['pinterest'] !== false;
+        return (
+          <div className="card" style={{ marginBottom: 20, borderTop: '3px solid #E60023' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }} onClick={() => setExpanded(e => ({ ...e, pinterest: !isOpen }))}>
+              <PlatformIcon name="pinterest" size={36} />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 700, fontSize: 16 }}>Pinterest Ads</div>
+                <div style={{ fontSize: 12, color: '#8892b0', marginTop: 2 }}><span style={{ color: '#00d48f' }}>● Connected</span> · {ptStatus.account_name}</div>
+              </div>
+              <div style={{ display: 'flex', gap: 6 }} onClick={e => e.stopPropagation()}>
                 <button className="btn btn-secondary btn-sm" onClick={loadPtCampaigns} disabled={ptLoading}><RefreshCw size={12} /></button>
                 <button className="btn btn-danger btn-sm" onClick={handlePtDisconnect}><Unlink size={12} /> Disconnect</button>
-              </>
-            ) : (
-              <button className="btn btn-primary btn-sm" onClick={() => setShowPtConnect(v => !v)}><Link size={12} /> Connect Pinterest</button>
+              </div>
+              <div style={{ color: '#8892b0', marginLeft: 4 }}>{isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</div>
+            </div>
+            {isOpen && (
+              <div style={{ marginTop: 16 }}>
+                {ptLoading ? <div style={{ color: '#8892b0', fontSize: 13 }}>Loading campaigns…</div>
+                : ptCampaigns.length === 0 ? <div style={{ color: '#8892b0', fontSize: 13 }}>No campaigns found.</div>
+                : (
+                  <div className="table-wrapper">
+                    <table><thead><tr><th>Status</th><th>Campaign</th><th>Daily Budget</th><th></th></tr></thead>
+                      <tbody>
+                        {ptCampaigns.map(c => (
+                          <tr key={c.id}>
+                            <td><span style={{ color: c.status === 'ACTIVE' ? '#00d48f' : '#8892b0', fontWeight: 600, fontSize: 12 }}>{c.status === 'ACTIVE' ? '● Active' : '● Paused'}</span></td>
+                            <td style={{ fontWeight: 500 }}>{c.name}</td>
+                            <td style={{ fontSize: 13 }}>{c.daily_budget_usd ? `$${fmt(c.daily_budget_usd)}/day` : '—'}</td>
+                            <td>
+                              {c.status === 'ACTIVE'
+                                ? <button className="btn btn-secondary btn-sm" onClick={() => pausePinterestCampaign(c.id).then(loadPtCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))}><Pause size={12} /></button>
+                                : <button className="btn btn-primary btn-sm" onClick={() => resumePinterestCampaign(c.id).then(loadPtCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))}><Play size={12} /></button>
+                              }
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
             )}
           </div>
-        </div>
-        {!ptStatus?.connected && showPtConnect && (
-          <div style={{ marginTop: 16, padding: 16, background: '#0f1117', borderRadius: 10, border: '1px solid #2d3248' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
-              <div>
-                <label className="form-label">Access Token *</label>
-                <input className="form-input" type="password" placeholder="Pinterest access token..." value={ptForm.access_token} onChange={e => setPtForm({ ...ptForm, access_token: e.target.value })} />
-              </div>
-              <div>
-                <label className="form-label">Ad Account ID *</label>
-                <input className="form-input" placeholder="e.g. 549755885175" value={ptForm.ad_account_id} onChange={e => setPtForm({ ...ptForm, ad_account_id: e.target.value })} />
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button className="btn btn-primary" onClick={handlePtConnect} disabled={ptConnecting}>{ptConnecting ? 'Connecting…' : 'Connect'}</button>
-              <button className="btn btn-secondary" onClick={() => setShowPtConnect(false)}>Cancel</button>
-            </div>
-          </div>
-        )}
-        {ptStatus?.connected && (
-          ptLoading ? <div style={{ color: '#8892b0', fontSize: 13 }}>Loading campaigns…</div>
-          : ptCampaigns.length === 0 ? <div style={{ color: '#8892b0', fontSize: 13 }}>No campaigns found.</div>
-          : (
-            <div className="table-wrapper">
-              <table><thead><tr><th>Status</th><th>Campaign</th><th>Daily Budget</th><th></th></tr></thead>
-                <tbody>
-                  {ptCampaigns.map(c => (
-                    <tr key={c.id}>
-                      <td><span style={{ color: c.status === 'ACTIVE' ? '#00d48f' : '#8892b0', fontWeight: 600, fontSize: 12 }}>{c.status === 'ACTIVE' ? '● Active' : '● Paused'}</span></td>
-                      <td style={{ fontWeight: 500 }}>{c.name}</td>
-                      <td style={{ fontSize: 13 }}>{c.daily_budget_usd ? `$${fmt(c.daily_budget_usd)}/day` : '—'}</td>
-                      <td>
-                        {c.status === 'ACTIVE'
-                          ? <button className="btn btn-secondary btn-sm" onClick={() => pausePinterestCampaign(c.id).then(loadPtCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))}><Pause size={12} /></button>
-                          : <button className="btn btn-primary btn-sm" onClick={() => resumePinterestCampaign(c.id).then(loadPtCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))}><Play size={12} /></button>
-                        }
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )
-        )}
-      </div>
+        );
+      })()}
 
-      {/* ── GOOGLE ADS SECTION ── */}
-      <div className="card" style={{ marginBottom: 20, borderTop: '3px solid #ea4335' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: ggStatus?.connected ? 16 : 0 }}>
-          <PlatformIcon name="google" size={36} />
-          <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 700, fontSize: 16 }}>Google Ads</div>
-            <div style={{ fontSize: 12, color: '#8892b0', marginTop: 2 }}>
-              {ggStatus?.connected ? <><span style={{ color: '#00d48f' }}>● Connected</span> · {ggStatus.account_name} · {ggStatus.customer_id}</> : <span style={{ color: '#8892b0' }}>Not connected</span>}
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: 6 }}>
-            {ggStatus?.connected ? (
-              <>
+      {/* GOOGLE */}
+      {ggStatus?.connected && (() => {
+        const isOpen = expanded['google'] !== false;
+        return (
+          <div className="card" style={{ marginBottom: 20, borderTop: '3px solid #ea4335' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }} onClick={() => setExpanded(e => ({ ...e, google: !isOpen }))}>
+              <PlatformIcon name="google" size={36} />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 700, fontSize: 16 }}>Google Ads</div>
+                <div style={{ fontSize: 12, color: '#8892b0', marginTop: 2 }}><span style={{ color: '#00d48f' }}>● Connected</span> · {ggStatus.account_name} · {ggStatus.customer_id}</div>
+              </div>
+              <div style={{ display: 'flex', gap: 6 }} onClick={e => e.stopPropagation()}>
                 <button className="btn btn-secondary btn-sm" onClick={loadGgCampaigns} disabled={ggLoading}><RefreshCw size={12} /></button>
                 <button className="btn btn-danger btn-sm" onClick={handleGgDisconnect}><Unlink size={12} /> Disconnect</button>
-              </>
-            ) : (
-              <button className="btn btn-primary btn-sm" onClick={() => setShowGgConnect(v => !v)}><Link size={12} /> Connect Google</button>
+              </div>
+              <div style={{ color: '#8892b0', marginLeft: 4 }}>{isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</div>
+            </div>
+            {isOpen && (
+              <div style={{ marginTop: 16 }}>
+                {ggLoading ? <div style={{ color: '#8892b0', fontSize: 13 }}>Loading campaigns…</div>
+                : ggCampaigns.length === 0 ? <div style={{ color: '#8892b0', fontSize: 13 }}>No campaigns found.</div>
+                : (
+                  <div className="table-wrapper">
+                    <table><thead><tr><th>Status</th><th>Campaign</th><th>Type</th><th>Daily Budget</th><th>All-Time Spend</th><th></th></tr></thead>
+                      <tbody>
+                        {ggCampaigns.map(c => (
+                          <tr key={c.id}>
+                            <td><span style={{ color: c.status === 'ENABLED' ? '#00d48f' : '#8892b0', fontWeight: 600, fontSize: 12 }}>{c.status === 'ENABLED' ? '● Active' : '● Paused'}</span></td>
+                            <td style={{ fontWeight: 500, maxWidth: 200 }}><div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div></td>
+                            <td style={{ color: '#8892b0', fontSize: 13 }}>{c.channel_type || '—'}</td>
+                            <td style={{ fontSize: 13 }}>{c.daily_budget_usd != null ? `$${fmt(c.daily_budget_usd)}/day` : '—'}</td>
+                            <td>
+                              <div style={{ fontWeight: 700, color: '#f59e0b' }}>${fmt(c.spend_all_time_usd)}</div>
+                              <div style={{ fontSize: 11, color: '#8892b0' }}>{fmt(c.spend_all_time_usd * usdRate)} MAD</div>
+                            </td>
+                            <td>
+                              {c.status === 'ENABLED'
+                                ? <button className="btn btn-secondary btn-sm" onClick={() => pauseGoogleCampaign(c.id).then(loadGgCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))}><Pause size={12} /></button>
+                                : <button className="btn btn-primary btn-sm" onClick={() => resumeGoogleCampaign(c.id).then(loadGgCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))}><Play size={12} /></button>
+                              }
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
             )}
           </div>
+        );
+      })()}
+
+      {/* No platforms connected yet */}
+      {!metaStatus?.connected && !ttStatus?.connected && !scStatus?.connected && !ptStatus?.connected && !ggStatus?.connected && (
+        <div className="card" style={{ textAlign: 'center', padding: '40px 20px', color: '#8892b0' }}>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>📊</div>
+          <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 6 }}>No platforms connected</div>
+          <div style={{ fontSize: 13 }}>Click "Connect Platform" to link your ad accounts</div>
         </div>
-        {!ggStatus?.connected && !showGgConnect && (
-          <div style={{ padding: '16px 0 4px', color: '#8892b0', fontSize: 13 }}>
-            Connect your Google Ads account to view, pause, and resume campaigns directly from Stocky.
-          </div>
-        )}
-        {!ggStatus?.connected && showGgConnect && (
-          <div style={{ marginTop: 16, padding: 16, background: '#0f1117', borderRadius: 10, border: '1px solid #2d3248' }}>
-            <div style={{ fontSize: 13, color: '#8892b0', marginBottom: 14 }}>
-              You need a <strong style={{ color: '#fff' }}>Google OAuth Access Token</strong>, your <strong style={{ color: '#fff' }}>Customer ID</strong> (e.g. 123-456-7890), and a <strong style={{ color: '#fff' }}>Developer Token</strong>.
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
-              <div>
-                <label className="form-label">Access Token *</label>
-                <input className="form-input" type="password" placeholder="ya29.xxx..." value={ggForm.access_token} onChange={e => setGgForm({ ...ggForm, access_token: e.target.value })} />
-              </div>
-              <div>
-                <label className="form-label">Customer ID *</label>
-                <input className="form-input" placeholder="123-456-7890" value={ggForm.customer_id} onChange={e => setGgForm({ ...ggForm, customer_id: e.target.value })} />
-              </div>
-              <div>
-                <label className="form-label">Developer Token *</label>
-                <input className="form-input" type="password" placeholder="Developer token..." value={ggForm.developer_token} onChange={e => setGgForm({ ...ggForm, developer_token: e.target.value })} />
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button className="btn btn-primary" onClick={handleGgConnect} disabled={ggConnecting}>{ggConnecting ? 'Connecting…' : 'Connect'}</button>
-              <button className="btn btn-secondary" onClick={() => setShowGgConnect(false)}>Cancel</button>
-            </div>
-          </div>
-        )}
-        {ggStatus?.connected && (
-          ggLoading ? <div style={{ color: '#8892b0', fontSize: 13 }}>Loading campaigns…</div>
-          : ggCampaigns.length === 0 ? <div style={{ color: '#8892b0', fontSize: 13 }}>No campaigns found.</div>
-          : (
-            <div className="table-wrapper">
-              <table><thead><tr><th>Status</th><th>Campaign</th><th>Type</th><th>Daily Budget</th><th>All-Time Spend</th><th></th></tr></thead>
-                <tbody>
-                  {ggCampaigns.map(c => (
-                    <tr key={c.id}>
-                      <td><span style={{ color: c.status === 'ENABLED' ? '#00d48f' : '#8892b0', fontWeight: 600, fontSize: 12 }}>{c.status === 'ENABLED' ? '● Active' : '● Paused'}</span></td>
-                      <td style={{ fontWeight: 500, maxWidth: 200 }}><div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div></td>
-                      <td style={{ color: '#8892b0', fontSize: 13 }}>{c.channel_type || '—'}</td>
-                      <td style={{ fontSize: 13 }}>{c.daily_budget_usd != null ? `$${fmt(c.daily_budget_usd)}/day` : '—'}</td>
-                      <td>
-                        <div style={{ fontWeight: 700, color: '#f59e0b' }}>${fmt(c.spend_all_time_usd)}</div>
-                        <div style={{ fontSize: 11, color: '#8892b0' }}>{fmt(c.spend_all_time_usd * usdRate)} MAD</div>
-                      </td>
-                      <td>
-                        {c.status === 'ENABLED'
-                          ? <button className="btn btn-secondary btn-sm" onClick={() => pauseGoogleCampaign(c.id).then(loadGgCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))}><Pause size={12} /></button>
-                          : <button className="btn btn-primary btn-sm" onClick={() => resumeGoogleCampaign(c.id).then(loadGgCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))}><Play size={12} /></button>
-                        }
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )
-        )}
-      </div>
+      )}
 
       {/* Connect Platform Modal */}
       {showAddPlatform && (
         <div className="modal-overlay">
           <div className="modal">
             <div className="modal-header">
-              <h2>Connect a Platform</h2>
-              <button className="btn-icon" onClick={() => setShowAddPlatform(false)}>✕</button>
+              <h2>{connectingPlatform ? 'Connect' : 'Connect a Platform'}</h2>
+              <button className="btn-icon" onClick={() => { setShowAddPlatform(false); setConnectingPlatform(null); setError(''); }}>✕</button>
             </div>
             <div className="modal-body">
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {[
-                  { key: 'facebook', label: 'Meta Ads', connected: metaStatus?.connected, color: '#0866FF', onConnect: () => { setShowAddPlatform(false); setShowMetaConnect(true); } },
-                  { key: 'google',   label: 'Google Ads', connected: ggStatus?.connected, color: '#ea4335', onConnect: () => { setShowAddPlatform(false); setShowGgConnect(true); } },
-                  { key: 'tiktok',   label: 'TikTok Ads', connected: ttStatus?.connected, color: '#010101', onConnect: () => { setShowAddPlatform(false); setShowTtConnect(true); } },
-                  { key: 'snapchat', label: 'Snapchat Ads', connected: scStatus?.connected, color: '#FFFC00', onConnect: () => { setShowAddPlatform(false); setShowScConnect(true); } },
-                  { key: 'pinterest',label: 'Pinterest Ads', connected: ptStatus?.connected, color: '#E60023', onConnect: () => { setShowAddPlatform(false); setShowPtConnect(true); } },
-                ].map(p => (
-                  <div
-                    key={p.key}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 12,
-                      padding: '12px 16px', borderRadius: 8,
-                      border: `1px solid ${p.connected ? '#00d48f33' : '#2d3248'}`,
-                      background: '#1d1d27',
-                    }}
-                  >
-                    <PlatformIcon name={p.key} size={28} />
-                    <span style={{ flex: 1, fontWeight: 500 }}>{p.label}</span>
-                    {p.connected
-                      ? <span style={{ fontSize: 12, color: '#00d48f' }}>● Connected</span>
-                      : <button className="btn btn-primary btn-sm" onClick={p.onConnect}>Connect</button>
-                    }
+              {error && <div className="alert alert-error" style={{ marginBottom: 12 }}>{error}</div>}
+
+              {!connectingPlatform && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {[
+                    { key: 'facebook', label: 'Meta Ads', connected: metaStatus?.connected },
+                    { key: 'google',   label: 'Google Ads', connected: ggStatus?.connected },
+                    { key: 'tiktok',   label: 'TikTok Ads', connected: ttStatus?.connected },
+                    { key: 'snapchat', label: 'Snapchat Ads', connected: scStatus?.connected },
+                    { key: 'pinterest',label: 'Pinterest Ads', connected: ptStatus?.connected },
+                  ].map(p => (
+                    <div key={p.key} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderRadius: 8, border: `1px solid ${p.connected ? '#00d48f33' : '#2d3248'}`, background: '#1d1d27' }}>
+                      <PlatformIcon name={p.key} size={28} />
+                      <span style={{ flex: 1, fontWeight: 500 }}>{p.label}</span>
+                      {p.connected
+                        ? <span style={{ fontSize: 12, color: '#00d48f' }}>● Connected</span>
+                        : <button className="btn btn-primary btn-sm" onClick={() => { setConnectingPlatform(p.key); setError(''); }}>Connect</button>
+                      }
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {connectingPlatform === 'facebook' && (
+                <div>
+                  <div style={{ fontSize: 13, color: '#8892b0', marginBottom: 14 }}>
+                    You need a <strong style={{ color: '#fff' }}>Meta Access Token</strong> and your <strong style={{ color: '#fff' }}>Ad Account ID</strong>.{' '}
+                    <a href="https://developers.facebook.com/tools/explorer/" target="_blank" rel="noreferrer" style={{ color: '#0866FF', display: 'inline-flex', alignItems: 'center', gap: 3 }}>Get token <ExternalLink size={11} /></a>
                   </div>
-                ))}
+                  <div style={{ marginBottom: 12 }}>
+                    <label className="form-label">Access Token *</label>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <input className="form-input" type="password" placeholder="EAAxxxxxx..." value={metaForm.access_token} onChange={e => { setMetaForm({ ...metaForm, access_token: e.target.value }); setMetaAdAccounts([]); }} style={{ flex: 1 }} />
+                      <button className="btn btn-secondary" onClick={handleFetchAccounts} disabled={fetchingAccounts} style={{ whiteSpace: 'nowrap' }}>{fetchingAccounts ? '...' : 'Fetch Accounts'}</button>
+                    </div>
+                  </div>
+                  {metaAdAccounts.length > 0 && (
+                    <div style={{ marginBottom: 12 }}>
+                      <label className="form-label">Ad Account *</label>
+                      <select className="form-input" value={metaForm.ad_account_id} onChange={e => setMetaForm({ ...metaForm, ad_account_id: e.target.value })}>
+                        <option value="">Select an account</option>
+                        {metaAdAccounts.map(a => <option key={a.id} value={a.id}>{a.name} ({a.id}) — {a.currency}</option>)}
+                      </select>
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button className="btn btn-primary" onClick={handleMetaConnect} disabled={metaConnecting}>{metaConnecting ? 'Connecting…' : 'Connect'}</button>
+                    <button className="btn btn-secondary" onClick={() => setConnectingPlatform(null)}>Back</button>
+                  </div>
+                </div>
+              )}
+
+              {connectingPlatform === 'google' && (
+                <div>
+                  <div style={{ fontSize: 13, color: '#8892b0', marginBottom: 14 }}>
+                    You need a <strong style={{ color: '#fff' }}>Google OAuth Access Token</strong>, your <strong style={{ color: '#fff' }}>Customer ID</strong> (e.g. 123-456-7890), and a <strong style={{ color: '#fff' }}>Developer Token</strong>.
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
+                    <div><label className="form-label">Access Token *</label><input className="form-input" type="password" placeholder="ya29.xxx..." value={ggForm.access_token} onChange={e => setGgForm({ ...ggForm, access_token: e.target.value })} /></div>
+                    <div><label className="form-label">Customer ID *</label><input className="form-input" placeholder="123-456-7890" value={ggForm.customer_id} onChange={e => setGgForm({ ...ggForm, customer_id: e.target.value })} /></div>
+                    <div><label className="form-label">Developer Token *</label><input className="form-input" type="password" placeholder="Developer token..." value={ggForm.developer_token} onChange={e => setGgForm({ ...ggForm, developer_token: e.target.value })} /></div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button className="btn btn-primary" onClick={handleGgConnect} disabled={ggConnecting}>{ggConnecting ? 'Connecting…' : 'Connect'}</button>
+                    <button className="btn btn-secondary" onClick={() => setConnectingPlatform(null)}>Back</button>
+                  </div>
+                </div>
+              )}
+
+              {connectingPlatform === 'tiktok' && (
+                <div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+                    <div><label className="form-label">Access Token *</label><input className="form-input" type="password" placeholder="TikTok access token..." value={ttForm.access_token} onChange={e => setTtForm({ ...ttForm, access_token: e.target.value })} /></div>
+                    <div><label className="form-label">Advertiser ID *</label><input className="form-input" placeholder="e.g. 7012345678901234567" value={ttForm.advertiser_id} onChange={e => setTtForm({ ...ttForm, advertiser_id: e.target.value })} /></div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button className="btn btn-primary" onClick={handleTtConnect} disabled={ttConnecting}>{ttConnecting ? 'Connecting…' : 'Connect'}</button>
+                    <button className="btn btn-secondary" onClick={() => setConnectingPlatform(null)}>Back</button>
+                  </div>
+                </div>
+              )}
+
+              {connectingPlatform === 'snapchat' && (
+                <div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+                    <div><label className="form-label">Access Token *</label><input className="form-input" type="password" placeholder="Snapchat access token..." value={scForm.access_token} onChange={e => setScForm({ ...scForm, access_token: e.target.value })} /></div>
+                    <div><label className="form-label">Ad Account ID *</label><input className="form-input" placeholder="e.g. 12345678-..." value={scForm.ad_account_id} onChange={e => setScForm({ ...scForm, ad_account_id: e.target.value })} /></div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button className="btn btn-primary" onClick={handleScConnect} disabled={scConnecting}>{scConnecting ? 'Connecting…' : 'Connect'}</button>
+                    <button className="btn btn-secondary" onClick={() => setConnectingPlatform(null)}>Back</button>
+                  </div>
+                </div>
+              )}
+
+              {connectingPlatform === 'pinterest' && (
+                <div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+                    <div><label className="form-label">Access Token *</label><input className="form-input" type="password" placeholder="Pinterest access token..." value={ptForm.access_token} onChange={e => setPtForm({ ...ptForm, access_token: e.target.value })} /></div>
+                    <div><label className="form-label">Ad Account ID *</label><input className="form-input" placeholder="e.g. 549755885175" value={ptForm.ad_account_id} onChange={e => setPtForm({ ...ptForm, ad_account_id: e.target.value })} /></div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button className="btn btn-primary" onClick={handlePtConnect} disabled={ptConnecting}>{ptConnecting ? 'Connecting…' : 'Connect'}</button>
+                    <button className="btn btn-secondary" onClick={() => setConnectingPlatform(null)}>Back</button>
+                  </div>
+                </div>
+              )}
+            </div>
+            {!connectingPlatform && (
+              <div className="modal-footer">
+                <button className="btn btn-secondary" onClick={() => setShowAddPlatform(false)}>Close</button>
               </div>
-            </div>
-            <div className="modal-footer">
-              <button className="btn btn-secondary" onClick={() => setShowAddPlatform(false)}>Close</button>
-            </div>
+            )}
           </div>
         </div>
       )}
