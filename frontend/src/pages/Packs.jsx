@@ -563,8 +563,15 @@ export default function Packs({ readOnly = false }) {
                     value={item.variant_id}
                     onChange={e => { const u = [...presetItems]; u[i] = { ...u[i], variant_id: e.target.value }; setPresetItems(u); }}
                   >
-                    <option value="">— Select product —</option>
-                    {allVariants.map(v => <option key={v.id} value={v.id}>{v.label} (stock: {v.stock})</option>)}
+                    <option value="">— Select variant —</option>
+                    {products.map(p => p.variants.length > 0 && (
+                      <optgroup key={p.id} label={p.name}>
+                        {p.variants.map(v => {
+                          const detail = [v.size, v.color].filter(Boolean).join(' · ') || 'Default';
+                          return <option key={v.id} value={v.id}>{detail} — stock: {v.stock}</option>;
+                        })}
+                      </optgroup>
+                    ))}
                   </select>
                   <input
                     className="form-input" type="number" min="1" style={{ width: 70 }}
@@ -610,8 +617,15 @@ export default function Packs({ readOnly = false }) {
                     value={item.variant_id}
                     onChange={e => setOfferItem(i, 'variant_id', e.target.value)}
                   >
-                    <option value="">— Select product —</option>
-                    {allVariants.map(v => <option key={v.id} value={v.id}>{v.label} (stock: {v.stock})</option>)}
+                    <option value="">— Select variant —</option>
+                    {products.map(p => p.variants.length > 0 && (
+                      <optgroup key={p.id} label={p.name}>
+                        {p.variants.map(v => {
+                          const detail = [v.size, v.color].filter(Boolean).join(' · ') || 'Default';
+                          return <option key={v.id} value={v.id}>{detail} — stock: {v.stock}</option>;
+                        })}
+                      </optgroup>
+                    ))}
                   </select>
                   <input
                     className="form-input" type="number" min="1" style={{ width: 70 }}
