@@ -83,19 +83,21 @@ export default function Packs({ readOnly = false }) {
 
   const load = async () => {
     setLoading(true);
+    // Load products first — independently so dropdowns always populate
     try {
-      const [pk, pr, off, promo] = await Promise.all([
-        getPacks(), getProducts(),
-        getOffers().catch(() => ({ data: [] })),
-        getPromoCodes().catch(() => ({ data: [] })),
-      ]);
-      setPacks(pk.data);
+      const pr = await getProducts();
       setProducts(pr.data);
-      setOffers(off.data);
-      setPromoCodes(promo.data);
-    } finally {
-      setLoading(false);
-    }
+    } catch (_) {}
+    // Load the rest, each failing silently if backend not yet updated
+    const [pk, off, promo] = await Promise.all([
+      getPacks().catch(() => ({ data: [] })),
+      getOffers().catch(() => ({ data: [] })),
+      getPromoCodes().catch(() => ({ data: [] })),
+    ]);
+    setPacks(pk.data);
+    setOffers(off.data);
+    setPromoCodes(promo.data);
+    setLoading(false);
   };
 
   useEffect(() => { load(); }, []);
