@@ -1,29 +1,16 @@
 import { useState, useEffect } from 'react';
-import { Megaphone, Plus, Trash2, Edit2, ChevronDown, ChevronUp, Calculator, RefreshCw, Link, Unlink, Play, Pause, ExternalLink } from 'lucide-react';
+import { Plus, RefreshCw, Link, Unlink, Play, Pause, ExternalLink } from 'lucide-react';
 import MetaCampaignWizard from '../components/MetaCampaignWizard';
 import {
-  getAdPlatforms, createAdPlatform, deleteAdPlatform,
-  createAdCampaign, updateAdCampaign, deleteAdCampaign,
-  getAdCostPerOrder, getSetting, setSetting,
+  getSetting, setSetting,
   getMetaStatus, connectMeta, disconnectMeta,
   getMetaCampaigns, pauseMetaCampaign, resumeMetaCampaign,
   createMetaCampaign, getMetaSpend, getMetaAdAccounts,
+  getGoogleStatus, connectGoogle, disconnectGoogle, getGoogleCampaigns, pauseGoogleCampaign, resumeGoogleCampaign,
   getTikTokStatus, connectTikTok, disconnectTikTok, getTikTokCampaigns, pauseTikTokCampaign, resumeTikTokCampaign,
   getSnapchatStatus, connectSnapchat, disconnectSnapchat, getSnapchatCampaigns, pauseSnapchatCampaign, resumeSnapchatCampaign,
   getPinterestStatus, connectPinterest, disconnectPinterest, getPinterestCampaigns, pausePinterestCampaign, resumePinterestCampaign,
 } from '../api';
-
-// ── Predefined platform catalogue ──────────────────────────
-const PLATFORM_CATALOGUE = [
-  { name: 'facebook', label: 'Facebook / Meta', color: '#1877f2' },
-  { name: 'tiktok',   label: 'TikTok',          color: '#010101' },
-  { name: 'google',   label: 'Google / YouTube', color: '#ea4335' },
-  { name: 'snapchat', label: 'Snapchat',         color: '#fffc00' },
-  { name: 'pinterest',label: 'Pinterest',        color: '#e60023' },
-  { name: 'instagram',label: 'Instagram',        color: '#e1306c' },
-  { name: 'twitter',  label: 'X / Twitter',      color: '#000000' },
-  { name: 'other',    label: 'Other',            color: '#8892b0' },
-];
 
 const META_OBJECTIVES = [
   { value: 'OUTCOME_SALES',       label: 'Sales' },
@@ -121,24 +108,10 @@ function MetaLogo({ size = 32 }) {
 // ── Helpers ────────────────────────────────────────────────
 const today = () => new Date().toISOString().slice(0, 10);
 
-const daysBetween = (start, end) => {
-  const s = new Date(start);
-  const e = end ? new Date(end) : new Date();
-  const diff = Math.ceil((e - s) / (1000 * 60 * 60 * 24));
-  return Math.max(diff, 1);
-};
-
 const fmt = (n, d = 2) => Number(n || 0).toFixed(d);
-
-const platformTotal = (campaigns, usdRate) =>
-  campaigns.reduce((sum, c) => {
-    const days = daysBetween(c.start_date, c.end_date);
-    return sum + days * c.daily_rate_usd * usdRate;
-  }, 0);
 
 // ── Component ───────────────────────────────────────────────
 export default function Ads() {
-  const [platforms, setPlatforms] = useState([]);
   const [usdRate, setUsdRate] = useState(10);
   const [rateInput, setRateInput] = useState('10');
   const [rateMode, setRateMode] = useState('manual');
@@ -148,19 +121,14 @@ export default function Ads() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [expanded, setExpanded] = useState({});
   const [showAddPlatform, setShowAddPlatform] = useState(false);
-  const [campaignModal, setCampaignModal] = useState(null);
-  const [campaignForm, setCampaignForm] = useState({ daily_rate_usd: '', start_date: today(), end_date: '' });
 
-  // Cost calculator
+  // Date range (shared by spend sections)
   const [calcStart, setCalcStart] = useState(() => {
     const d = new Date(); d.setDate(d.getDate() - 6);
     return d.toISOString().slice(0, 10);
   });
   const [calcEnd, setCalcEnd] = useState(today());
-  const [calcResult, setCalcResult] = useState(null);
-  const [calcLoading, setCalcLoading] = useState(false);
 
   // ── Meta state ──
   const [metaStatus, setMetaStatus] = useState(null); // null = loading, { connected, account_name, ... }
@@ -178,6 +146,14 @@ export default function Ads() {
   });
   const [metaSpendResult, setMetaSpendResult] = useState(null);
   const [metaSpendLoading, setMetaSpendLoading] = useState(false);
+
+  // ── Google state ──
+  const [ggStatus, setGgStatus] = useState(null);
+  const [ggCampaigns, setGgCampaigns] = useState([]);
+  const [ggLoading, setGgLoading] = useState(false);
+  const [ggConnecting, setGgConnecting] = useState(false);
+  const [showGgConnect, setShowGgConnect] = useState(false);
+  const [ggForm, setGgForm] = useState({ access_token: '', customer_id: '', developer_token: '' });
 
   // ── TikTok state ──
   const [ttStatus, setTtStatus] = useState(null);
@@ -240,16 +216,15 @@ export default function Ads() {
 
   const load = async () => {
     try {
-      const [pRes, rateRes, modeRes, metaRes, ttRes, scRes, ptRes] = await Promise.all([
-        getAdPlatforms(),
+      const [rateRes, modeRes, metaRes, ggRes, ttRes, scRes, ptRes] = await Promise.all([
         getSetting('usd_rate').catch(() => ({ data: { value: '10' } })),
         getSetting('usd_rate_mode').catch(() => ({ data: { value: 'manual' } })),
         getMetaStatus().catch(() => ({ data: { connected: false } })),
+        getGoogleStatus().catch(() => ({ data: { connected: false } })),
         getTikTokStatus().catch(() => ({ data: { connected: false } })),
         getSnapchatStatus().catch(() => ({ data: { connected: false } })),
         getPinterestStatus().catch(() => ({ data: { connected: false } })),
       ]);
-      setPlatforms(pRes.data);
       const rate = parseFloat(rateRes.data?.value || '10') || 10;
       const mode = modeRes.data?.value || 'manual';
       setUsdRate(rate);
@@ -258,6 +233,8 @@ export default function Ads() {
       if (mode === 'market') fetchMarketRate();
       setMetaStatus(metaRes.data);
       if (metaRes.data?.connected) loadMetaCampaigns();
+      setGgStatus(ggRes.data);
+      if (ggRes.data?.connected) loadGgCampaigns();
       setTtStatus(ttRes.data);
       if (ttRes.data?.connected) loadTtCampaigns();
       setScStatus(scRes.data);
@@ -334,6 +311,31 @@ export default function Ads() {
   const handleResume = async (id) => {
     try { await resumeMetaCampaign(id); loadMetaCampaigns(); }
     catch (e) { setError(e.response?.data?.detail || 'Failed to resume'); }
+  };
+
+  // ── Google handlers ──
+  const loadGgCampaigns = async () => {
+    setGgLoading(true);
+    try { const res = await getGoogleCampaigns(); setGgCampaigns(res.data); }
+    catch (e) { setError(e.response?.data?.detail || 'Failed to load Google campaigns'); }
+    finally { setGgLoading(false); }
+  };
+  const handleGgConnect = async () => {
+    if (!ggForm.access_token || !ggForm.customer_id || !ggForm.developer_token) { setError('All three fields are required'); return; }
+    setGgConnecting(true); setError('');
+    try {
+      const res = await connectGoogle(ggForm);
+      setGgStatus({ connected: true, ...res.data });
+      setShowGgConnect(false); setGgForm({ access_token: '', customer_id: '', developer_token: '' });
+      setSuccess(`Connected to Google Ads — ${res.data.account_name}`);
+      loadGgCampaigns();
+    } catch (e) { setError(e.response?.data?.detail || 'Google connection failed'); }
+    finally { setGgConnecting(false); }
+  };
+  const handleGgDisconnect = async () => {
+    if (!confirm('Disconnect Google Ads?')) return;
+    await disconnectGoogle(); setGgStatus({ connected: false }); setGgCampaigns([]);
+    setSuccess('Google Ads disconnected');
   };
 
   // ── TikTok handlers ──
@@ -441,97 +443,6 @@ export default function Ads() {
     finally { setMetaSpendLoading(false); }
   };
 
-  // ── Platform actions ──
-  const addPlatform = async (p) => {
-    try {
-      await createAdPlatform({ name: p.name, label: p.label, color: p.color });
-      setShowAddPlatform(false);
-      load();
-    } catch (e) { setError(e.response?.data?.detail || 'Error adding platform'); }
-  };
-
-  const removePlatform = async (id) => {
-    if (!confirm('Remove this platform and all its campaigns?')) return;
-    try {
-      await deleteAdPlatform(id);
-      load();
-    } catch (e) { setError(e.response?.data?.detail || 'Error removing platform'); }
-  };
-
-  const openNewCampaign = (platformId) => {
-    setCampaignModal({ platformId });
-    setCampaignForm({ daily_rate_usd: '', start_date: today(), end_date: '' });
-    setError('');
-  };
-
-  const openEditCampaign = (platformId, campaign) => {
-    setCampaignModal({ platformId, campaign });
-    setCampaignForm({
-      daily_rate_usd: String(campaign.daily_rate_usd),
-      start_date: campaign.start_date.slice(0, 10),
-      end_date: campaign.end_date ? campaign.end_date.slice(0, 10) : '',
-    });
-    setError('');
-  };
-
-  const saveCampaign = async () => {
-    setError('');
-    if (!campaignForm.daily_rate_usd || parseFloat(campaignForm.daily_rate_usd) <= 0) {
-      setError('Enter a valid daily rate'); return;
-    }
-    try {
-      const payload = {
-        platform_id: campaignModal.platformId,
-        daily_rate_usd: parseFloat(campaignForm.daily_rate_usd),
-        start_date: campaignForm.start_date,
-        end_date: campaignForm.end_date || null,
-      };
-      if (campaignModal.campaign) {
-        await updateAdCampaign(campaignModal.campaign.id, payload);
-      } else {
-        await createAdCampaign(payload);
-      }
-      setCampaignModal(null);
-      load();
-    } catch (e) { setError(e.response?.data?.detail || 'Error saving campaign'); }
-  };
-
-  const removeCampaign = async (id) => {
-    if (!confirm('Delete this campaign?')) return;
-    try {
-      await deleteAdCampaign(id);
-      load();
-    } catch (e) { setError(e.response?.data?.detail || 'Error deleting campaign'); }
-  };
-
-  const toggleCampaign = async (platform, campaign) => {
-    const isRunning = !campaign.end_date;
-    try {
-      await updateAdCampaign(campaign.id, {
-        platform_id: platform.id,
-        daily_rate_usd: campaign.daily_rate_usd,
-        start_date: campaign.start_date.slice(0, 10),
-        end_date: isRunning ? today() : null,
-      });
-      load();
-    } catch (e) { setError(e.response?.data?.detail || 'Error updating campaign'); }
-  };
-
-  // ── Cost calculator ──
-  const runCalc = async () => {
-    setCalcLoading(true);
-    setCalcResult(null);
-    try {
-      const res = await getAdCostPerOrder(calcStart, calcEnd);
-      setCalcResult(res.data);
-    } catch (e) { setError(e.response?.data?.detail || 'Error calculating'); }
-    finally { setCalcLoading(false); }
-  };
-
-  // ── Summary ──
-  const grandTotalMAD = platforms.reduce((sum, p) => sum + platformTotal(p.campaigns, usdRate), 0);
-  const activeCount = platforms.reduce((sum, p) => sum + p.campaigns.filter(c => !c.end_date).length, 0);
-  const addedNames = new Set(platforms.map(p => p.name));
   const metaActive = metaCampaigns.filter(c => c.status === 'ACTIVE').length;
 
   if (loading) return <div className="loading">Loading ads...</div>;
@@ -544,7 +455,7 @@ export default function Ads() {
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           <button className="btn btn-primary" onClick={() => setShowAddPlatform(true)}>
             <Plus size={14} strokeWidth={2} style={{ marginRight: 4 }} />
-            Add Platform
+            Connect Platform
           </button>
         </div>
       </div>
@@ -1004,291 +915,127 @@ export default function Ads() {
         )}
       </div>
 
-      {/* Global summary */}
-      {platforms.length > 0 && (
-        <div className="stat-grid" style={{ marginBottom: 24 }}>
-          <div className="stat-card">
-            <div className="stat-label">Total Spent (Manual Platforms)</div>
-            <div className="stat-value">{fmt(grandTotalMAD)} <span style={{ fontSize: 14, color: '#8892b0' }}>MAD</span></div>
-            <div className="stat-sub">{platforms.length} platform{platforms.length !== 1 ? 's' : ''}</div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-label">Active Campaigns</div>
-            <div className="stat-value">{activeCount}</div>
-            <div className="stat-sub">currently running</div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-label">Exchange Rate</div>
-            <div className="stat-value">{fmt(usdRate)} <span style={{ fontSize: 14, color: '#8892b0' }}>MAD/USD</span></div>
-            <div className="stat-sub" style={{ color: rateMode === 'market' ? '#00d48f' : '#8892b0' }}>
-              {rateMode === 'market' ? `live · ${marketDate || '…'}` : 'manual'}
+      {/* ── GOOGLE ADS SECTION ── */}
+      <div className="card" style={{ marginBottom: 20, borderTop: '3px solid #ea4335' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: ggStatus?.connected ? 16 : 0 }}>
+          <PlatformIcon name="google" size={36} />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 700, fontSize: 16 }}>Google Ads</div>
+            <div style={{ fontSize: 12, color: '#8892b0', marginTop: 2 }}>
+              {ggStatus?.connected ? <><span style={{ color: '#00d48f' }}>● Connected</span> · {ggStatus.account_name} · {ggStatus.customer_id}</> : <span style={{ color: '#8892b0' }}>Not connected</span>}
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Cost per order calculator */}
-      <div className="card" style={{ marginBottom: 20 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-          <Calculator size={16} strokeWidth={1.75} style={{ color: '#00d48f' }} />
-          <span style={{ fontWeight: 600 }}>Cost Per Order Calculator</span>
-          {metaStatus?.connected
-            ? <span style={{ fontSize: 12, color: '#0866FF', marginLeft: 4 }}>● using real Meta spend</span>
-            : <span style={{ fontSize: 12, color: '#8892b0', marginLeft: 4 }}>uses manual platform rates</span>
-          }
-        </div>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-          <div>
-            <label className="form-label">From</label>
-            <input className="form-input" type="date" value={calcStart} onChange={e => setCalcStart(e.target.value)} style={{ width: 150 }} />
+          <div style={{ display: 'flex', gap: 6 }}>
+            {ggStatus?.connected ? (
+              <>
+                <button className="btn btn-secondary btn-sm" onClick={loadGgCampaigns} disabled={ggLoading}><RefreshCw size={12} /></button>
+                <button className="btn btn-danger btn-sm" onClick={handleGgDisconnect}><Unlink size={12} /> Disconnect</button>
+              </>
+            ) : (
+              <button className="btn btn-primary btn-sm" onClick={() => setShowGgConnect(v => !v)}><Link size={12} /> Connect Google</button>
+            )}
           </div>
-          <div>
-            <label className="form-label">To</label>
-            <input className="form-input" type="date" value={calcEnd} onChange={e => setCalcEnd(e.target.value)} style={{ width: 150 }} />
-          </div>
-          <button className="btn btn-primary" onClick={runCalc} disabled={calcLoading}>
-            {calcLoading ? 'Calculating...' : 'Calculate'}
-          </button>
         </div>
-
-        {calcResult && (
+        {!ggStatus?.connected && !showGgConnect && (
+          <div style={{ padding: '16px 0 4px', color: '#8892b0', fontSize: 13 }}>
+            Connect your Google Ads account to view, pause, and resume campaigns directly from Stocky.
+          </div>
+        )}
+        {!ggStatus?.connected && showGgConnect && (
           <div style={{ marginTop: 16, padding: 16, background: '#0f1117', borderRadius: 10, border: '1px solid #2d3248' }}>
-            <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', marginBottom: 14 }}>
+            <div style={{ fontSize: 13, color: '#8892b0', marginBottom: 14 }}>
+              You need a <strong style={{ color: '#fff' }}>Google OAuth Access Token</strong>, your <strong style={{ color: '#fff' }}>Customer ID</strong> (e.g. 123-456-7890), and a <strong style={{ color: '#fff' }}>Developer Token</strong>.
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
               <div>
-                <div style={{ fontSize: 12, color: '#8892b0' }}>Orders in period</div>
-                <div style={{ fontSize: 22, fontWeight: 700 }}>{calcResult.order_count}</div>
+                <label className="form-label">Access Token *</label>
+                <input className="form-input" type="password" placeholder="ya29.xxx..." value={ggForm.access_token} onChange={e => setGgForm({ ...ggForm, access_token: e.target.value })} />
               </div>
               <div>
-                <div style={{ fontSize: 12, color: '#8892b0' }}>Total Ad Spend</div>
-                <div style={{ fontSize: 22, fontWeight: 700 }}>${fmt(calcResult.total_usd)} <span style={{ fontSize: 13, color: '#8892b0' }}>USD</span></div>
-                <div style={{ fontSize: 13, color: '#8892b0' }}>{fmt(calcResult.total_usd * usdRate)} MAD</div>
+                <label className="form-label">Customer ID *</label>
+                <input className="form-input" placeholder="123-456-7890" value={ggForm.customer_id} onChange={e => setGgForm({ ...ggForm, customer_id: e.target.value })} />
               </div>
               <div>
-                <div style={{ fontSize: 12, color: '#8892b0' }}>Cost per Order</div>
-                <div style={{ fontSize: 22, fontWeight: 700, color: '#00d48f' }}>
-                  {calcResult.order_count > 0 ? fmt(calcResult.total_usd * usdRate / calcResult.order_count) : '—'} <span style={{ fontSize: 13, color: '#8892b0' }}>MAD</span>
-                </div>
+                <label className="form-label">Developer Token *</label>
+                <input className="form-input" type="password" placeholder="Developer token..." value={ggForm.developer_token} onChange={e => setGgForm({ ...ggForm, developer_token: e.target.value })} />
               </div>
             </div>
-            {calcResult.breakdown.length > 0 && (
-              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                {calcResult.breakdown.map(b => (
-                  <div key={b.platform} style={{ background: '#1d1d27', borderRadius: 8, padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: b.color, display: 'inline-block' }} />
-                    <span style={{ fontSize: 13 }}>{b.platform}</span>
-                    <span style={{ fontSize: 13, color: '#8892b0' }}>${fmt(b.total_usd)}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-            {calcResult.order_count === 0 && (
-              <div style={{ fontSize: 13, color: '#f59e0b' }}>No orders found in this date range (based on order date)</div>
-            )}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn btn-primary" onClick={handleGgConnect} disabled={ggConnecting}>{ggConnecting ? 'Connecting…' : 'Connect'}</button>
+              <button className="btn btn-secondary" onClick={() => setShowGgConnect(false)}>Cancel</button>
+            </div>
           </div>
+        )}
+        {ggStatus?.connected && (
+          ggLoading ? <div style={{ color: '#8892b0', fontSize: 13 }}>Loading campaigns…</div>
+          : ggCampaigns.length === 0 ? <div style={{ color: '#8892b0', fontSize: 13 }}>No campaigns found.</div>
+          : (
+            <div className="table-wrapper">
+              <table><thead><tr><th>Status</th><th>Campaign</th><th>Type</th><th>Daily Budget</th><th>All-Time Spend</th><th></th></tr></thead>
+                <tbody>
+                  {ggCampaigns.map(c => (
+                    <tr key={c.id}>
+                      <td><span style={{ color: c.status === 'ENABLED' ? '#00d48f' : '#8892b0', fontWeight: 600, fontSize: 12 }}>{c.status === 'ENABLED' ? '● Active' : '● Paused'}</span></td>
+                      <td style={{ fontWeight: 500, maxWidth: 200 }}><div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div></td>
+                      <td style={{ color: '#8892b0', fontSize: 13 }}>{c.channel_type || '—'}</td>
+                      <td style={{ fontSize: 13 }}>{c.daily_budget_usd != null ? `$${fmt(c.daily_budget_usd)}/day` : '—'}</td>
+                      <td>
+                        <div style={{ fontWeight: 700, color: '#f59e0b' }}>${fmt(c.spend_all_time_usd)}</div>
+                        <div style={{ fontSize: 11, color: '#8892b0' }}>{fmt(c.spend_all_time_usd * usdRate)} MAD</div>
+                      </td>
+                      <td>
+                        {c.status === 'ENABLED'
+                          ? <button className="btn btn-secondary btn-sm" onClick={() => pauseGoogleCampaign(c.id).then(loadGgCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))}><Pause size={12} /></button>
+                          : <button className="btn btn-primary btn-sm" onClick={() => resumeGoogleCampaign(c.id).then(loadGgCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))}><Play size={12} /></button>
+                        }
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )
         )}
       </div>
 
-      {/* Manual Platform cards */}
-      {platforms.length === 0 ? (
-        <div className="card">
-          <div className="empty-state">
-            <Megaphone size={40} strokeWidth={1} style={{ margin: '0 auto 12px', color: '#8892b0' }} />
-            <h3>No manual platforms yet</h3>
-            <p>Click "Add Platform" to track ad spend manually for other platforms</p>
-          </div>
-        </div>
-      ) : (
-        platforms.map(platform => {
-          const totalMAD = platformTotal(platform.campaigns, usdRate);
-          const running = platform.campaigns.find(c => !c.end_date);
-          const isExpanded = expanded[platform.id] !== false;
-
-          return (
-            <div key={platform.id} className="card" style={{ marginBottom: 16, borderTop: `3px solid ${platform.color}` }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: isExpanded ? 16 : 0 }}>
-                <PlatformIcon name={platform.name} size={36} />
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 700, fontSize: 16 }}>{platform.label}</div>
-                  <div style={{ fontSize: 12, color: '#8892b0', marginTop: 2 }}>
-                    {fmt(totalMAD)} MAD total ·{' '}
-                    {running
-                      ? <span style={{ color: '#00d48f' }}>● ${fmt(running.daily_rate_usd)}/day running</span>
-                      : <span style={{ color: '#8892b0' }}>no active campaign</span>}
-                  </div>
-                </div>
-                <div style={{ display: 'flex', gap: 6 }}>
-                  <button className="btn btn-primary btn-sm" onClick={() => openNewCampaign(platform.id)}>
-                    + Campaign
-                  </button>
-                  <button className="btn btn-secondary btn-sm" onClick={() => setExpanded(e => ({ ...e, [platform.id]: !isExpanded }))}>
-                    {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                  </button>
-                  <button className="btn btn-danger btn-sm" onClick={() => removePlatform(platform.id)}>
-                    <Trash2 size={13} />
-                  </button>
-                </div>
-              </div>
-
-              {isExpanded && (
-                platform.campaigns.length === 0 ? (
-                  <div style={{ color: '#8892b0', fontSize: 13, padding: '8px 0' }}>
-                    No campaigns yet. Click "+ Campaign" to add one.
-                  </div>
-                ) : (
-                  <div className="table-wrapper">
-                    <table>
-                      <thead>
-                        <tr>
-                          <th>Status</th>
-                          <th>Start</th>
-                          <th>Days</th>
-                          <th>Rate (USD/day)</th>
-                          <th>Cost since start</th>
-                          <th></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {platform.campaigns.map(c => {
-                          const isRunning = !c.end_date;
-                          const days = daysBetween(c.start_date, c.end_date);
-                          const totalMAD = days * c.daily_rate_usd * usdRate;
-                          return (
-                            <tr key={c.id}>
-                              <td>
-                                <button
-                                  onClick={() => toggleCampaign(platform, c)}
-                                  style={{
-                                    display: 'inline-flex', alignItems: 'center', gap: 6,
-                                    padding: '4px 10px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600,
-                                    background: isRunning ? '#0d2a1e' : '#2d3248',
-                                    color: isRunning ? '#00d48f' : '#8892b0',
-                                  }}
-                                >
-                                  <span style={{ width: 7, height: 7, borderRadius: '50%', background: isRunning ? '#00d48f' : '#8892b0', display: 'inline-block' }} />
-                                  {isRunning ? 'Running · Stop' : 'Stopped · Resume'}
-                                </button>
-                              </td>
-                              <td style={{ fontSize: 12, color: '#8892b0' }}>
-                                {c.start_date.slice(0, 10)}
-                                {!isRunning && (
-                                  <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>→ {c.end_date.slice(0, 10)}</div>
-                                )}
-                              </td>
-                              <td style={{ fontWeight: 600 }}>
-                                {days}<span style={{ fontSize: 11, color: '#8892b0', marginLeft: 4 }}>days</span>
-                              </td>
-                              <td style={{ color: '#60a5fa' }}>${fmt(c.daily_rate_usd)}</td>
-                              <td>
-                                <div style={{ fontWeight: 700, fontSize: 15, color: '#f59e0b' }}>{fmt(totalMAD)} MAD</div>
-                                <div style={{ fontSize: 11, color: '#8892b0' }}>${fmt(days * c.daily_rate_usd)} USD</div>
-                              </td>
-                              <td>
-                                <div style={{ display: 'flex', gap: 4 }}>
-                                  <button className="btn btn-secondary btn-sm" onClick={() => openEditCampaign(platform.id, c)}>
-                                    <Edit2 size={12} />
-                                  </button>
-                                  <button className="btn btn-danger btn-sm" onClick={() => removeCampaign(c.id)}>
-                                    <Trash2 size={12} />
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )
-              )}
-            </div>
-          );
-        })
-      )}
-
-      {/* Add Platform Modal */}
+      {/* Connect Platform Modal */}
       {showAddPlatform && (
         <div className="modal-overlay">
           <div className="modal">
             <div className="modal-header">
-              <h2>Add Platform</h2>
+              <h2>Connect a Platform</h2>
               <button className="btn-icon" onClick={() => setShowAddPlatform(false)}>✕</button>
             </div>
             <div className="modal-body">
-              {error && <div className="alert alert-error">{error}</div>}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {PLATFORM_CATALOGUE.filter(p => !addedNames.has(p.name)).map(p => (
-                  <button
-                    key={p.name}
-                    onClick={() => addPlatform(p)}
+                {[
+                  { key: 'facebook', label: 'Meta Ads', connected: metaStatus?.connected, color: '#0866FF', onConnect: () => { setShowAddPlatform(false); setShowMetaConnect(true); } },
+                  { key: 'google',   label: 'Google Ads', connected: ggStatus?.connected, color: '#ea4335', onConnect: () => { setShowAddPlatform(false); setShowGgConnect(true); } },
+                  { key: 'tiktok',   label: 'TikTok Ads', connected: ttStatus?.connected, color: '#010101', onConnect: () => { setShowAddPlatform(false); setShowTtConnect(true); } },
+                  { key: 'snapchat', label: 'Snapchat Ads', connected: scStatus?.connected, color: '#FFFC00', onConnect: () => { setShowAddPlatform(false); setShowScConnect(true); } },
+                  { key: 'pinterest',label: 'Pinterest Ads', connected: ptStatus?.connected, color: '#E60023', onConnect: () => { setShowAddPlatform(false); setShowPtConnect(true); } },
+                ].map(p => (
+                  <div
+                    key={p.key}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 12,
-                      padding: '12px 16px', borderRadius: 8, border: '1px solid #2d3248',
-                      background: '#1d1d27', cursor: 'pointer', color: 'inherit',
-                      transition: 'border-color 0.15s',
+                      padding: '12px 16px', borderRadius: 8,
+                      border: `1px solid ${p.connected ? '#00d48f33' : '#2d3248'}`,
+                      background: '#1d1d27',
                     }}
-                    onMouseEnter={e => e.currentTarget.style.borderColor = p.color}
-                    onMouseLeave={e => e.currentTarget.style.borderColor = '#2d3248'}
                   >
-                    <PlatformIcon name={p.name} size={28} />
-                    <span style={{ fontWeight: 500 }}>{p.label}</span>
-                  </button>
+                    <PlatformIcon name={p.key} size={28} />
+                    <span style={{ flex: 1, fontWeight: 500 }}>{p.label}</span>
+                    {p.connected
+                      ? <span style={{ fontSize: 12, color: '#00d48f' }}>● Connected</span>
+                      : <button className="btn btn-primary btn-sm" onClick={p.onConnect}>Connect</button>
+                    }
+                  </div>
                 ))}
-                {PLATFORM_CATALOGUE.every(p => addedNames.has(p.name)) && (
-                  <div style={{ color: '#8892b0', textAlign: 'center', padding: 16 }}>All platforms already added</div>
-                )}
               </div>
             </div>
             <div className="modal-footer">
               <button className="btn btn-secondary" onClick={() => setShowAddPlatform(false)}>Close</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Add / Edit Campaign Modal */}
-      {campaignModal && (
-        <div className="modal-overlay">
-          <div className="modal">
-            <div className="modal-header">
-              <h2>{campaignModal.campaign ? 'Edit Campaign' : '+ New Campaign'}</h2>
-              <button className="btn-icon" onClick={() => { setCampaignModal(null); setError(''); }}>✕</button>
-            </div>
-            <div className="modal-body">
-              {error && <div className="alert alert-error">{error}</div>}
-              <div style={{ marginBottom: 16 }}>
-                <label className="form-label">Daily Rate (USD) *</label>
-                <input className="form-input" type="number" min="0" step="0.5" placeholder="e.g. 5"
-                  value={campaignForm.daily_rate_usd}
-                  onChange={e => setCampaignForm({ ...campaignForm, daily_rate_usd: e.target.value })} />
-                {campaignForm.daily_rate_usd && parseFloat(campaignForm.daily_rate_usd) > 0 && (
-                  <div style={{ marginTop: 4, fontSize: 12, color: '#8892b0' }}>
-                    ≈ {fmt(parseFloat(campaignForm.daily_rate_usd) * usdRate)} MAD/day
-                  </div>
-                )}
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                <div>
-                  <label className="form-label">Start Date *</label>
-                  <input className="form-input" type="date" value={campaignForm.start_date}
-                    onChange={e => setCampaignForm({ ...campaignForm, start_date: e.target.value })} />
-                </div>
-                <div>
-                  <label className="form-label">End Date <span style={{ color: '#8892b0', fontWeight: 400 }}>(optional)</span></label>
-                  <input className="form-input" type="date" value={campaignForm.end_date}
-                    onChange={e => setCampaignForm({ ...campaignForm, end_date: e.target.value })} />
-                </div>
-              </div>
-              {!campaignForm.end_date && (
-                <div style={{ marginTop: 10, fontSize: 12, color: '#8892b0', background: '#1d1d27', padding: '8px 12px', borderRadius: 6 }}>
-                  No end date = runs until you add a new campaign (auto-closes this one).
-                </div>
-              )}
-            </div>
-            <div className="modal-footer">
-              <button className="btn btn-secondary" onClick={() => { setCampaignModal(null); setError(''); }}>Cancel</button>
-              <button className="btn btn-primary" onClick={saveCampaign}>
-                {campaignModal.campaign ? 'Save Changes' : 'Add Campaign'}
-              </button>
             </div>
           </div>
         </div>

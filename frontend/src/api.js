@@ -109,15 +109,8 @@ export const deleteWithdrawal = (id) => api.delete(`/expenses/withdrawals/${id}`
 export const getFacebookAds = () => api.get('/expenses/facebook-ads');
 export const createFacebookAd = (data) => api.post('/expenses/facebook-ads', data);
 
-// Ad Platforms
+// Ad Platforms (read-only, used by Expenses page)
 export const getAdPlatforms = () => api.get('/expenses/platforms');
-export const createAdPlatform = (data) => api.post('/expenses/platforms', data);
-export const deleteAdPlatform = (id) => api.delete(`/expenses/platforms/${id}`);
-
-// Ad Campaigns
-export const createAdCampaign = (data) => api.post('/expenses/campaigns', data);
-export const updateAdCampaign = (id, data) => api.put(`/expenses/campaigns/${id}`, data);
-export const deleteAdCampaign = (id) => api.delete(`/expenses/campaigns/${id}`);
 
 // Cost per order
 export const getAdCostPerOrder = (start, end) => api.get('/expenses/cost-per-order', { params: { start, end } });
@@ -137,6 +130,15 @@ export const searchMetaInterests = (q) => api.get('/meta/interests', { params: {
 export const uploadMetaImage = (file) => { const form = new FormData(); form.append('file', file); return api.post('/meta/upload-image', form, { headers: { 'Content-Type': 'multipart/form-data' } }); };
 export const uploadMetaVideo = (file) => { const form = new FormData(); form.append('file', file); return api.post('/meta/upload-video', form, { headers: { 'Content-Type': 'multipart/form-data' } }); };
 export const createFullCampaign = (data) => api.post('/meta/full-campaign', data);
+
+// Google Ads
+export const getGoogleStatus = () => api.get('/google/status');
+export const connectGoogle = (data) => api.post('/google/connect', data);
+export const disconnectGoogle = () => api.delete('/google/disconnect');
+export const getGoogleCampaigns = () => api.get('/google/campaigns');
+export const pauseGoogleCampaign = (id) => api.post(`/google/campaigns/${id}/pause`);
+export const resumeGoogleCampaign = (id) => api.post(`/google/campaigns/${id}/resume`);
+export const getGoogleSpend = (start, end) => api.get('/google/spend', { params: { start, end } });
 
 // TikTok Ads
 export const getTikTokStatus = () => api.get('/tiktok/status');
