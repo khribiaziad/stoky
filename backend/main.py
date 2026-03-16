@@ -45,6 +45,10 @@ with engine.connect() as conn:
         "CREATE TABLE IF NOT EXISTS offers (id INTEGER PRIMARY KEY, user_id INTEGER REFERENCES users(id), name VARCHAR NOT NULL, selling_price FLOAT NOT NULL, packaging_cost FLOAT DEFAULT 0, start_date DATETIME, end_date DATETIME, is_active BOOLEAN DEFAULT 1, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)",
         "CREATE TABLE IF NOT EXISTS offer_items (id INTEGER PRIMARY KEY, offer_id INTEGER NOT NULL REFERENCES offers(id), variant_id INTEGER NOT NULL REFERENCES variants(id), quantity INTEGER DEFAULT 1)",
         "CREATE TABLE IF NOT EXISTS promo_codes (id INTEGER PRIMARY KEY, user_id INTEGER REFERENCES users(id), code VARCHAR NOT NULL, discount_type VARCHAR NOT NULL, discount_value FLOAT NOT NULL, min_order_value FLOAT, usage_limit INTEGER, used_count INTEGER DEFAULT 0, expiry_date DATETIME, applies_to VARCHAR DEFAULT 'all', target_ids JSON, is_active BOOLEAN DEFAULT 1, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)",
+        "ALTER TABLE orders ADD COLUMN pack_id INTEGER REFERENCES packs(id)",
+        "ALTER TABLE orders ADD COLUMN offer_id INTEGER REFERENCES offers(id)",
+        "ALTER TABLE orders ADD COLUMN promo_code_used VARCHAR",
+        "ALTER TABLE orders ADD COLUMN discount_amount FLOAT DEFAULT 0",
     ]:
         try:
             conn.execute(text(stmt))

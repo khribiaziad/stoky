@@ -1,7 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { getOrders, getProducts, getPacks, uploadPickupPDF, bulkCreateOrders, uploadReturnPDF, processReturns, updateOrderStatus, updateOrder, deleteOrder, bulkUpdateOrderStatus, sendToOlivraison, sendToForcelog, getForcelogStatus, syncAllForcelog, syncAllOlivraison, requestOlivRamassage, requestForcelogRamassage, confirmPickup, errorMessage } from '../api';
-import ErrorExplain from '../components/ErrorExplain';
-import { validatePhone, validateAmount, numericOnly, fieldErrorStyle } from '../utils/validate';
+import { useState, useEffect, useRef } from 'react';
+import { getOrders, getProducts, getPacks, getOffers, getPromoCodes, uploadPickupPDF, bulkCreateOrders, uploadReturnPDF, processReturns, updateOrderStatus, updateOrder, deleteOrder, updateOrderNotes, bulkUpdateOrderStatus, sendToOlivraison } from '../api';
 
 function downloadCSV(rows, filename) {
   const csv = rows.map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
@@ -12,63 +10,18 @@ function downloadCSV(rows, filename) {
   URL.revokeObjectURL(url);
 }
 
-const STATUS_LABEL = {
-  pending: 'Pending',
-  awaiting_pickup: 'Awaiting Pickup',
-  in_delivery: 'In Delivery',
-  delivered: 'Delivered',
-  cancelled: 'Cancelled',
-  reported: 'Reported',
-};
-
-const statusStyle = (o) => {
-  if (o.delivery_status) {
-    const ds = o.delivery_status.toLowerCase();
-    if (['livr', 'deliver'].some(k => ds.includes(k)))
-      return { background: 'rgba(74,222,128,0.15)', color: '#4ade80' };
-    if (['annul', 'retour', 'cancel', 'refus', 'echec', 'échou', 'lost'].some(k => ds.includes(k)))
-      return { background: 'rgba(248,113,113,0.15)', color: '#f87171' };
-    if (['appel', 'call', 'vocal', 'injoign', 'réponse', 'reponse', 'sms', 'whatsapp'].some(k => ds.includes(k)))
-      return { background: 'rgba(251,146,60,0.15)', color: '#fb923c' };
-    if (['route', 'transit', 'ramassage', 'pickup', 'expédi', 'expedi', 'reporté', 'reporte'].some(k => ds.includes(k)))
-      return { background: 'rgba(96,165,250,0.15)', color: '#60a5fa' };
-    return { background: 'rgba(100,116,139,0.15)', color: '#94a3b8' };
-  }
-  const S = {
-    pending:         { background: 'rgba(250,204,21,0.15)',  color: '#facc15' },
-    awaiting_pickup: { background: 'rgba(251,146,60,0.15)',  color: '#fb923c' },
-    in_delivery:     { background: 'rgba(96,165,250,0.15)',  color: '#60a5fa' },
-    delivered:       { background: 'rgba(74,222,128,0.15)',  color: '#4ade80' },
-    cancelled:       { background: 'rgba(248,113,113,0.15)', color: '#f87171' },
-    reported:        { background: 'rgba(0,194,203,0.1)',    color: '#00c2cb' },
-  };
-  return S[o.status] || { background: 'rgba(100,116,139,0.15)', color: '#94a3b8' };
-};
-
-const rowStyle = (o) => {
-  const today = new Date().toISOString().slice(0, 10);
-  const isDueToday = o.status === 'reported' && o.reported_date && o.reported_date.slice(0, 10) === today;
-  if (isDueToday) return { background: 'rgba(0,194,203,0.10)', borderLeft: '3px solid #00c2cb' };
-  const S = {
-    pending:         { background: 'rgba(245,166,35,0.045)',  borderLeft: '3px solid rgba(245,166,35,0.5)' },
-    awaiting_pickup: { background: 'rgba(79,124,255,0.045)',  borderLeft: '3px solid rgba(79,124,255,0.5)' },
-    in_delivery:     { background: 'rgba(155,109,255,0.045)', borderLeft: '3px solid rgba(155,109,255,0.5)' },
-    reported:        { background: 'rgba(0,194,203,0.05)',    borderLeft: '3px dashed rgba(0,194,203,0.55)' },
-    delivered:       { background: 'rgba(31,217,138,0.03)',   borderLeft: '3px solid rgba(31,217,138,0.4)' },
-    cancelled:       { background: 'rgba(240,79,79,0.03)',    borderLeft: '3px solid rgba(240,79,79,0.4)' },
-  };
-  return S[o.status] || {};
+const STATUS_BADGE = {
+  pending: 'badge-yellow',
+  delivered: 'badge-green',
+  cancelled: 'badge-red',
 };
 
 export default function Orders() {
   const [orders, setOrders] = useState([]);
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [orderCount, setOrderCount] = useState(0);
-  const [returnCount, setReturnCount] = useState(0);
-  const [statusCounts, setStatusCounts] = useState({});
   const [products, setProducts] = useState([]);
   const [packs, setPacks] = useState([]);
+  const [offers, setOffers] = useState([]);
+  const [promoCodes, setPromoCodes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
@@ -77,7 +30,6 @@ export default function Orders() {
   const [parsedOrders, setParsedOrders] = useState(null);
   const [orderItems, setOrderItems] = useState({});
   const [orderExpenses, setOrderExpenses] = useState({});
-  const [orderErrors, setOrderErrors] = useState({});
   const [uploading, setUploading] = useState(false);
 
   // Returns states (PDF flow)
@@ -96,6 +48,12 @@ export default function Orders() {
   const [manualOrder, setManualOrder] = useState(emptyManualOrder());
   const [manualItems, setManualItems] = useState([{ variant_id: '', quantity: 1 }]);
   const [manualExpenses, setManualExpenses] = useState({ sticker: 0, seal_bag: 0, packaging: 1 });
+  const [manualOrderType, setManualOrderType] = useState('single'); // 'single' | 'pack' | 'offer'
+  const [selectedPackId, setSelectedPackId] = useState('');
+  const [selectedPresetId, setSelectedPresetId] = useState('');
+  const [selectedOfferId, setSelectedOfferId] = useState('');
+  const [promoCode, setPromoCode] = useState('');
+  const [promoResult, setPromoResult] = useState(null); // { discount, label } or { error }
 
   // Manual return
   const [showManualReturn, setShowManualReturn] = useState(false);
@@ -103,15 +61,15 @@ export default function Orders() {
   const [selectedReturn, setSelectedReturn] = useState(null);
   const [manualReturnChoice, setManualReturnChoice] = useState({ seal_bag_returned: false, product_broken: false });
 
-  // Tab
-  const [activeTab, setActiveTab] = useState('orders');
-
   // Bulk selection
   const [selectedIds, setSelectedIds] = useState(new Set());
 
-  // Detail popup / slide panel
+  // Detail popup
   const [detailOrder, setDetailOrder] = useState(null);
-  const [expandedCardId, setExpandedCardId] = useState(null);
+
+  // Notes modal
+  const [notesOrder, setNotesOrder] = useState(null);
+  const [notesDraft, setNotesDraft] = useState('');
 
   // Edit order modal
   const [editOrder, setEditOrder] = useState(null);
@@ -129,43 +87,37 @@ export default function Orders() {
 
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [manualFieldErrors, setManualFieldErrors] = useState({});
-  const [editFieldErrors, setEditFieldErrors] = useState({});
-  const [sendingOliv,    setSendingOliv]    = useState(null);
-  const [sendingForce,   setSendingForce]   = useState(null);
-  const [refreshingForce, setRefreshingForce] = useState(null);
-
-  // Ramassage
-  const [showRamassage,    setShowRamassage]    = useState(false);
-  const [ramassageResult,  setRamassageResult]  = useState(null);
-  const [ramassageLoading, setRamassageLoading] = useState(false);
-
-  // Date range selectors
-  const [dateRange,     setDateRange]     = useState('today'); // for order_date (non-reported)
-  const [reportedRange, setReportedRange] = useState('all');  // for reported_date (reported tab)
-
-
-  const [showMoreMenu, setShowMoreMenu] = useState(false);
-  const moreMenuRef = useRef();
+  const [sendingOliv, setSendingOliv] = useState(null); // order id being sent
 
   const pickupRef = useRef();
   const returnRef = useRef();
+
+  const activePacks = packs.filter(p => p.is_active);
+  const activeOffers = offers.filter(o => o.is_active);
+  const hasPacksOrOffers = activePacks.length > 0 || activeOffers.length > 0;
+
+  const validatePromo = (code, baseAmount) => {
+    if (!code.trim()) return null;
+    const pc = promoCodes.find(p => p.code === code.toUpperCase().trim() && p.is_active);
+    if (!pc) return { error: 'Invalid or inactive code' };
+    if (pc.expiry_date && new Date(pc.expiry_date) < new Date()) return { error: 'Code expired' };
+    if (pc.usage_limit && pc.used_count >= pc.usage_limit) return { error: 'Usage limit reached' };
+    if (pc.min_order_value && baseAmount < pc.min_order_value) return { error: `Min order: ${pc.min_order_value} MAD` };
+    if (pc.applies_to === 'packs' && manualOrderType !== 'pack') return { error: 'Code only applies to packs' };
+    if (pc.applies_to === 'packs' && selectedPackId && pc.target_ids?.length && !pc.target_ids.includes(parseInt(selectedPackId))) return { error: 'Code not valid for this pack' };
+    if (pc.applies_to === 'products' && manualOrderType !== 'single') return { error: 'Code only applies to products' };
+    const discount = pc.discount_type === 'percentage'
+      ? Math.round((baseAmount * pc.discount_value) / 100 * 100) / 100
+      : pc.discount_value;
+    const label = pc.discount_type === 'percentage' ? `-${pc.discount_value}% applied` : `-${pc.discount_value} MAD applied`;
+    return { discount: Math.min(discount, baseAmount), label, code: pc.code };
+  };
 
   const allVariants = products.flatMap(p => p.variants.map(v => ({
     ...v,
     label: `${p.name} — ${v.size || ''} ${v.color || ''}`.trim(),
     under_1kg: p.under_1kg,
   })));
-
-  // Auto-calculate total from selected variants' selling prices
-  const calcManualTotal = (items) => {
-    const total = items.reduce((sum, item) => {
-      if (!item.variant_id) return sum;
-      const v = allVariants.find(v => v.id === parseInt(item.variant_id));
-      return sum + (v?.selling_price || 0) * (parseInt(item.quantity) || 1);
-    }, 0);
-    return total > 0 ? String(total) : '';
-  };
 
   // Auto-set seal_bag based on whether any selected product is under 1kg
   const autoSealBag = (items) => {
@@ -188,98 +140,46 @@ export default function Orders() {
     }));
   };
 
-  const getDateBounds = (range, future = false) => {
-    if (!range || range === 'all') return {};
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    const fmt = d => d.toISOString().slice(0, 10);
-    if (range === 'today') return { from: fmt(today), to: fmt(today) };
-    if (range === 'week') {
-      if (future) { const e = new Date(today); e.setDate(today.getDate() + 7); return { from: fmt(today), to: fmt(e) }; }
-      const s = new Date(today); s.setDate(today.getDate() - 7); return { from: fmt(s), to: fmt(today) };
-    }
-    if (range === 'month') {
-      if (future) { const e = new Date(today.getFullYear(), today.getMonth() + 1, 0); return { from: fmt(today), to: fmt(e) }; }
-      const s = new Date(today.getFullYear(), today.getMonth(), 1); return { from: fmt(s), to: fmt(today) };
-    }
-    return {};
-  };
-
-  const buildParams = (overrides = {}) => {
-    const { p = page, f = filter, t = activeTab, dr = dateRange, rr = reportedRange } = overrides;
-    const params = { page: p, limit: 100, tab: t };
-    if (t === 'orders' && f !== 'all') params.status = f;
-    if (f === 'reported') {
-      const { from, to } = getDateBounds(rr, true);
-      if (from) params.reported_from = from;
-      if (to) params.reported_to = to;
-    } else {
-      const { from, to } = getDateBounds(dr, false);
-      if (from) params.date_from = from;
-      if (to) params.date_to = to;
-    }
-    return params;
-  };
-
-  const load = (overrides = {}) => {
-    setLoading(true);
-    Promise.all([getOrders(buildParams(overrides)), getProducts(), getPacks()])
-      .then(([o, p, pk]) => {
-        setOrders(o.data.orders);
-        setTotalPages(o.data.pages);
-        setOrderCount(o.data.order_count);
-        setReturnCount(o.data.return_count);
-        setStatusCounts(o.data.status_counts || {});
-        setProducts(p.data);
-        setPacks(pk.data);
-      })
+  const load = () => {
+    Promise.all([getOrders(), getProducts(), getPacks(), getOffers().catch(() => ({ data: [] })), getPromoCodes().catch(() => ({ data: [] }))])
+      .then(([o, p, pk, off, promo]) => { setOrders(o.data); setProducts(p.data); setPacks(pk.data); setOffers(off.data); setPromoCodes(promo.data); })
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => {
-    load({ p: 1, f: 'all', t: 'orders', dr: 'today' });
-    // Silently sync delivery statuses in the background on page load
-    Promise.allSettled([syncAllForcelog(), syncAllOlivraison()])
-      .then(() => load({ p: 1, f: 'all', t: 'orders', dr: 'today' }))
-      .catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    if (!showMoreMenu) return;
-    const handler = (e) => {
-      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target)) {
-        setShowMoreMenu(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [showMoreMenu]);
+  useEffect(() => { load(); }, []);
 
   // Handle pickup PDF upload
   const handleManualOrder = async () => {
     setError('');
-    const errs = {};
-    if (!manualOrder.customer_name.trim()) errs.customer_name = 'Customer name is required';
-    if (manualOrder.customer_phone) {
-      const phoneErr = validatePhone(manualOrder.customer_phone);
-      if (phoneErr) errs.customer_phone = phoneErr;
-    }
-    const amtErr = validateAmount(manualOrder.total_amount);
-    if (amtErr) errs.total_amount = amtErr;
-    if (Object.keys(errs).length) { setManualFieldErrors(errs); return; }
-    setManualFieldErrors({});
+    if (!manualOrder.customer_name.trim()) { setError('Customer name is required'); return; }
+    if (!manualOrder.total_amount) { setError('Total amount is required'); return; }
     const flatItems = manualItems
       .filter(item => item.variant_id)
       .map(item => ({ variant_id: parseInt(item.variant_id), quantity: parseInt(item.quantity) || 1 }));
-    if (flatItems.length === 0) { setManualFieldErrors(e => ({ ...e, products: 'Add at least one product' })); return; }
+    if (flatItems.length === 0) { setError('Add at least one product'); return; }
+    const baseAmount = parseFloat(manualOrder.total_amount);
+    const discount = promoResult?.discount || 0;
     try {
-      await bulkCreateOrders([{ ...manualOrder, total_amount: parseFloat(manualOrder.total_amount), items: flatItems, expenses: manualExpenses }]);
+      await bulkCreateOrders([{
+        ...manualOrder,
+        total_amount: Math.max(0, baseAmount - discount),
+        items: flatItems,
+        expenses: manualExpenses,
+        pack_id: manualOrderType === 'pack' && selectedPackId ? parseInt(selectedPackId) : null,
+        offer_id: manualOrderType === 'offer' && selectedOfferId ? parseInt(selectedOfferId) : null,
+        promo_code: promoResult?.discount > 0 ? promoResult.code : null,
+        discount_amount: discount,
+      }]);
       setSuccess('Order created successfully!');
       setShowManualOrder(false);
       setManualOrder(emptyManualOrder());
       setManualItems([{ variant_id: '', quantity: 1 }]);
       setManualExpenses({ sticker: 0, seal_bag: 0, packaging: 1 });
+      setManualOrderType('single');
+      setSelectedPackId(''); setSelectedPresetId(''); setSelectedOfferId('');
+      setPromoCode(''); setPromoResult(null);
       load();
-    } catch (e) { setError(errorMessage(e)); }
+    } catch (e) { setError(e.response?.data?.detail || 'Error creating order'); }
   };
 
   const handleManualReturn = async () => {
@@ -292,7 +192,7 @@ export default function Orders() {
       setReturnSearch('');
       setManualReturnChoice({ seal_bag_returned: false, product_broken: false });
       load();
-    } catch (e) { setError(errorMessage(e)); }
+    } catch (e) { setError(e.response?.data?.detail || 'Error processing return'); }
   };
 
   const handlePickupUpload = async (e) => {
@@ -315,7 +215,7 @@ export default function Orders() {
       setOrderItems(items);
       setOrderExpenses(expenses);
     } catch (e) {
-      setError(errorMessage(e));
+      setError(e.response?.data?.detail || 'Failed to parse PDF');
     }
     setUploading(false);
     pickupRef.current.value = '';
@@ -336,24 +236,10 @@ export default function Orders() {
       });
       setReturnChoices(choices);
     } catch (e) {
-      setError(errorMessage(e));
+      setError(e.response?.data?.detail || 'Failed to parse return PDF');
     }
     setUploading(false);
     returnRef.current.value = '';
-  };
-
-  const removeOrderFromParsed = (i) => {
-    const newParsed = parsedOrders.filter((_, idx) => idx !== i);
-    const newItems = {};
-    const newExpenses = {};
-    newParsed.forEach((_, newIdx) => {
-      const oldIdx = newIdx >= i ? newIdx + 1 : newIdx;
-      newItems[newIdx] = orderItems[oldIdx];
-      newExpenses[newIdx] = orderExpenses[oldIdx];
-    });
-    setParsedOrders(newParsed);
-    setOrderItems(newItems);
-    setOrderExpenses(newExpenses);
   };
 
   const handleSaveOrders = async () => {
@@ -387,22 +273,9 @@ export default function Orders() {
       const res = await bulkCreateOrders(ordersToCreate);
       setSuccess(`${res.data.count} orders created successfully!`);
       setParsedOrders(null);
-      setOrderErrors({});
       load();
     } catch (e) {
-      const detail = e.response?.data?.detail;
-      // Parse "[CMD-xxx] message" to highlight the specific order card
-      const idMatch = typeof detail === 'string' ? detail.match(/^\[([^\]]+)\]/) : null;
-      if (idMatch) {
-        const failedId = idMatch[1].trim();
-        const msg = detail.replace(/^\[[^\]]+\]\s*/, '');
-        // Find by index so whitespace in caleo_id never causes a mismatch
-        const failedIdx = parsedOrders.findIndex(o => (o.caleo_id || '').trim() === failedId);
-        setOrderErrors(failedIdx !== -1 ? { [failedIdx]: msg } : {});
-        setError(`Order ${failedId}: ${msg}`);
-      } else {
-        setError(errorMessage(e));
-      }
+      setError(e.response?.data?.detail || 'Error creating orders');
     }
   };
 
@@ -417,95 +290,13 @@ export default function Orders() {
       setReturnOrders(null);
       load();
     } catch (e) {
-      setError(errorMessage(e));
+      setError(e.response?.data?.detail || 'Error processing returns');
     }
   };
 
-  const handleStatusChange = async (id, newStatus) => {
-    if (newStatus === 'cancelled' && !confirm('Cancel this order?')) return;
-    setOrders(prev => prev.map(o => o.id === id ? { ...o, status: newStatus } : o));
-    try {
-      await updateOrderStatus(id, newStatus);
-    } catch (e) {
-      setError(errorMessage(e));
-      load({ p: page, f: filter, t: activeTab });
-    }
-  };
-
-  const handleConfirmPickup = async () => {
-    try {
-      const res = await confirmPickup();
-      setSuccess(`${res.data.confirmed} orders confirmed as picked up — moved to In Delivery`);
-      load({ p: page, f: filter, t: activeTab });
-    } catch (e) {
-      setError(errorMessage(e));
-    }
-  };
-
-  const [syncing, setSyncing] = useState(false);
-  const handleSyncAll = async () => {
-    setSyncing(true);
-    setError('');
-    try {
-      const [fl, ol] = await Promise.allSettled([syncAllForcelog(), syncAllOlivraison()]);
-      const flCount = fl.status === 'fulfilled' ? fl.value.data.updated : 0;
-      const olCount = ol.status === 'fulfilled' ? ol.value.data.updated : 0;
-      setSuccess(`Synced: ${flCount} Forcelog + ${olCount} Olivraison orders updated`);
-      load();
-    } catch (e) {
-      setError(errorMessage(e));
-    }
-    setSyncing(false);
-  };
-
-  const handleRamassage = async () => {
-    setRamassageLoading(true);
-    setRamassageResult(null);
-    const result = { oliv: null, force: null };
-    const [oRes, fRes] = await Promise.allSettled([
-      requestOlivRamassage(),
-      requestForcelogRamassage(),
-    ]);
-    result.oliv  = oRes.status  === 'fulfilled' ? oRes.value.data  : { error: errorMessage(oRes.reason) };
-    result.force = fRes.status  === 'fulfilled' ? fRes.value.data  : { error: errorMessage(fRes.reason) };
-    setRamassageResult(result);
-    setRamassageLoading(false);
-    load({ p: page, f: filter, t: activeTab });
-  };
-
-  const handleSendForcelog = async (id) => {
-    setSendingForce(id);
-    try {
-      const res = await sendToForcelog(id);
-      setOrders(prev => prev.map(o => o.id === id
-        ? { ...o, tracking_id: res.data.tracking_id, delivery_status: 'Envoyé', delivery_provider: 'forcelog' }
-        : o
-      ));
-      setSuccess(`Sent to Forcelog — Tracking: ${res.data.tracking_id}`);
-      setTimeout(() => setSuccess(''), 4000);
-    } catch (e) {
-      setError(errorMessage(e));
-    } finally {
-      setSendingForce(null);
-    }
-  };
-
-  const handleRefreshForcelog = async (id) => {
-    setRefreshingForce(id);
-    try {
-      const res = await getForcelogStatus(id);
-      setOrders(prev => prev.map(o => o.id === id
-        ? { ...o, delivery_status: res.data.delivery_status || res.data.status }
-        : o
-      ));
-      if (detailOrder?.id === id) {
-        setDetailOrder(prev => ({ ...prev, delivery_status: res.data.delivery_status || res.data.status }));
-      }
-    } catch (e) {
-      setError(errorMessage(e));
-    } finally {
-      setRefreshingForce(null);
-    }
+  const handleStatusChange = async (id, status) => {
+    await updateOrderStatus(id, status);
+    load();
   };
 
   const handleSendOlivraison = async (id) => {
@@ -519,7 +310,7 @@ export default function Orders() {
       setSuccess(`Sent to Olivraison — Tracking: ${res.data.tracking_id}`);
       setTimeout(() => setSuccess(''), 4000);
     } catch (e) {
-      setError(errorMessage(e));
+      setError(e.response?.data?.detail || 'Failed to send to Olivraison');
     } finally {
       setSendingOliv(null);
     }
@@ -527,17 +318,7 @@ export default function Orders() {
 
   const handleDelete = async (id) => {
     if (!confirm('Delete this order?')) return;
-    try {
-      await deleteOrder(id);
-      load();
-    } catch (e) {
-      setError(errorMessage(e));
-    }
-  };
-
-  const handleRevertReturn = async (id) => {
-    if (!confirm('Revert this return back to Pending?')) return;
-    await updateOrderStatus(id, 'pending');
+    await deleteOrder(id);
     load();
   };
 
@@ -566,7 +347,7 @@ export default function Orders() {
       setSuccess(`${count} orders updated to ${status}`);
       load();
     } catch (e) {
-      setError(errorMessage(e));
+      setError(e.response?.data?.detail || 'Error updating orders');
     }
   };
 
@@ -588,6 +369,23 @@ export default function Orders() {
       ]),
     ];
     downloadCSV(rows, `orders_${new Date().toISOString().slice(0, 10)}.csv`);
+  };
+
+  // ── Notes ─────────────────────────────────────────────────────────────────
+  const openNotes = (order) => {
+    setNotesOrder(order);
+    setNotesDraft(order.notes || '');
+  };
+
+  const handleSaveNotes = async () => {
+    try {
+      await updateOrderNotes(notesOrder.id, notesDraft);
+      setOrders(prev => prev.map(o => o.id === notesOrder.id ? { ...o, notes: notesDraft } : o));
+      setNotesOrder(null);
+      setSuccess('Notes saved');
+    } catch (e) {
+      setError('Error saving notes');
+    }
   };
 
   // ── Edit order ────────────────────────────────────────────────────────────────
@@ -616,20 +414,12 @@ export default function Orders() {
 
   const handleSaveEdit = async () => {
     setError('');
-    const errs = {};
-    if (!editForm.customer_name.trim()) errs.customer_name = 'Customer name is required';
-    if (editForm.customer_phone) {
-      const phoneErr = validatePhone(editForm.customer_phone);
-      if (phoneErr) errs.customer_phone = phoneErr;
-    }
-    const amtErr = validateAmount(editForm.total_amount);
-    if (amtErr) errs.total_amount = amtErr;
-    if (Object.keys(errs).length) { setEditFieldErrors(errs); return; }
-    setEditFieldErrors({});
+    if (!editForm.customer_name.trim()) { setError('Customer name is required'); return; }
+    if (!editForm.total_amount) { setError('Total amount is required'); return; }
     const flatItems = editItems
       .filter(i => i.variant_id)
       .map(i => ({ variant_id: parseInt(i.variant_id), quantity: parseInt(i.quantity) || 1 }));
-    if (flatItems.length === 0) { setEditFieldErrors(e => ({ ...e, products: 'Add at least one product' })); return; }
+    if (flatItems.length === 0) { setError('Add at least one product'); return; }
     try {
       await updateOrder(editOrder.id, {
         ...editForm,
@@ -641,7 +431,7 @@ export default function Orders() {
       setEditOrder(null);
       load();
     } catch (e) {
-      setError(errorMessage(e));
+      setError(e.response?.data?.detail || 'Error updating order');
     }
   };
 
@@ -655,7 +445,6 @@ export default function Orders() {
     // Pre-fill total with the delivery fee from the original order
     setExchangeTotal(order.expenses?.delivery_fee || 35);
     setError('');
-    setEditFieldErrors({});
   };
 
   const handleExchange = async () => {
@@ -683,219 +472,62 @@ export default function Orders() {
       setExchangeOrder(null);
       load();
     } catch (e) {
-      setError(errorMessage(e));
+      setError(e.response?.data?.detail || 'Error processing exchange');
     }
   };
 
-  const searchMatch = (o) =>
-    !search ||
-    o.customer_name?.toLowerCase().includes(search.toLowerCase()) ||
-    o.caleo_id?.includes(search) ||
-    o.city?.toLowerCase().includes(search.toLowerCase()) ||
-    o.customer_phone?.includes(search);
-
-  // Orders are already filtered server-side; just apply local search
-  const filtered = orders.filter(searchMatch);
-  const filteredReturns = orders.filter(searchMatch);
+  const filtered = orders
+    .filter(o => filter === 'all' || o.status === filter)
+    .filter(o => !search ||
+      o.customer_name?.toLowerCase().includes(search.toLowerCase()) ||
+      o.caleo_id?.includes(search) ||
+      o.city?.toLowerCase().includes(search.toLowerCase()) ||
+      o.customer_phone?.includes(search));
 
   if (loading) return <div className="loading">Loading orders...</div>;
 
   return (
     <div>
-      <style>{`
-        @keyframes ord-pulse { 0%,100% { opacity:1; } 50% { opacity:0.45; } }
-        @keyframes ord-pulse-border { 0%,100% { border-left-color:#00c2cb; } 50% { border-left-color:rgba(0,194,203,0.2); } }
-        .ord-due-today-pill { font-size:10px; background:rgba(0,194,203,0.15); color:#00c2cb; padding:2px 7px; border-radius:99px; white-space:nowrap; animation:ord-pulse 1.5s ease-in-out infinite; }
-        .ord-due-today-row { animation:ord-pulse-border 2s ease-in-out infinite; }
-        .ord-desktop-table { display:block; }
-        .ord-mobile-cards  { display:none; }
-        .ord-filter-pills  { display:flex; gap:8px; flex-wrap:wrap; }
-        .ord-filter-select { display:none; }
-        @media (max-width:767px) {
-          .ord-desktop-table { display:none !important; }
-          .ord-mobile-cards  { display:block; }
-          .ord-filter-pills  { display:none !important; }
-          .ord-filter-select { display:block !important; }
-        }
-      `}</style>
       <div className="page-header">
         <h1 className="page-title">Orders</h1>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <input type="file" ref={pickupRef} accept=".pdf" style={{ display: 'none' }} onChange={handlePickupUpload} />
           <input type="file" ref={returnRef} accept=".pdf" style={{ display: 'none' }} onChange={handleReturnUpload} />
-          {activeTab === 'orders' ? <>
-            <button className="btn btn-primary" onClick={() => { setError(''); setShowManualOrder(true); }}>+ New Order</button>
-            <button className="btn btn-secondary" onClick={() => pickupRef.current.click()} disabled={uploading}>
-              {uploading ? '⏳ Parsing...' : '📤 Upload Pickup PDF'}
-            </button>
-            {/* More ▾ dropdown */}
-            <div ref={moreMenuRef} style={{ position: 'relative' }}>
-              <button
-                className="btn btn-secondary"
-                onClick={() => setShowMoreMenu(prev => !prev)}
-                style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                More <span style={{ fontSize: 10 }}>▾</span>
-              </button>
-              {showMoreMenu && (
-                <div style={{
-                  position: 'absolute', top: '100%', right: 0, marginTop: 4, zIndex: 200,
-                  background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8,
-                  boxShadow: '0 8px 24px rgba(0,0,0,0.4)', minWidth: 200, overflow: 'hidden',
-                }}>
-                  <button
-                    className="btn btn-secondary"
-                    style={{ width: '100%', textAlign: 'left', borderRadius: 0, border: 'none', borderBottom: '1px solid var(--border)', padding: '10px 16px' }}
-                    onClick={() => { setShowMoreMenu(false); setRamassageResult(null); setShowRamassage(true); }}>
-                    📦 Request Pickup
-                  </button>
-                  {filter === 'awaiting_pickup' && (
-                    <button
-                      className="btn btn-secondary"
-                      style={{ width: '100%', textAlign: 'left', borderRadius: 0, border: 'none', borderBottom: '1px solid var(--border)', padding: '10px 16px', color: '#60a5fa', borderColor: 'transparent' }}
-                      onClick={() => { setShowMoreMenu(false); handleConfirmPickup(); }}>
-                      ✓ Confirm Pickup
-                    </button>
-                  )}
-                  <button
-                    className="btn btn-secondary"
-                    style={{ width: '100%', textAlign: 'left', borderRadius: 0, border: 'none', borderBottom: '1px solid var(--border)', padding: '10px 16px' }}
-                    onClick={() => { setShowMoreMenu(false); exportCSV(); }}>
-                    ⬇ Export CSV
-                  </button>
-                  <button
-                    className="btn btn-secondary"
-                    style={{ width: '100%', textAlign: 'left', borderRadius: 0, border: 'none', padding: '10px 16px' }}
-                    disabled={syncing}
-                    onClick={() => { setShowMoreMenu(false); handleSyncAll(); }}>
-                    {syncing ? '⏳ Syncing...' : '⟳ Sync Deliveries'}
-                  </button>
-                </div>
-              )}
-            </div>
-          </> : <>
-            <button className="btn btn-secondary" style={{ borderColor: '#f87171', color: '#f87171' }} onClick={() => { setError(''); setShowManualReturn(true); }}>↩ Create Return</button>
-            <button className="btn btn-secondary" onClick={() => returnRef.current.click()} disabled={uploading}>
-              {uploading ? '⏳ Parsing...' : '📥 Upload Return PDF'}
-            </button>
-          </>}
+          <button className="btn btn-primary" onClick={() => { setError(''); setShowManualOrder(true); }}>+ New Order</button>
+          <button className="btn btn-secondary" onClick={() => { setError(''); setShowManualReturn(true); }}>↩ Return Order</button>
+          <button className="btn btn-secondary" onClick={() => pickupRef.current.click()} disabled={uploading}>
+            {uploading ? '⏳ Parsing...' : '📤 Upload Pickup PDF'}
+          </button>
+          <button className="btn btn-secondary" onClick={() => returnRef.current.click()} disabled={uploading}>
+            📥 Upload Return PDF
+          </button>
+          <button className="btn btn-secondary" onClick={exportCSV} title="Export visible orders to CSV">
+            ⬇ Export CSV
+          </button>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div style={{ display: 'flex', gap: 0, marginBottom: 16, borderBottom: '1px solid var(--border)' }}>
-        {[{ id: 'orders', label: `Orders (${orderCount})` },
-          { id: 'returns', label: `Returns (${returnCount})` }].map(tab => (
-          <button key={tab.id} onClick={() => { setActiveTab(tab.id); setSearch(''); setFilter('all'); setSelectedIds(new Set()); setPage(1); setExpandedCardId(null); load({ p: 1, f: 'all', t: tab.id }); }}
-            style={{
-              background: 'none', border: 'none', padding: '10px 20px', cursor: 'pointer',
-              fontSize: 14, fontWeight: 600,
-              color: activeTab === tab.id ? 'var(--accent)' : 'var(--t2)',
-              borderBottom: `2px solid ${activeTab === tab.id ? 'var(--accent)' : 'transparent'}`,
-              transition: 'all .15s',
-            }}>
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {error && <ErrorExplain message={error} page="Orders" />}
+      {error && <div className="alert alert-error">{error} <button style={{ float: 'right', background: 'none', border: 'none', color: 'inherit', cursor: 'pointer' }} onClick={() => setError('')}>✕</button></div>}
       {success && <div className="alert alert-success">{success} <button style={{ float: 'right', background: 'none', border: 'none', color: 'inherit', cursor: 'pointer' }} onClick={() => setSuccess('')}>✕</button></div>}
 
       {/* Filters */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 16, alignItems: 'center', flexWrap: 'wrap' }}>
-        {activeTab === 'orders' && (() => {
-          const STATUS_FILTERS = [
-            { value: 'all',             label: 'All',             countKey: null },
-            { value: 'pending',         label: 'Pending',         countKey: 'pending' },
-            { value: 'awaiting_pickup', label: 'Awaiting Pickup', countKey: 'awaiting_pickup' },
-            { value: 'in_delivery',     label: 'In Delivery',     countKey: 'in_delivery' },
-            { value: 'reported',        label: 'Reported',        countKey: 'reported' },
-            { value: 'delivered',       label: 'Delivered',       countKey: 'delivered' },
-          ];
-          return (<>
-            {/* Desktop pills */}
-            <div className="ord-filter-pills">
-              {STATUS_FILTERS.map(({ value, label, countKey }) => {
-                const count = countKey ? (statusCounts[countKey] || 0) : orderCount;
-                return (
-                  <button key={value}
-                    className={`btn ${filter === value ? 'btn-primary' : 'btn-secondary'}`}
-                    style={{ fontSize: 13, padding: '6px 14px', display: 'flex', alignItems: 'center', gap: 6 }}
-                    onClick={() => { setFilter(value); setPage(1); setExpandedCardId(null); load({ p: 1, f: value, t: activeTab }); }}>
-                    {label}
-                    {count > 0 && (
-                      <span style={{
-                        fontSize: 11, fontWeight: 700, padding: '1px 7px', borderRadius: 20,
-                        background: filter === value ? 'rgba(255,255,255,0.25)' : 'rgba(0,212,143,0.15)',
-                        color: filter === value ? '#fff' : 'var(--accent)',
-                      }}>{count}</span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-            {/* Mobile dropdown */}
-            <select className="ord-filter-select form-input"
-              style={{ fontSize: 13, padding: '6px 10px', cursor: 'pointer', maxWidth: 180 }}
-              value={filter}
-              onChange={e => { setFilter(e.target.value); setPage(1); setExpandedCardId(null); load({ p: 1, f: e.target.value, t: activeTab }); }}>
-              {STATUS_FILTERS.map(({ value, label, countKey }) => {
-                const count = countKey ? (statusCounts[countKey] || 0) : orderCount;
-                return <option key={value} value={value}>{label}{count > 0 ? ` (${count})` : ''}</option>;
-              })}
-            </select>
-          </>);
-        })()}
-
-        {/* Right group: date range selector + search */}
-        <div style={{ display: 'flex', gap: 8, marginLeft: 'auto', alignItems: 'center', flexWrap: 'wrap' }}>
-          {/* Date range selector — orders tab only */}
-          {activeTab === 'orders' && (() => {
-            const isReported = filter === 'reported';
-            const current = isReported ? reportedRange : dateRange;
-            const accentColor = isReported ? '#a855f7' : undefined;
-            return (
-              <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                {isReported && <span style={{ fontSize: 12, color: '#a855f7', whiteSpace: 'nowrap' }}>Scheduled:</span>}
-                {[{ value: 'all', label: 'All' }, { value: 'today', label: 'Today' }, { value: 'week', label: 'Week' }, { value: 'month', label: 'Month' }].map(r => (
-                  <button key={r.value}
-                    className={`btn btn-sm ${current === r.value ? 'btn-primary' : 'btn-secondary'}`}
-                    style={{ fontSize: 11, padding: '4px 10px', ...(current === r.value && accentColor ? { background: accentColor, borderColor: accentColor } : {}) }}
-                    onClick={() => {
-                      if (isReported) { setReportedRange(r.value); load({ rr: r.value }); }
-                      else { setDateRange(r.value); load({ dr: r.value }); }
-                    }}>
-                    {r.label}
-                  </button>
-                ))}
-              </div>
-            );
-          })()}
-
-          <div className="search-bar">
-            <span>🔍</span>
-            <input placeholder="Search by name, CMD, city, or phone..." value={search} onChange={e => setSearch(e.target.value)} />
-          </div>
+      <div style={{ display: 'flex', gap: 10, marginBottom: 16, alignItems: 'center' }}>
+        {['all', 'pending', 'delivered', 'cancelled'].map(s => (
+          <button key={s} className={`btn btn-sm ${filter === s ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setFilter(s)}>
+            {s.charAt(0).toUpperCase() + s.slice(1)}
+          </button>
+        ))}
+        <div className="search-bar" style={{ marginLeft: 'auto' }}>
+          <span>🔍</span>
+          <input placeholder="Search by name, CMD, city, or phone..." value={search} onChange={e => setSearch(e.target.value)} />
         </div>
       </div>
 
-      {/* Bulk action bar — orders tab only */}
-      {activeTab === 'orders' && selectedIds.size > 0 && (
+      {/* Bulk action bar */}
+      {selectedIds.size > 0 && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', background: '#1a1a2e', border: '1px solid #00d48f44', borderRadius: 10, marginBottom: 12, flexWrap: 'wrap' }}>
           <span style={{ fontWeight: 600, color: '#00d48f' }}>{selectedIds.size} selected</span>
-          <select className="btn btn-sm btn-secondary" style={{ cursor: 'pointer', fontSize: 12, color: '#60a5fa', borderColor: '#60a5fa' }} value=""
-            onChange={e => {
-              const courier = e.target.value;
-              if (!courier) return;
-              const selected = filtered.filter(o => selectedIds.has(o.id));
-              Promise.allSettled(selected.map(o => courier === 'olivraison' ? handleSendOlivraison(o.id) : handleSendForcelog(o.id)))
-                .then(() => setSelectedIds(new Set()));
-            }}>
-            <option value="" disabled>🚚 Send to courier…</option>
-            <option value="olivraison">Olivraison</option>
-            <option value="forcelog">Forcelog</option>
-          </select>
-          <span style={{ color: 'var(--t2)', fontSize: 13 }}>Update to:</span>
+          <span style={{ color: '#8892b0', fontSize: 13 }}>Update to:</span>
           <button className="btn btn-sm btn-secondary" style={{ borderColor: '#4ade80', color: '#4ade80' }} onClick={() => handleBulkStatus('delivered')}>✓ Delivered</button>
           <button className="btn btn-sm btn-secondary" style={{ borderColor: '#f59e0b', color: '#f59e0b' }} onClick={() => handleBulkStatus('pending')}>⏳ Pending</button>
           <button className="btn btn-sm btn-secondary" style={{ borderColor: '#f87171', color: '#f87171' }} onClick={() => handleBulkStatus('cancelled')}>✕ Cancelled</button>
@@ -903,65 +535,8 @@ export default function Orders() {
         </div>
       )}
 
-      {/* Returns Table */}
-      {activeTab === 'returns' && (
-        <div className="card">
-          {filteredReturns.length === 0 ? (
-            <div className="empty-state">
-              <h3>No returns yet</h3>
-              <p>Click "↩ Create Return" to register a returned order</p>
-            </div>
-          ) : (
-            <div className="table-wrapper">
-              <table>
-                <thead>
-                  <tr>
-                    <th>CMD-ID</th><th>Customer</th><th>City</th><th>Amount</th><th>Items</th><th>Status</th><th>Date</th><th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredReturns.map(o => (
-                    <tr key={o.id} style={{ opacity: 0.55 }}>
-                      <td style={{ fontFamily: 'monospace', fontSize: 12 }}>{o.caleo_id}</td>
-                      <td>
-                        <div style={{ fontWeight: 500 }}>{o.customer_name}</div>
-                        {o.customer_phone
-                          ? <div style={{ color: 'var(--t2)', fontSize: 11 }}>{o.customer_phone}</div>
-                          : <div style={{ color: 'var(--t2)', fontSize: 11 }}>—</div>}
-                      </td>
-                      <td>
-                        <div>{o.city}</div>
-                        {o.customer_address && <div style={{ fontSize: 11, color: 'var(--t2)', marginTop: 2 }}>{o.customer_address}</div>}
-                      </td>
-                      <td style={{ fontWeight: 600, color: '#60a5fa' }}>{o.total_amount} MAD</td>
-                      <td>
-                        {o.items?.length > 0
-                          ? o.items.map(item => <div key={item.id} style={{ fontSize: 12 }}>{item.product_name} {item.size} {item.color} x{item.quantity}</div>)
-                          : <span style={{ color: 'var(--t2)' }}>—</span>}
-                      </td>
-                      <td>
-                        <span className="badge badge-red">Return</span>
-                      </td>
-                      <td style={{ color: 'var(--t2)', fontSize: 12 }}>
-                        {o.order_date ? new Date(o.order_date).toLocaleDateString() : '—'}
-                      </td>
-                      <td>
-                        <div style={{ display: 'flex', gap: 4 }}>
-                          <button className="btn btn-secondary btn-sm" title="View details" onClick={() => setDetailOrder(o)}>👁</button>
-                          <button className="btn btn-secondary btn-sm" title="Revert to Pending" onClick={() => handleRevertReturn(o.id)} style={{ color: '#facc15', borderColor: '#facc15' }}>↩ Modify</button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Orders Table — desktop only */}
-      {activeTab === 'orders' && <div className="card ord-desktop-table">
+      {/* Orders Table */}
+      <div className="card">
         {filtered.length === 0 ? (
           <div className="empty-state">
             <h3>No orders found</h3>
@@ -977,27 +552,16 @@ export default function Orders() {
                       checked={selectedIds.size === filtered.length && filtered.length > 0}
                       onChange={toggleSelectAll} title="Select all" />
                   </th>
-                  <th>Customer</th><th>City</th><th>Amount</th><th>Items</th><th>Status</th><th>Actions</th>
+                  <th>CMD-ID</th><th>Customer</th><th>City</th><th>Amount</th><th>Items</th><th>Confirmed by</th><th>Status</th><th>Date</th><th>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(o => {
-                  const today = new Date().toISOString().slice(0, 10);
-                  const isDueToday = o.status === 'reported' && o.reported_date && o.reported_date.slice(0, 10) === today;
-                  const trStyle = selectedIds.has(o.id)
-                    ? { background: '#1a2a1a', borderLeft: '3px solid var(--accent)', cursor: 'pointer' }
-                    : detailOrder?.id === o.id
-                    ? { ...rowStyle(o), background: 'rgba(0,212,143,0.1)', outline: '1px solid rgba(0,212,143,0.2)', cursor: 'pointer' }
-                    : { ...rowStyle(o), cursor: 'pointer' };
-                  return (
-                  <React.Fragment key={o.id}>
-                  <tr
-                    className={isDueToday ? 'ord-due-today-row' : ''}
-                    style={trStyle}
-                    onClick={e => { if (e.target.closest('button,input,select,a,label')) return; setDetailOrder(prev => prev?.id === o.id ? null : o); }}>
+                {filtered.map(o => (
+                  <tr key={o.id} style={{ background: selectedIds.has(o.id) ? '#1a2a1a' : undefined }}>
                     <td>
                       <input type="checkbox" checked={selectedIds.has(o.id)} onChange={() => toggleSelect(o.id)} />
                     </td>
+                    <td style={{ fontFamily: 'monospace', fontSize: 12 }}>{o.caleo_id}</td>
                     <td>
                       <div style={{ fontWeight: 500 }}>{o.customer_name}</div>
                       {o.customer_phone ? (
@@ -1005,47 +569,34 @@ export default function Orders() {
                           style={{ color: '#25D366', fontSize: 11, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 3 }}>
                           💬 {o.customer_phone}
                         </a>
-                      ) : <div style={{ color: 'var(--t2)', fontSize: 11 }}>—</div>}
+                      ) : <div style={{ color: '#8892b0', fontSize: 11 }}>—</div>}
                     </td>
-                    <td>
-                      <div>{o.city}</div>
-                      {o.customer_address && <div style={{ fontSize: 11, color: 'var(--t2)', marginTop: 2 }}>{o.customer_address}</div>}
-                    </td>
+                    <td>{o.city}</td>
                     <td style={{ fontWeight: 600, color: '#60a5fa' }}>{o.total_amount} MAD</td>
-                    <td style={{ maxWidth: 180 }}>
+                    <td>
                       {o.items?.length > 0
-                        ? <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                            {o.items.map((item, i) => (
-                              <span key={i} style={{ fontSize: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 170 }}>
-                                {item.product_name}{item.quantity > 1 ? ` ×${item.quantity}` : ''}
-                              </span>
-                            ))}
-                          </div>
-                        : <span style={{ color: 'var(--t2)' }}>—</span>}
+                        ? o.items.map(item => <div key={item.id} style={{ fontSize: 12 }}>{item.product_name} {item.size} {item.color} x{item.quantity}</div>)
+                        : <span style={{ color: '#8892b0' }}>—</span>}
                     </td>
                     <td>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 110 }}>
-                        <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 12,
-                          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 140,
-                          ...statusStyle(o) }}>
-                          {o.delivery_status || STATUS_LABEL[o.status] || o.status}
-                        </span>
-                        {o.status === 'reported' && o.reported_date && (() => {
-                          if (isDueToday) return <span className="ord-due-today-pill">⚡ Due Today</span>;
-                          const ds = new Date(o.reported_date).toLocaleDateString('en', { month: 'short', day: 'numeric' });
-                          return <span style={{ fontSize: 10, background: 'rgba(0,194,203,0.1)', color: '#00c2cb', padding: '2px 6px', borderRadius: 99, whiteSpace: 'nowrap' }}>📅 {ds}</span>;
-                        })()}
-                        <select
-                          style={{ fontSize: 10, padding: '2px 4px', background: 'transparent',
-                            border: '1px solid var(--border)', borderRadius: 4, color: 'var(--t2)', cursor: 'pointer' }}
-                          value={['awaiting_pickup','in_delivery','reported'].includes(o.status) ? 'pending' : o.status}
-                          onChange={e => handleStatusChange(o.id, e.target.value)}
-                        >
-                          <option value="pending">Pending</option>
-                          <option value="delivered">Delivered</option>
-                          <option value="cancelled">Cancelled</option>
-                        </select>
-                      </div>
+                      {o.confirmed_by
+                        ? <span style={{ fontSize: 12, color: '#00d48f', fontWeight: 500 }}>{o.confirmed_by}</span>
+                        : <span style={{ color: '#8892b0', fontSize: 12 }}>—</span>}
+                    </td>
+                    <td>
+                      <select
+                        className="form-input"
+                        style={{ width: 'auto', padding: '4px 8px', fontSize: 11 }}
+                        value={o.status}
+                        onChange={e => handleStatusChange(o.id, e.target.value)}
+                      >
+                        <option value="pending">Pending</option>
+                        <option value="delivered">Delivered</option>
+                        <option value="cancelled">Cancelled</option>
+                      </select>
+                    </td>
+                    <td style={{ color: '#8892b0', fontSize: 12 }}>
+                      {o.order_date ? new Date(o.order_date).toLocaleDateString() : '—'}
                     </td>
                     <td>
                       <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -1056,31 +607,23 @@ export default function Orders() {
                           👁
                         </button>
                         {o.tracking_id ? (
-                            <span
-                              title={`${o.tracking_id} — click to copy`}
-                              onClick={() => navigator.clipboard.writeText(o.tracking_id)}
-                              style={{ fontSize: 11, padding: '3px 8px', borderRadius: 5, cursor: 'pointer',
-                                background: 'rgba(100,116,139,0.12)', color: 'var(--t2)', border: '1px solid var(--border)',
-                                whiteSpace: 'nowrap', display: 'inline-block' }}>
-                              {o.delivery_provider === 'forcelog' ? '📦' : '🚚'} Sent to {o.delivery_provider === 'forcelog' ? 'Forcelog' : 'Olivraison'}
-                            </span>
-                        ) : !o.tracking_id ? (
-                          <select
+                          <span
+                            title={`Olivraison: ${o.tracking_id}\nStatus: ${o.delivery_status || '—'}\nClick to copy`}
+                            onClick={() => navigator.clipboard.writeText(o.tracking_id)}
+                            style={{ fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 5, cursor: 'pointer',
+                              background: 'rgba(0,212,143,0.12)', color: '#00d48f', border: '1px solid rgba(0,212,143,0.3)',
+                              whiteSpace: 'nowrap', maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            🚚 {o.delivery_status || o.tracking_id}
+                          </span>
+                        ) : o.status === 'pending' ? (
+                          <button
                             className="btn btn-secondary btn-sm"
-                            style={{ cursor: 'pointer', fontSize: 12, paddingRight: 4 }}
-                            disabled={sendingOliv === o.id || sendingForce === o.id}
-                            value=""
-                            onChange={e => {
-                              const v = e.target.value;
-                              if (v === 'olivraison') handleSendOlivraison(o.id);
-                              if (v === 'forcelog')   handleSendForcelog(o.id);
-                            }}>
-                            <option value="" disabled>
-                              {sendingOliv === o.id || sendingForce === o.id ? 'Sending…' : 'Send to…'}
-                            </option>
-                            <option value="olivraison">🚚 Olivraison</option>
-                            <option value="forcelog">📦 Forcelog</option>
-                          </select>
+                            title="Send to Olivraison"
+                            style={{ color: '#00d48f', fontSize: 13 }}
+                            disabled={sendingOliv === o.id}
+                            onClick={() => handleSendOlivraison(o.id)}>
+                            {sendingOliv === o.id ? '…' : '🚚'}
+                          </button>
                         ) : null}
                         <button
                           className="btn btn-secondary btn-sm"
@@ -1095,142 +638,124 @@ export default function Orders() {
                           onClick={() => openExchange(o)}>
                           ↔
                         </button>
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          title={o.notes ? 'View/Edit notes' : 'Add note'}
+                          style={{ color: o.notes ? '#f59e0b' : undefined }}
+                          onClick={() => openNotes(o)}>
+                          {o.notes ? '📝' : '✎'}
+                        </button>
                         <button className="btn btn-danger btn-sm" onClick={() => handleDelete(o.id)}>✕</button>
                       </div>
                     </td>
                   </tr>
-                  {/* Inline expansion row */}
-                  {detailOrder?.id === o.id && (() => {
-                    const hasCourier = !!o.tracking_id;
-                    const isForce = o.delivery_provider === 'forcelog';
-                    const courierName = isForce ? 'Forcelog' : 'Olivraison';
-                    const STEPS = [
-                      { key: 'pending', label: 'Pending' },
-                      { key: 'awaiting_pickup', label: 'Pickup' },
-                      { key: 'in_delivery', label: 'Delivery' },
-                      { key: 'delivered', label: 'Delivered' },
-                    ];
-                    const stepKeys = STEPS.map(s => s.key);
-                    const currentStep = ['cancelled','reported'].includes(o.status) ? 0 : stepKeys.indexOf(o.status);
-                    return (
-                      <tr key={`exp-${o.id}`}>
-                        <td colSpan={7} style={{ padding: 0, border: 'none' }}>
-                          <div style={{ padding: '16px 20px', background: 'rgba(0,212,143,0.03)', borderBottom: '2px solid rgba(0,212,143,0.15)', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 20 }}>
-
-                            {/* Col 1: Customer info */}
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--t3)', letterSpacing: '.08em', marginBottom: 4 }}>CUSTOMER</div>
-                              {o.customer_phone && (
-                                <a href={`https://wa.me/${o.customer_phone.replace(/\D/g,'')}`} target="_blank" rel="noopener noreferrer"
-                                  style={{ color: '#25D366', fontSize: 13, textDecoration: 'none' }}>💬 {o.customer_phone}</a>
-                              )}
-                              {o.city && <div style={{ fontSize: 13, color: 'var(--t2)' }}>📍 {o.city}</div>}
-                              {o.customer_address && <div style={{ fontSize: 12, color: 'var(--t3)' }}>{o.customer_address}</div>}
-                              <div style={{ fontSize: 12, color: 'var(--t3)' }}>🗓 {o.order_date ? new Date(o.order_date).toLocaleDateString() : '—'}</div>
-                              <div style={{ fontWeight: 700, fontSize: 16, color: '#60a5fa', marginTop: 4 }}>{o.total_amount} MAD</div>
-                              {o.confirmed_by && <div style={{ fontSize: 11, color: 'var(--t3)' }}>By: <span style={{ color: '#00d48f' }}>{o.confirmed_by}</span></div>}
-                            </div>
-
-                            {/* Col 2: Pipeline */}
-                            <div>
-                              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--t3)', letterSpacing: '.08em', marginBottom: 12 }}>STATUS PIPELINE</div>
-                              <div style={{ display: 'flex', alignItems: 'flex-start' }}>
-                                {STEPS.map((step, i) => {
-                                  const done = i < currentStep;
-                                  const active = i === currentStep;
-                                  return (
-                                    <div key={step.key} style={{ display: 'flex', alignItems: 'center', flex: i < STEPS.length - 1 ? 1 : 0 }}>
-                                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
-                                        <div style={{
-                                          width: 26, height: 26, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                          fontSize: 11, fontWeight: 700,
-                                          background: done || active ? 'var(--accent)' : 'var(--border)',
-                                          color: done || active ? '#fff' : 'var(--t3)',
-                                          outline: active ? '2px solid var(--accent)' : 'none', outlineOffset: 2,
-                                        }}>{done ? '✓' : i + 1}</div>
-                                        <div style={{ fontSize: 9, color: active ? 'var(--t1)' : done ? 'var(--accent)' : 'var(--t3)', textAlign: 'center', whiteSpace: 'nowrap' }}>{step.label}</div>
-                                      </div>
-                                      {i < STEPS.length - 1 && <div style={{ flex: 1, height: 2, background: done ? 'var(--accent)' : 'var(--border)', margin: '0 4px', marginBottom: 18 }} />}
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                              <div style={{ fontSize: 11, color: hasCourier ? '#00c2cb' : 'var(--t3)', marginTop: 8 }}>
-                                {hasCourier ? `⚡ Auto-synced via ${courierName}` : '✏ Updated manually'}
-                              </div>
-                              {!hasCourier && (
-                                <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
-                                  <button className="btn btn-secondary btn-sm" style={{ fontSize: 11 }} onClick={() => { handleStatusChange(o.id, 'pending'); setDetailOrder(p => ({ ...p, status: 'pending' })); }}>Pending</button>
-                                  <button className="btn btn-secondary btn-sm" style={{ fontSize: 11, color: '#fb923c', borderColor: '#fb923c' }} onClick={() => { handleStatusChange(o.id, 'awaiting_pickup'); setDetailOrder(p => ({ ...p, status: 'awaiting_pickup' })); }}>Awaiting Pickup</button>
-                                  <button className="btn btn-secondary btn-sm" style={{ fontSize: 11, color: '#4ade80', borderColor: '#4ade80' }} onClick={() => { handleStatusChange(o.id, 'delivered'); setDetailOrder(p => ({ ...p, status: 'delivered' })); }}>Delivered</button>
-                                  <button className="btn btn-secondary btn-sm" style={{ fontSize: 11, color: '#f87171', borderColor: '#f87171' }} onClick={() => { handleStatusChange(o.id, 'cancelled'); setDetailOrder(p => ({ ...p, status: 'cancelled' })); }}>Cancelled</button>
-                                </div>
-                              )}
-                              {hasCourier && o.tracking_id && (
-                                <div style={{ marginTop: 8, fontSize: 12 }}>
-                                  <span style={{ fontFamily: 'monospace', color: isForce ? '#7c3aed' : '#00d48f' }}>{o.tracking_id}</span>
-                                  {o.delivery_status && <span style={{ color: 'var(--t3)', marginLeft: 6 }}>· {o.delivery_status}</span>}
-                                  {isForce && <button className="btn btn-secondary btn-sm" style={{ fontSize: 11, marginLeft: 8 }} disabled={refreshingForce === o.id} onClick={() => handleRefreshForcelog(o.id)}>{refreshingForce === o.id ? '…' : '🔄'}</button>}
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Col 3: Products + actions */}
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--t3)', letterSpacing: '.08em', marginBottom: 4 }}>PRODUCTS</div>
-                              {o.items?.length > 0
-                                ? o.items.map(item => (
-                                    <div key={item.id} style={{ fontSize: 12, color: 'var(--t2)' }}>
-                                      {item.product_name}{item.size ? ` — ${item.size}` : ''}{item.color ? ` / ${item.color}` : ''} <span style={{ color: 'var(--accent)', fontWeight: 700 }}>×{item.quantity}</span>
-                                    </div>
-                                  ))
-                                : <span style={{ color: 'var(--t3)', fontSize: 12 }}>—</span>}
-                              {o.notes && <div style={{ fontSize: 11, color: 'var(--t3)', fontStyle: 'italic', marginTop: 4 }}>📝 {o.notes}</div>}
-                              <div style={{ display: 'flex', gap: 6, marginTop: 'auto', paddingTop: 8, flexWrap: 'wrap' }}>
-                                <button className="btn btn-secondary btn-sm" onClick={() => { openEdit(o); setDetailOrder(null); }}>✏ Edit</button>
-                                <button className="btn btn-secondary btn-sm" style={{ color: '#a78bfa' }} onClick={() => { openExchange(o); setDetailOrder(null); }}>↔ Exchange</button>
-                                <button className="btn btn-danger btn-sm" onClick={() => { handleDelete(o.id); setDetailOrder(null); }}>✕ Delete</button>
-                              </div>
-                            </div>
-
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })()}
-                  </React.Fragment>
-                  );
-                })}
+                ))}
               </tbody>
             </table>
           </div>
         )}
-      </div>}
+      </div>
 
-      {/* Pagination */}
-      {activeTab === 'orders' && totalPages > 1 && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: 16 }}>
-          <button className="btn btn-secondary btn-sm" disabled={page <= 1}
-            onClick={() => { const p = page - 1; setPage(p); load({ p, f: filter, t: activeTab }); }}>← Prev</button>
-          <span style={{ fontSize: 13, color: 'var(--t2)' }}>Page {page} of {totalPages}</span>
-          <button className="btn btn-secondary btn-sm" disabled={page >= totalPages}
-            onClick={() => { const p = page + 1; setPage(p); load({ p, f: filter, t: activeTab }); }}>Next →</button>
-        </div>
-      )}
-      {activeTab === 'returns' && totalPages > 1 && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: 16 }}>
-          <button className="btn btn-secondary btn-sm" disabled={page <= 1}
-            onClick={() => { const p = page - 1; setPage(p); load({ p, f: filter, t: activeTab }); }}>← Prev</button>
-          <span style={{ fontSize: 13, color: 'var(--t2)' }}>Page {page} of {totalPages}</span>
-          <button className="btn btn-secondary btn-sm" disabled={page >= totalPages}
-            onClick={() => { const p = page + 1; setPage(p); load({ p, f: filter, t: activeTab }); }}>Next →</button>
-        </div>
-      )}
+      {/* Order Detail Modal */}
+      {detailOrder && (() => {
+        const o = detailOrder;
+        const source = o.caleo_id?.startsWith('MAN-') ? 'Manual'
+          : o.caleo_id?.startsWith('EXCH-') ? 'Exchange'
+          : o.uploaded_by ? `PDF — ${o.uploaded_by}`
+          : 'Website / Lead';
+        return (
+          <div className="modal-overlay" onClick={() => setDetailOrder(null)}>
+            <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
+              <div className="modal-header">
+                <h2>Order Details</h2>
+                <button className="btn-icon" onClick={() => setDetailOrder(null)}>✕</button>
+              </div>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+                {/* CMD + Source */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontFamily: 'monospace', fontSize: 13, color: 'var(--t2)' }}>{o.caleo_id}</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 99,
+                    background: 'var(--accent)22', color: 'var(--accent)', border: '1px solid var(--accent)44' }}>
+                    {source}
+                  </span>
+                </div>
+
+                {/* Customer info */}
+                <div style={{ background: 'var(--bg)', borderRadius: 8, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 7 }}>
+                  <div style={{ fontWeight: 700, fontSize: 16 }}>{o.customer_name}</div>
+                  {o.customer_phone && (
+                    <a href={`https://wa.me/${o.customer_phone.replace(/\D/g,'')}`} target="_blank" rel="noopener noreferrer"
+                      style={{ color: '#25D366', fontSize: 13, textDecoration: 'none' }}>
+                      💬 {o.customer_phone}
+                    </a>
+                  )}
+                  {o.city && <div style={{ fontSize: 13, color: 'var(--t2)' }}>📍 {o.city}</div>}
+                  {o.customer_address && <div style={{ fontSize: 12, color: 'var(--t3)' }}>{o.customer_address}</div>}
+                </div>
+
+                {/* Amount + Status + Date */}
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                  <div style={{ flex: 1, background: 'var(--bg)', borderRadius: 8, padding: '10px 14px', textAlign: 'center' }}>
+                    <div style={{ fontSize: 11, color: 'var(--t3)', marginBottom: 3 }}>TOTAL</div>
+                    <div style={{ fontWeight: 700, fontSize: 18, color: '#60a5fa' }}>{o.total_amount} MAD</div>
+                  </div>
+                  <div style={{ flex: 1, background: 'var(--bg)', borderRadius: 8, padding: '10px 14px', textAlign: 'center' }}>
+                    <div style={{ fontSize: 11, color: 'var(--t3)', marginBottom: 3 }}>STATUS</div>
+                    <span className={`badge ${STATUS_BADGE[o.status] || ''}`} style={{ fontSize: 12 }}>{o.status}</span>
+                  </div>
+                  <div style={{ flex: 1, background: 'var(--bg)', borderRadius: 8, padding: '10px 14px', textAlign: 'center' }}>
+                    <div style={{ fontSize: 11, color: 'var(--t3)', marginBottom: 3 }}>DATE</div>
+                    <div style={{ fontSize: 13, color: 'var(--t2)' }}>{o.order_date ? new Date(o.order_date).toLocaleDateString() : '—'}</div>
+                  </div>
+                </div>
+
+                {/* Products */}
+                {o.items?.length > 0 && (
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--t3)', letterSpacing: '.08em', marginBottom: 8 }}>PRODUCTS</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {o.items.map(item => (
+                        <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                          background: 'var(--bg)', borderRadius: 7, padding: '8px 12px', fontSize: 13 }}>
+                          <span>{item.product_name}{item.size ? ` — ${item.size}` : ''}{item.color ? ` / ${item.color}` : ''}</span>
+                          <span style={{ fontWeight: 700, color: 'var(--accent)' }}>×{item.quantity}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Tracking */}
+                {o.tracking_id && (
+                  <div style={{ background: 'rgba(0,212,143,0.08)', border: '1px solid rgba(0,212,143,0.25)', borderRadius: 8, padding: '10px 14px' }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: '#00d48f', letterSpacing: '.08em', marginBottom: 4 }}>OLIVRAISON</div>
+                    <div style={{ fontSize: 13, color: 'var(--t1)', fontFamily: 'monospace' }}>{o.tracking_id}</div>
+                    {o.delivery_status && <div style={{ fontSize: 12, color: 'var(--t2)', marginTop: 3 }}>{o.delivery_status}</div>}
+                  </div>
+                )}
+
+                {/* Notes */}
+                {o.notes && (
+                  <div style={{ fontSize: 13, color: 'var(--t2)', fontStyle: 'italic', background: 'var(--bg)', borderRadius: 8, padding: '10px 14px' }}>
+                    📝 {o.notes}
+                  </div>
+                )}
+
+                {/* Confirmed by */}
+                {o.confirmed_by && (
+                  <div style={{ fontSize: 12, color: 'var(--t3)' }}>Confirmed by: <span style={{ color: '#00d48f', fontWeight: 600 }}>{o.confirmed_by}</span></div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Edit Order Modal */}
       {editOrder && (
         <div className="modal-overlay">
-          <form className="modal modal-lg" onSubmit={e => { e.preventDefault(); handleSaveEdit(); }}>
+          <div className="modal modal-lg">
             <div className="modal-header">
               <h2>✏ Edit Order — {editOrder.caleo_id}</h2>
               <button className="btn-icon" onClick={() => { setEditOrder(null); setError(''); }}>✕</button>
@@ -1247,14 +772,11 @@ export default function Orders() {
                   <label className="form-label">Customer Name *</label>
                   <input className="form-input" value={editForm.customer_name}
                     onChange={e => setEditForm({ ...editForm, customer_name: e.target.value })} />
-                  {editFieldErrors.customer_name && <div style={fieldErrorStyle}>{editFieldErrors.customer_name}</div>}
                 </div>
                 <div>
                   <label className="form-label">Phone</label>
                   <input className="form-input" placeholder="0600000000" value={editForm.customer_phone}
-                    onKeyDown={numericOnly}
                     onChange={e => setEditForm({ ...editForm, customer_phone: e.target.value })} />
-                  {editFieldErrors.customer_phone && <div style={fieldErrorStyle}>{editFieldErrors.customer_phone}</div>}
                 </div>
                 <div>
                   <label className="form-label">City</label>
@@ -1270,13 +792,11 @@ export default function Orders() {
                   <label className="form-label">Total Amount (MAD) *</label>
                   <input className="form-input" type="number" min="0" value={editForm.total_amount}
                     onChange={e => setEditForm({ ...editForm, total_amount: e.target.value })} />
-                  {editFieldErrors.total_amount && <div style={fieldErrorStyle}>{editFieldErrors.total_amount}</div>}
                 </div>
               </div>
 
               <div style={{ marginBottom: 16 }}>
                 <label className="form-label">Products</label>
-                {editFieldErrors.products && <div style={fieldErrorStyle}>{editFieldErrors.products}</div>}
                 {editItems.map((item, j) => (
                   <div key={j} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
                     <select className="form-input" style={{ flex: 1 }} value={item.variant_id}
@@ -1288,9 +808,7 @@ export default function Orders() {
                       }}>
                       <option value="">Select product...</option>
                       {allVariants.map(v => (
-                        <option key={v.id} value={v.id} disabled={v.stock === 0}>
-                          {v.stock === 0 ? `${v.label} — OUT OF STOCK` : v.stock <= 3 ? `${v.label} (⚠ ${v.stock} left)` : `${v.label} (${v.stock} in stock)`}
-                        </option>
+                        <option key={v.id} value={v.id}>{v.label} (stock: {v.stock})</option>
                       ))}
                     </select>
                     <input className="form-input" type="number" min="1" placeholder="Qty" style={{ width: 80 }}
@@ -1327,11 +845,11 @@ export default function Orders() {
                   Sell Bag (1 MAD)
                 </label>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ color: 'var(--t2)', fontSize: 13 }}>Packaging:</span>
+                  <span style={{ color: '#8892b0', fontSize: 13 }}>Packaging:</span>
                   <input className="form-input" type="number" min="0" style={{ width: 60, padding: '4px 8px' }}
                     value={editExpenses.packaging}
                     onChange={e => setEditExpenses({ ...editExpenses, packaging: parseFloat(e.target.value) || 0 })} />
-                  <span style={{ color: 'var(--t2)', fontSize: 13 }}>MAD</span>
+                  <span style={{ color: '#8892b0', fontSize: 13 }}>MAD</span>
                 </div>
               </div>
 
@@ -1342,10 +860,39 @@ export default function Orders() {
               )}
             </div>
             <div className="modal-footer">
-              <button type="button" className="btn btn-secondary" onClick={() => { setEditOrder(null); setError(''); }}>Cancel</button>
-              <button type="submit" className="btn btn-primary">Save Changes</button>
+              <button className="btn btn-secondary" onClick={() => { setEditOrder(null); setError(''); }}>Cancel</button>
+              <button className="btn btn-primary" onClick={handleSaveEdit}>Save Changes</button>
             </div>
-          </form>
+          </div>
+        </div>
+      )}
+
+      {/* Notes Modal */}
+      {notesOrder && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <div className="modal-header">
+              <h2>📝 Notes — {notesOrder.caleo_id}</h2>
+              <button className="btn-icon" onClick={() => setNotesOrder(null)}>✕</button>
+            </div>
+            <div className="modal-body">
+              <div style={{ fontSize: 12, color: '#8892b0', marginBottom: 10 }}>
+                {notesOrder.customer_name} · {notesOrder.city}
+              </div>
+              <textarea
+                className="form-input"
+                style={{ width: '100%', minHeight: 130, resize: 'vertical', fontFamily: 'inherit' }}
+                placeholder="Internal notes, follow-up reminders, customer requests..."
+                value={notesDraft}
+                onChange={e => setNotesDraft(e.target.value)}
+                autoFocus
+              />
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setNotesOrder(null)}>Cancel</button>
+              <button className="btn btn-primary" onClick={handleSaveNotes}>Save Notes</button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -1354,23 +901,19 @@ export default function Orders() {
         <div className="modal-overlay">
           <div className="modal modal-xl">
             <div className="modal-header">
-              <h2>📦 Assign Products to Orders ({parsedOrders.length} remaining)</h2>
-              <button className="btn-icon" onClick={() => { setParsedOrders(null); setOrderErrors({}); }}>✕</button>
+              <h2>📦 Assign Products to Orders ({parsedOrders.length} orders found)</h2>
+              <button className="btn-icon" onClick={() => setParsedOrders(null)}>✕</button>
             </div>
             <div className="modal-body">
               {error && <div className="alert alert-error">{error}</div>}
-              {parsedOrders.map((order, i) => {
-                const orderErr = orderErrors[i];
-                return (
-                <div key={i} style={{ border: `1px solid ${orderErr ? '#f87171' : '#2d3248'}`, borderRadius: 10, padding: 16, marginBottom: 16, background: orderErr ? 'rgba(248,113,113,0.07)' : undefined }}>
+              {parsedOrders.map((order, i) => (
+                <div key={i} style={{ border: '1px solid #2d3248', borderRadius: 10, padding: 16, marginBottom: 16 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
                     <div>
-                      <div style={{ fontWeight: 600, fontFamily: 'monospace', color: orderErr ? '#f87171' : '#7c6ef5' }}>{order.caleo_id}</div>
+                      <div style={{ fontWeight: 600, fontFamily: 'monospace', color: '#7c6ef5' }}>{order.caleo_id}</div>
                       <div style={{ marginTop: 4 }}>{order.customer_name} · {order.city} · <strong style={{ color: '#60a5fa' }}>{order.total_amount} MAD</strong></div>
-                      <div style={{ color: 'var(--t2)', fontSize: 12 }}>{order.customer_phone} · {order.customer_address}</div>
-                      {orderErr && <div style={{ marginTop: 6, color: '#f87171', fontSize: 12, fontWeight: 500 }}>⚠ {orderErr}</div>}
+                      <div style={{ color: '#8892b0', fontSize: 12 }}>{order.customer_phone} · {order.customer_address}</div>
                     </div>
-                    <button className="btn-icon" title="Skip this order" onClick={() => removeOrderFromParsed(i)} style={{ alignSelf: 'flex-start', color: 'var(--t2)' }}>✕</button>
                   </div>
 
                   {/* Product / Pack selection */}
@@ -1416,9 +959,7 @@ export default function Orders() {
                           >
                             <option value="">Select product...</option>
                             {allVariants.map(v => (
-                              <option key={v.id} value={v.id} disabled={v.stock === 0}>
-                          {v.stock === 0 ? `${v.label} — OUT OF STOCK` : v.stock <= 3 ? `${v.label} (⚠ ${v.stock} left)` : `${v.label} (${v.stock} in stock)`}
-                        </option>
+                              <option key={v.id} value={v.id}>{v.label} (stock: {v.stock})</option>
                             ))}
                           </select>
                           <input
@@ -1490,7 +1031,7 @@ export default function Orders() {
                                 )}
 
                                 {/* Composition items */}
-                                <div style={{ fontSize: 12, color: 'var(--t2)', marginBottom: 6 }}>
+                                <div style={{ fontSize: 12, color: '#8892b0', marginBottom: 6 }}>
                                   Products inside this pack:
                                 </div>
                                 {(item.customItems || []).map((ci, k) => (
@@ -1509,9 +1050,7 @@ export default function Orders() {
                                     >
                                       <option value="">Select product...</option>
                                       {allVariants.map(v => (
-                                        <option key={v.id} value={v.id} disabled={v.stock === 0}>
-                          {v.stock === 0 ? `${v.label} — OUT OF STOCK` : v.stock <= 3 ? `${v.label} (⚠ ${v.stock} left)` : `${v.label} (${v.stock} in stock)`}
-                        </option>
+                                        <option key={v.id} value={v.id}>{v.label} (stock: {v.stock})</option>
                                       ))}
                                     </select>
                                     <input
@@ -1562,18 +1101,18 @@ export default function Orders() {
                       Sell Bag (1 MAD)
                     </label>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ color: 'var(--t2)', fontSize: 13 }}>Packaging:</span>
+                      <span style={{ color: '#8892b0', fontSize: 13 }}>Packaging:</span>
                       <input
                         className="form-input"
                         type="number" min="0" style={{ width: 60, padding: '4px 8px' }}
                         value={orderExpenses[i]?.packaging || 1}
                         onChange={e => setOrderExpenses({ ...orderExpenses, [i]: { ...orderExpenses[i], packaging: parseFloat(e.target.value) || 0 } })}
                       />
-                      <span style={{ color: 'var(--t2)', fontSize: 13 }}>MAD</span>
+                      <span style={{ color: '#8892b0', fontSize: 13 }}>MAD</span>
                     </div>
                   </div>
                 </div>
-              ); })}
+              ))}
             </div>
             <div className="modal-footer">
               <button className="btn btn-secondary" onClick={() => setParsedOrders(null)}>Cancel</button>
@@ -1586,13 +1125,37 @@ export default function Orders() {
       {/* Manual Order Modal */}
       {showManualOrder && (
         <div className="modal-overlay">
-          <form className="modal modal-lg" onSubmit={e => { e.preventDefault(); handleManualOrder(); }}>
+          <div className="modal modal-lg">
             <div className="modal-header">
               <h2>+ New Order</h2>
-              <button className="btn-icon" onClick={() => { setShowManualOrder(false); setError(''); }}>✕</button>
+              <button className="btn-icon" onClick={() => { setShowManualOrder(false); setError(''); setManualOrderType('single'); setSelectedPackId(''); setSelectedPresetId(''); setSelectedOfferId(''); setPromoCode(''); setPromoResult(null); }}>✕</button>
             </div>
             <div className="modal-body">
               {error && <div className="alert alert-error">{error}</div>}
+
+              {/* Order type toggle — only shown if store has active packs or offers */}
+              {hasPacksOrOffers && (
+                <div style={{ display: 'flex', gap: 4, marginBottom: 16, background: '#0f1117', borderRadius: 8, padding: 4 }}>
+                  {['single', 'pack', 'offer'].map(type => (
+                    <button key={type} onClick={() => {
+                      setManualOrderType(type);
+                      setSelectedPackId(''); setSelectedPresetId(''); setSelectedOfferId('');
+                      setManualItems([{ variant_id: '', quantity: 1 }]);
+                      setManualOrder(prev => ({ ...prev, total_amount: '' }));
+                      setManualExpenses({ sticker: 0, seal_bag: 0, packaging: 1 });
+                      setPromoCode(''); setPromoResult(null);
+                    }} style={{
+                      flex: 1, padding: '7px 0', borderRadius: 6, border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: 13,
+                      background: manualOrderType === type ? 'var(--accent)' : 'transparent',
+                      color: manualOrderType === type ? '#0f1117' : '#8892b0',
+                      transition: 'all 0.15s',
+                    }}>
+                      {type === 'single' ? 'Single Product' : type === 'pack' ? 'Pack' : 'Offer'}
+                    </button>
+                  ))}
+                </div>
+              )}
+
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
                 <div>
                   <label className="form-label">CMD ID <span style={{ color: 'var(--accent)', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>auto</span></label>
@@ -1603,14 +1166,11 @@ export default function Orders() {
                   <label className="form-label">Customer Name *</label>
                   <input className="form-input" placeholder="Full name" value={manualOrder.customer_name}
                     onChange={e => setManualOrder({ ...manualOrder, customer_name: e.target.value })} />
-                  {manualFieldErrors.customer_name && <div style={fieldErrorStyle}>{manualFieldErrors.customer_name}</div>}
                 </div>
                 <div>
                   <label className="form-label">Phone</label>
                   <input className="form-input" placeholder="0600000000" value={manualOrder.customer_phone}
-                    onKeyDown={numericOnly}
                     onChange={e => setManualOrder({ ...manualOrder, customer_phone: e.target.value })} />
-                  {manualFieldErrors.customer_phone && <div style={fieldErrorStyle}>{manualFieldErrors.customer_phone}</div>}
                 </div>
                 <div>
                   <label className="form-label">City</label>
@@ -1623,60 +1183,141 @@ export default function Orders() {
                     onChange={e => setManualOrder({ ...manualOrder, customer_address: e.target.value })} />
                 </div>
                 <div>
-                  <label className="form-label">
-                    Total Amount (MAD) *
-                    {manualOrder.total_amount && <span style={{ fontWeight: 400, color: 'var(--accent)', textTransform: 'none', letterSpacing: 0, marginLeft: 6 }}>auto</span>}
-                  </label>
-                  <input className="form-input" type="number" min="0" placeholder="0.00" value={manualOrder.total_amount}
-                    onChange={e => setManualOrder({ ...manualOrder, total_amount: e.target.value })} />
-                  {manualFieldErrors.total_amount && <div style={fieldErrorStyle}>{manualFieldErrors.total_amount}</div>}
+                  <label className="form-label">Total Amount (MAD) *</label>
+                  <input className="form-input" type="number" min="0" placeholder="0.00"
+                    value={manualOrder.total_amount}
+                    readOnly={manualOrderType !== 'single'}
+                    style={manualOrderType !== 'single' ? { opacity: 0.6, cursor: 'default' } : {}}
+                    onChange={e => {
+                      if (manualOrderType === 'single') setManualOrder({ ...manualOrder, total_amount: e.target.value });
+                    }} />
                 </div>
               </div>
 
+              {/* Pack selector */}
+              {manualOrderType === 'pack' && (
+                <div style={{ marginBottom: 16 }}>
+                  <label className="form-label">Select Pack</label>
+                  <select className="form-input" value={selectedPackId} onChange={e => {
+                    const pid = e.target.value;
+                    setSelectedPackId(pid);
+                    setSelectedPresetId('');
+                    setManualItems([{ variant_id: '', quantity: 1 }]);
+                    if (pid) {
+                      const pk = activePacks.find(p => p.id === parseInt(pid));
+                      if (pk) {
+                        setManualOrder(prev => ({ ...prev, total_amount: String(pk.selling_price) }));
+                        setManualExpenses(prev => ({ ...prev, packaging: pk.packaging_cost || 1 }));
+                      }
+                    }
+                  }}>
+                    <option value="">— Select a pack —</option>
+                    {activePacks.map(p => (
+                      <option key={p.id} value={p.id}>{p.name} — {p.selling_price} MAD</option>
+                    ))}
+                  </select>
+                  {selectedPackId && (() => {
+                    const pk = activePacks.find(p => p.id === parseInt(selectedPackId));
+                    if (!pk || pk.presets.length === 0) return null;
+                    return (
+                      <div style={{ marginTop: 10 }}>
+                        <label className="form-label">Preset</label>
+                        <select className="form-input" value={selectedPresetId} onChange={e => {
+                          const prid = e.target.value;
+                          setSelectedPresetId(prid);
+                          if (prid) {
+                            const preset = pk.presets.find(pr => pr.id === parseInt(prid));
+                            if (preset) setManualItems(preset.items.map(it => ({ variant_id: String(it.variant_id), quantity: it.quantity })));
+                          } else {
+                            setManualItems([{ variant_id: '', quantity: 1 }]);
+                          }
+                        }}>
+                          <option value="">— Select a preset —</option>
+                          {pk.presets.map(pr => (
+                            <option key={pr.id} value={pr.id}>{pr.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+
+              {/* Offer selector */}
+              {manualOrderType === 'offer' && (
+                <div style={{ marginBottom: 16 }}>
+                  <label className="form-label">Select Offer</label>
+                  <select className="form-input" value={selectedOfferId} onChange={e => {
+                    const oid = e.target.value;
+                    setSelectedOfferId(oid);
+                    if (oid) {
+                      const off = activeOffers.find(o => o.id === parseInt(oid));
+                      if (off) {
+                        setManualOrder(prev => ({ ...prev, total_amount: String(off.selling_price) }));
+                        setManualExpenses(prev => ({ ...prev, packaging: off.packaging_cost || 1 }));
+                        setManualItems(off.items.map(it => ({ variant_id: String(it.variant_id), quantity: it.quantity })));
+                      }
+                    } else {
+                      setManualItems([{ variant_id: '', quantity: 1 }]);
+                      setManualOrder(prev => ({ ...prev, total_amount: '' }));
+                    }
+                  }}>
+                    <option value="">— Select an offer —</option>
+                    {activeOffers.map(o => (
+                      <option key={o.id} value={o.id}>{o.name} — {o.selling_price} MAD</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Products */}
               <div style={{ marginBottom: 16 }}>
                 <label className="form-label">Products</label>
-                {manualFieldErrors.products && <div style={fieldErrorStyle}>{manualFieldErrors.products}</div>}
-                {manualItems.map((item, j) => (
-                  <div key={j} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-                    <select className="form-input" style={{ flex: 1 }} value={item.variant_id}
-                      onChange={e => {
-                        const newItems = [...manualItems];
-                        newItems[j] = { ...newItems[j], variant_id: e.target.value };
-                        setManualItems(newItems);
-                        setManualExpenses(prev => ({ ...prev, seal_bag: autoSealBag(newItems) }));
-                        setManualOrder(prev => ({ ...prev, total_amount: calcManualTotal(newItems) }));
-                      }}>
-                      <option value="">Select product...</option>
-                      {allVariants.map(v => (
-                        <option key={v.id} value={v.id} disabled={v.stock === 0}>
-                          {v.stock === 0 ? `${v.label} — OUT OF STOCK` : v.stock <= 3 ? `${v.label} (⚠ ${v.stock} left)` : `${v.label} (${v.stock} in stock)`}
-                        </option>
-                      ))}
-                    </select>
-                    <input className="form-input" type="number" min="1" placeholder="Qty" style={{ width: 80 }}
-                      value={item.quantity}
-                      onChange={e => {
-                        const newItems = [...manualItems];
-                        newItems[j] = { ...newItems[j], quantity: e.target.value };
-                        setManualItems(newItems);
-                        setManualOrder(prev => ({ ...prev, total_amount: calcManualTotal(newItems) }));
-                      }} />
-                    {manualItems.length > 1 && (
-                      <button className="btn btn-danger btn-sm" onClick={() => {
-                        const newItems = manualItems.filter((_, idx) => idx !== j);
-                        setManualItems(newItems);
-                        setManualExpenses(prev => ({ ...prev, seal_bag: autoSealBag(newItems) }));
-                        setManualOrder(prev => ({ ...prev, total_amount: calcManualTotal(newItems) }));
-                      }}>✕</button>
-                    )}
-                  </div>
-                ))}
-                <button className="btn btn-secondary btn-sm" onClick={() => setManualItems([...manualItems, { variant_id: '', quantity: 1 }])}>
-                  + Add Product
-                </button>
+                {manualItems.map((item, j) => {
+                  const isReadOnly = manualOrderType === 'offer' || (manualOrderType === 'pack' && selectedPresetId);
+                  return (
+                    <div key={j} style={{ display: 'flex', gap: 8, marginBottom: 8, opacity: isReadOnly ? 0.7 : 1 }}>
+                      <select className="form-input" style={{ flex: 1 }} value={item.variant_id}
+                        disabled={isReadOnly}
+                        onChange={e => {
+                          if (isReadOnly) return;
+                          const newItems = [...manualItems];
+                          newItems[j] = { ...newItems[j], variant_id: e.target.value };
+                          setManualItems(newItems);
+                          setManualExpenses(prev => ({ ...prev, seal_bag: autoSealBag(newItems) }));
+                        }}>
+                        <option value="">Select product...</option>
+                        {allVariants.map(v => (
+                          <option key={v.id} value={v.id}>{v.label} (stock: {v.stock})</option>
+                        ))}
+                      </select>
+                      <input className="form-input" type="number" min="1" placeholder="Qty" style={{ width: 80 }}
+                        value={item.quantity}
+                        readOnly={manualOrderType === 'offer'}
+                        onChange={e => {
+                          if (manualOrderType === 'offer') return;
+                          const newItems = [...manualItems];
+                          newItems[j] = { ...newItems[j], quantity: e.target.value };
+                          setManualItems(newItems);
+                        }} />
+                      {manualItems.length > 1 && manualOrderType === 'single' && (
+                        <button className="btn btn-danger btn-sm" onClick={() => {
+                          const newItems = manualItems.filter((_, idx) => idx !== j);
+                          setManualItems(newItems);
+                          setManualExpenses(prev => ({ ...prev, seal_bag: autoSealBag(newItems) }));
+                        }}>✕</button>
+                      )}
+                    </div>
+                  );
+                })}
+                {manualOrderType === 'single' && (
+                  <button className="btn btn-secondary btn-sm" onClick={() => setManualItems([...manualItems, { variant_id: '', quantity: 1 }])}>
+                    + Add Product
+                  </button>
+                )}
               </div>
 
-              <div style={{ display: 'flex', gap: 16, padding: 12, background: '#0f1117', borderRadius: 8, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: 16, padding: 12, background: '#0f1117', borderRadius: 8, flexWrap: 'wrap', marginBottom: 16 }}>
                 <label className="checkbox-label">
                   <input type="checkbox" checked={manualExpenses.sticker === 1}
                     onChange={e => setManualExpenses({ ...manualExpenses, sticker: e.target.checked ? 1 : 0 })} />
@@ -1688,19 +1329,47 @@ export default function Orders() {
                   Sell Bag (1 MAD)
                 </label>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ color: 'var(--t2)', fontSize: 13 }}>Packaging:</span>
+                  <span style={{ color: '#8892b0', fontSize: 13 }}>Packaging:</span>
                   <input className="form-input" type="number" min="0" style={{ width: 60, padding: '4px 8px' }}
                     value={manualExpenses.packaging}
                     onChange={e => setManualExpenses({ ...manualExpenses, packaging: parseFloat(e.target.value) || 0 })} />
-                  <span style={{ color: 'var(--t2)', fontSize: 13 }}>MAD</span>
+                  <span style={{ color: '#8892b0', fontSize: 13 }}>MAD</span>
                 </div>
+              </div>
+
+              {/* Promo Code */}
+              <div>
+                <label className="form-label">Promo Code <span style={{ color: '#8892b0', fontWeight: 400, textTransform: 'none' }}>(optional)</span></label>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <input className="form-input" placeholder="Enter code..." value={promoCode}
+                    style={{ flex: 1, textTransform: 'uppercase' }}
+                    onChange={e => {
+                      const val = e.target.value.toUpperCase();
+                      setPromoCode(val);
+                      if (!val.trim()) { setPromoResult(null); return; }
+                      const base = parseFloat(manualOrder.total_amount) || 0;
+                      setPromoResult(validatePromo(val, base));
+                    }} />
+                  {promoResult && (
+                    promoResult.error
+                      ? <span style={{ fontSize: 12, color: '#f87171', whiteSpace: 'nowrap' }}>✕ {promoResult.error}</span>
+                      : <span style={{ fontSize: 12, color: '#4ade80', whiteSpace: 'nowrap', fontWeight: 600 }}>✓ {promoResult.label}</span>
+                  )}
+                </div>
+                {promoResult?.discount > 0 && (
+                  <div style={{ marginTop: 6, fontSize: 13, color: '#8892b0' }}>
+                    Final price: <span style={{ color: '#e2e8f0', fontWeight: 600 }}>
+                      {Math.max(0, (parseFloat(manualOrder.total_amount) || 0) - promoResult.discount).toLocaleString()} MAD
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
             <div className="modal-footer">
-              <button type="button" className="btn btn-secondary" onClick={() => { setShowManualOrder(false); setError(''); }}>Cancel</button>
-              <button type="submit" className="btn btn-primary">Create Order</button>
+              <button className="btn btn-secondary" onClick={() => { setShowManualOrder(false); setError(''); setManualOrderType('single'); setSelectedPackId(''); setSelectedPresetId(''); setSelectedOfferId(''); setPromoCode(''); setPromoResult(null); }}>Cancel</button>
+              <button className="btn btn-primary" onClick={handleManualOrder}>Create Order</button>
             </div>
-          </form>
+          </div>
         </div>
       )}
 
@@ -1720,18 +1389,18 @@ export default function Orders() {
               </div>
               <div style={{ maxHeight: 280, overflowY: 'auto', marginBottom: 16, border: '1px solid #2d3248', borderRadius: 8 }}>
                 {orders
-                  .filter(o => ['pending','awaiting_pickup','in_delivery'].includes(o.status) && (!returnSearch || o.caleo_id.toLowerCase().includes(returnSearch.toLowerCase()) || o.customer_name?.toLowerCase().includes(returnSearch.toLowerCase())))
+                  .filter(o => o.status === 'pending' && (!returnSearch || o.caleo_id.toLowerCase().includes(returnSearch.toLowerCase()) || o.customer_name?.toLowerCase().includes(returnSearch.toLowerCase())))
                   .slice(0, 50)
                   .map(o => (
                     <div key={o.id}
                       style={{ padding: '10px 14px', borderBottom: '1px solid #2d3248', cursor: 'pointer', background: selectedReturn?.id === o.id ? '#0d2a1e' : 'transparent', borderLeft: selectedReturn?.id === o.id ? '3px solid #00d48f' : '3px solid transparent' }}
                       onClick={() => setSelectedReturn(o)}>
                       <div style={{ fontFamily: 'monospace', fontSize: 12, color: '#7c6ef5' }}>{o.caleo_id}</div>
-                      <div style={{ marginTop: 2 }}>{o.customer_name} · <span style={{ color: 'var(--t2)' }}>{o.city}</span> · <strong style={{ color: '#60a5fa' }}>{o.total_amount} MAD</strong></div>
+                      <div style={{ marginTop: 2 }}>{o.customer_name} · <span style={{ color: '#8892b0' }}>{o.city}</span> · <strong style={{ color: '#60a5fa' }}>{o.total_amount} MAD</strong></div>
                     </div>
                   ))}
-                {orders.filter(o => ['pending','awaiting_pickup','in_delivery'].includes(o.status)).length === 0 && (
-                  <div style={{ padding: 20, textAlign: 'center', color: 'var(--t2)' }}>No pending orders found</div>
+                {orders.filter(o => o.status === 'pending').length === 0 && (
+                  <div style={{ padding: 20, textAlign: 'center', color: '#8892b0' }}>No pending orders found</div>
                 )}
               </div>
               {selectedReturn && (
@@ -1776,10 +1445,10 @@ export default function Orders() {
               {/* Original order info */}
               <div style={{ padding: '10px 14px', background: '#0f1117', borderRadius: 8, marginBottom: 16, fontSize: 13 }}>
                 <div style={{ fontWeight: 600, marginBottom: 4 }}>{exchangeOrder.customer_name}</div>
-                <div style={{ color: 'var(--t2)' }}>
+                <div style={{ color: '#8892b0' }}>
                   {exchangeOrder.city} · {exchangeOrder.customer_phone} · {exchangeOrder.total_amount} MAD
                 </div>
-                <div style={{ marginTop: 6, color: 'var(--t2)' }}>
+                <div style={{ marginTop: 6, color: '#8892b0' }}>
                   Original items: {exchangeOrder.items?.map(i => `${i.product_name} ${i.size || ''} ${i.color || ''} x${i.quantity}`).join(', ') || '—'}
                 </div>
               </div>
@@ -1790,7 +1459,7 @@ export default function Orders() {
                   <button key={n} onClick={() => setExchangeStep(n)} style={{
                     background: 'none', border: 'none', padding: '8px 16px', cursor: 'pointer',
                     fontSize: 13, fontWeight: 600,
-                    color: exchangeStep === n ? 'var(--accent, #00d48f)' : 'var(--t2)',
+                    color: exchangeStep === n ? 'var(--accent, #00d48f)' : '#8892b0',
                     borderBottom: `2px solid ${exchangeStep === n ? 'var(--accent, #00d48f)' : 'transparent'}`,
                   }}>{label}</button>
                 ))}
@@ -1799,7 +1468,7 @@ export default function Orders() {
               {/* Step 1: Return */}
               {exchangeStep === 1 && (
                 <div>
-                  <div style={{ marginBottom: 12, fontSize: 13, color: 'var(--t2)' }}>
+                  <div style={{ marginBottom: 12, fontSize: 13, color: '#8892b0' }}>
                     The original order will be marked as <strong style={{ color: '#f87171' }}>cancelled</strong> and stock will be restored.
                   </div>
                   <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
@@ -1823,7 +1492,7 @@ export default function Orders() {
               {/* Step 2: New exchange order */}
               {exchangeStep === 2 && (
                 <div>
-                  <div style={{ marginBottom: 14, fontSize: 13, color: 'var(--t2)' }}>
+                  <div style={{ marginBottom: 14, fontSize: 13, color: '#8892b0' }}>
                     A new order will be created for the same customer. The client only pays the <strong style={{ color: '#00d48f' }}>delivery fee</strong>.
                   </div>
 
@@ -1847,9 +1516,7 @@ export default function Orders() {
                           }}>
                           <option value="">Select product...</option>
                           {allVariants.map(v => (
-                            <option key={v.id} value={v.id} disabled={v.stock === 0}>
-                          {v.stock === 0 ? `${v.label} — OUT OF STOCK` : v.stock <= 3 ? `${v.label} (⚠ ${v.stock} left)` : `${v.label} (${v.stock} in stock)`}
-                        </option>
+                            <option key={v.id} value={v.id}>{v.label} (stock: {v.stock})</option>
                           ))}
                         </select>
                         <input className="form-input" type="number" min="1" placeholder="Qty" style={{ width: 80 }}
@@ -1885,11 +1552,11 @@ export default function Orders() {
                       Sell Bag (1 MAD)
                     </label>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ color: 'var(--t2)', fontSize: 13 }}>Packaging:</span>
+                      <span style={{ color: '#8892b0', fontSize: 13 }}>Packaging:</span>
                       <input className="form-input" type="number" min="0" style={{ width: 60, padding: '4px 8px' }}
                         value={exchangeExpenses.packaging}
                         onChange={e => setExchangeExpenses({ ...exchangeExpenses, packaging: parseFloat(e.target.value) || 0 })} />
-                      <span style={{ color: 'var(--t2)', fontSize: 13 }}>MAD</span>
+                      <span style={{ color: '#8892b0', fontSize: 13 }}>MAD</span>
                     </div>
                   </div>
                 </div>
@@ -1948,165 +1615,6 @@ export default function Orders() {
           </div>
         </div>
       )}
-
-      {/* Mobile Card List — shown only on < 768px */}
-      {activeTab === 'orders' && (
-        <div className="ord-mobile-cards">
-          {/* Mobile bulk bar */}
-          {selectedIds.size > 0 && (
-            <div style={{ position: 'sticky', top: 0, zIndex: 50, display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: '#1a1a2e', border: '1px solid #00d48f44', borderRadius: 10, marginBottom: 10 }}>
-              <span style={{ fontWeight: 600, color: '#00d48f', fontSize: 13 }}>{selectedIds.size} selected</span>
-              <select className="btn btn-secondary btn-sm" style={{ cursor: 'pointer', fontSize: 12 }} value="" onChange={e => {
-                const v = e.target.value;
-                if (v === 'olivraison') filtered.filter(o => selectedIds.has(o.id)).forEach(o => handleSendOlivraison(o.id));
-                if (v === 'forcelog') filtered.filter(o => selectedIds.has(o.id)).forEach(o => handleSendForcelog(o.id));
-              }}>
-                <option value="" disabled>🚚 Send to courier…</option>
-                <option value="olivraison">Olivraison</option>
-                <option value="forcelog">Forcelog</option>
-              </select>
-              <button className="btn btn-secondary btn-sm" style={{ marginLeft: 'auto' }} onClick={() => setSelectedIds(new Set())}>✕</button>
-            </div>
-          )}
-
-          {filtered.length === 0 ? (
-            <div className="empty-state"><h3>No orders found</h3></div>
-          ) : filtered.map(o => {
-            const today = new Date().toISOString().slice(0, 10);
-            const isDueToday = o.status === 'reported' && o.reported_date && o.reported_date.slice(0, 10) === today;
-            const isExpanded = expandedCardId === o.id;
-            return (
-              <div key={o.id}
-                className={isDueToday ? 'ord-due-today-row' : ''}
-                style={{ ...rowStyle(o), borderRadius: 10, marginBottom: 8, overflow: 'hidden', background: selectedIds.has(o.id) ? '#1a2a1a' : rowStyle(o).background }}>
-                {/* Card header — tap to expand */}
-                <div style={{ padding: '12px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}
-                  onClick={e => { if (e.target.closest('input[type=checkbox]')) return; setExpandedCardId(prev => prev === o.id ? null : o.id); }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 600, fontSize: 14 }}>{o.customer_name}</div>
-                    <div style={{ fontSize: 12, color: 'var(--t2)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {o.city}{o.items?.length > 0 ? ` · ${o.items[0].product_name}` : ''}
-                    </div>
-                    <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 12, ...statusStyle(o) }}>
-                        {STATUS_LABEL[o.status] || o.status}
-                      </span>
-                      {o.status === 'reported' && o.reported_date && (
-                        isDueToday
-                          ? <span className="ord-due-today-pill">⚡ Due Today</span>
-                          : <span style={{ fontSize: 10, background: 'rgba(0,194,203,0.1)', color: '#00c2cb', padding: '2px 6px', borderRadius: 99 }}>📅 {new Date(o.reported_date).toLocaleDateString('en', { month: 'short', day: 'numeric' })}</span>
-                      )}
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8, marginLeft: 10 }}>
-                    <span style={{ fontWeight: 700, color: '#60a5fa', fontSize: 15 }}>{o.total_amount} MAD</span>
-                    <input type="checkbox" checked={selectedIds.has(o.id)} onChange={() => toggleSelect(o.id)} />
-                  </div>
-                </div>
-
-                {/* Expanded section */}
-                {isExpanded && (
-                  <div style={{ borderTop: '1px solid var(--border)', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    {o.customer_phone && (
-                      <a href={`https://wa.me/${o.customer_phone.replace(/\D/g,'')}`} target="_blank" rel="noopener noreferrer"
-                        style={{ color: '#25D366', fontSize: 13, textDecoration: 'none' }}>💬 {o.customer_phone}</a>
-                    )}
-                    {o.customer_address && <div style={{ fontSize: 12, color: 'var(--t2)' }}>📍 {o.customer_address}</div>}
-                    {o.order_date && <div style={{ fontSize: 12, color: 'var(--t3)' }}>🗓 {new Date(o.order_date).toLocaleDateString()}</div>}
-                    {o.status === 'reported' && o.reported_date && (
-                      <div style={{ fontSize: 12, color: '#00c2cb' }}>📅 Due: {new Date(o.reported_date).toLocaleDateString()}</div>
-                    )}
-                    {o.items?.length > 0 && (
-                      <div style={{ fontSize: 12, color: 'var(--t2)' }}>
-                        {o.items.map(i => `${i.product_name}${i.size ? ` ${i.size}` : ''} ×${i.quantity}`).join(', ')}
-                      </div>
-                    )}
-                    <div style={{ display: 'flex', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
-                      {!o.tracking_id && (
-                        <select className="btn btn-secondary btn-sm" style={{ fontSize: 12, cursor: 'pointer' }} value=""
-                          onChange={e => { if (e.target.value === 'olivraison') handleSendOlivraison(o.id); if (e.target.value === 'forcelog') handleSendForcelog(o.id); }}>
-                          <option value="" disabled>🚚 Send to courier…</option>
-                          <option value="olivraison">Olivraison</option>
-                          <option value="forcelog">Forcelog</option>
-                        </select>
-                      )}
-                      <button className="btn btn-secondary btn-sm" style={{ fontSize: 12, color: '#4ade80', borderColor: '#4ade80' }}
-                        onClick={() => handleStatusChange(o.id, 'delivered')}>✓ Delivered</button>
-                      <button className="btn btn-secondary btn-sm" style={{ fontSize: 12, color: '#f87171', borderColor: '#f87171' }}
-                        onClick={() => handleStatusChange(o.id, 'cancelled')}>✕ Cancel</button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Ramassage Modal */}
-      {showRamassage && (
-        <div className="modal-overlay" onClick={() => setShowRamassage(false)}>
-          <div className="modal" style={{ maxWidth: 480 }} onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>📦 Ramassage — Request Pickup</h2>
-            </div>
-            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <p style={{ fontSize: 13, color: 'var(--t2)', margin: 0 }}>
-                Requests a courier pickup for all your in-delivery orders (orders with a tracking number).
-              </p>
-
-              {ramassageResult ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {/* Olivraison result */}
-                  <div style={{ padding: '12px 14px', borderRadius: 'var(--r-sm)', background: 'var(--card-2)', border: `1px solid ${ramassageResult.oliv?.error ? '#f87171' : '#00d48f44'}` }}>
-                    <div style={{ fontWeight: 600, marginBottom: 4 }}>Olivraison</div>
-                    {ramassageResult.oliv?.error ? (
-                      <span style={{ color: '#f87171', fontSize: 13 }}>{ramassageResult.oliv.error}</span>
-                    ) : (
-                      <div style={{ fontSize: 13, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                        <span style={{ color: '#4ade80' }}>✓ {ramassageResult.oliv.count} orders requested</span>
-                        {ramassageResult.oliv.sticker_url && (
-                          <a href={ramassageResult.oliv.sticker_url} target="_blank" rel="noreferrer"
-                            style={{ color: 'var(--accent)', textDecoration: 'underline' }}>
-                            ⬇ Download Sticker PDF
-                          </a>
-                        )}
-                        {ramassageResult.oliv.slip_url && (
-                          <a href={ramassageResult.oliv.slip_url} target="_blank" rel="noreferrer"
-                            style={{ color: 'var(--accent)', textDecoration: 'underline' }}>
-                            ⬇ Download Slip PDF
-                          </a>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Forcelog result */}
-                  <div style={{ padding: '12px 14px', borderRadius: 'var(--r-sm)', background: 'var(--card-2)', border: `1px solid ${ramassageResult.force?.error ? '#f87171' : '#00d48f44'}` }}>
-                    <div style={{ fontWeight: 600, marginBottom: 4 }}>Forcelog</div>
-                    {ramassageResult.force?.error ? (
-                      <span style={{ color: '#f87171', fontSize: 13 }}>{ramassageResult.force.error}</span>
-                    ) : (
-                      <span style={{ color: '#4ade80', fontSize: 13 }}>✓ {ramassageResult.force.count} orders requested</span>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <p style={{ fontSize: 13, color: 'var(--t2)', margin: 0 }}>
-                  Click "Request Pickup" to notify Olivraison and Forcelog to come pick up your packages.
-                </p>
-              )}
-            </div>
-            <div className="modal-footer">
-              <button className="btn btn-secondary" onClick={() => setShowRamassage(false)}>Close</button>
-              <button className="btn btn-primary" onClick={handleRamassage} disabled={ramassageLoading}>
-                {ramassageLoading ? '⏳ Requesting...' : '📦 Request Pickup'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
     </div>
   );
 }

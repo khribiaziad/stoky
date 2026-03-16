@@ -196,6 +196,10 @@ class Order(Base):
     notes = Column(Text, nullable=True)
     tracking_id = Column(String, nullable=True, index=True)
     delivery_status = Column(String, nullable=True)
+    pack_id = Column(Integer, ForeignKey("packs.id"), nullable=True)
+    offer_id = Column(Integer, ForeignKey("offers.id"), nullable=True)
+    promo_code_used = Column(String, nullable=True)
+    discount_amount = Column(Float, default=0)
     created_at = Column(DateTime, server_default=func.now())
 
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
