@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { getProducts, createProduct, updateProduct, deleteProduct, addVariant, updateVariant, deleteVariant, uploadProductImage, getSuppliers, errorMessage } from '../api';
+import { getProducts, createProduct, updateProduct, deleteProduct, addVariant, updateVariant, deleteVariant, uploadProductImage, getSuppliers } from '../api';
 
 export default function Products({ readOnly = false }) {
   const [products, setProducts] = useState([]);
@@ -12,7 +12,7 @@ export default function Products({ readOnly = false }) {
   const [expandedProduct, setExpandedProduct] = useState(null);
   const [search, setSearch] = useState('');
 
-  const CATEGORIES = ['caps', 'clothing', 'shoes', 'bags', 'accessories', 'electronics', 'beauty', 'home', 'other'];
+  const CATEGORIES = ['caps', 'clothing', 'pants', 'shoes', 'bags', 'accessories', 'electronics', 'beauty', 'home', 'other'];
 
   const [newProduct, setNewProduct] = useState({ name: '', category: 'caps', has_sizes: true, has_colors: true, under_1kg: false, supplier_id: '', image_url: '' });
   const [newVariant, setNewVariant] = useState({ sku: '', size: '', color: '', buying_price: '', selling_price: '', stock: 0, low_stock_threshold: 5 });
@@ -82,7 +82,7 @@ export default function Products({ readOnly = false }) {
       setBulkSizes(''); setBulkColors(''); setBulkBuyPrice(''); setBulkSellPrice(''); setBulkStock(0); setBulkThreshold(5);
       load();
     } catch (e) {
-      setError(errorMessage(e));
+      setError(e.response?.data?.detail || 'Error adding variants');
     } finally {
       setBulkLoading(false);
     }
@@ -103,7 +103,7 @@ export default function Products({ readOnly = false }) {
       setNewProduct({ name: '', category: 'caps', has_sizes: true, has_colors: true, under_1kg: false, supplier_id: '', image_url: '' });
       setError('');
       load();
-    } catch (e) { setError(errorMessage(e)); }
+    } catch (e) { setError(e.response?.data?.detail || 'Error creating product'); }
   };
 
   const handleAddVariant = async () => {
@@ -118,7 +118,7 @@ export default function Products({ readOnly = false }) {
       setNewVariant({ sku: '', size: '', color: '', buying_price: '', selling_price: '', stock: 0, low_stock_threshold: 5 });
       setError('');
       load();
-    } catch (e) { setError(errorMessage(e)); }
+    } catch (e) { setError(e.response?.data?.detail || 'Error adding variant'); }
   };
 
   const openEditVariant = (variant, product) => {
@@ -146,7 +146,7 @@ export default function Products({ readOnly = false }) {
       setEditingVariant(null);
       setError('');
       load();
-    } catch (e) { setError(errorMessage(e)); }
+    } catch (e) { setError(e.response?.data?.detail || 'Error updating variant'); }
   };
 
   const openEditProduct = (e, product) => {
@@ -171,7 +171,7 @@ export default function Products({ readOnly = false }) {
       setEditingProduct(null);
       setError('');
       load();
-    } catch (e) { setError(errorMessage(e)); }
+    } catch (e) { setError(e.response?.data?.detail || 'Error updating product'); }
   };
 
   const handleDeleteProduct = async (e, id) => {
@@ -223,7 +223,7 @@ export default function Products({ readOnly = false }) {
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: expandedProduct === product.id ? 16 : 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <span style={{ color: 'var(--t2)', fontSize: 12 }}>
+                <span style={{ color: '#8892b0', fontSize: 12 }}>
                   {expandedProduct === product.id ? '▼' : '▶'}
                 </span>
                 {product.image_url && (
@@ -236,7 +236,7 @@ export default function Products({ readOnly = false }) {
                 )}
                 <div>
                   <div style={{ fontWeight: 600, fontSize: 16 }}>{product.name}</div>
-                  <div style={{ color: 'var(--t2)', fontSize: 12, marginTop: 2 }}>
+                  <div style={{ color: '#8892b0', fontSize: 12, marginTop: 2 }}>
                     {product.category}
                     {product.supplier_id && (() => { const s = suppliers.find(s => s.id === product.supplier_id); return s ? <span> · <span style={{ color: 'var(--accent)' }}>{s.name}</span></span> : null; })()}
                     {' · '}{product.variants.length} variant{product.variants.length !== 1 ? 's' : ''} ·{' '}
@@ -244,7 +244,9 @@ export default function Products({ readOnly = false }) {
                       {product.variants.reduce((s, v) => s + v.stock, 0)} available
                     </span>
                     {product.variants.some(v => v.stock <= v.low_stock_threshold && v.stock > 0) && (
-                      <span style={{ color: '#fbbf24', marginLeft: 8 }}>⚠ Low stock</span>
+                      <span style={{ color: '#fbbf24', marginLeft: 8 }}>
+                        ⚠ {['pants', 'shoes'].includes(product.category) ? 'Low stock — series reorder needed' : 'Low stock'}
+                      </span>
                     )}
                     {product.variants.some(v => v.stock === 0) && (
                       <span style={{ color: '#f87171', marginLeft: 8 }}>● Out of stock</span>
@@ -283,13 +285,13 @@ export default function Products({ readOnly = false }) {
                       <tr key={v.id}>
                         {product.has_sizes && <td>{v.size || '—'}</td>}
                         {product.has_colors && <td>{v.color || '—'}</td>}
-                        <td style={{ color: 'var(--t2)', fontSize: 12, fontFamily: 'monospace' }}>{v.sku || '—'}</td>
+                        <td style={{ color: '#8892b0', fontSize: 12, fontFamily: 'monospace' }}>{v.sku || '—'}</td>
                         <td>{v.buying_price} MAD</td>
                         <td>{v.selling_price ? `${v.selling_price} MAD` : '—'}</td>
                         <td style={{ fontWeight: 600, color: v.stock === 0 ? '#f87171' : v.stock <= v.low_stock_threshold ? '#fbbf24' : '#4ade80' }}>
                           {v.stock}
                         </td>
-                        <td style={{ color: v.broken_stock > 0 ? '#f87171' : 'var(--t2)' }}>
+                        <td style={{ color: v.broken_stock > 0 ? '#f87171' : '#8892b0' }}>
                           {v.broken_stock > 0 ? `${v.broken_stock} (${v.returnable_broken} ret.)` : '0'}
                         </td>
                         <td>
@@ -474,7 +476,7 @@ export default function Products({ readOnly = false }) {
                     </div>
                   )}
                   <div className="form-group">
-                    <label className="form-label">SKU <span style={{ color: 'var(--t2)', fontWeight: 400 }}>(optional)</span></label>
+                    <label className="form-label">SKU <span style={{ color: '#8892b0', fontWeight: 400 }}>(optional)</span></label>
                     <input className="form-input" placeholder="e.g. CAP-BLK-M" value={newVariant.sku} onChange={e => setNewVariant({...newVariant, sku: e.target.value})} />
                   </div>
                   <div className="form-group">
@@ -522,13 +524,13 @@ export default function Products({ readOnly = false }) {
                 <div className="form-grid-2">
                   {product?.has_sizes && (
                     <div className="form-group">
-                      <label className="form-label">Sizes <span style={{ color: 'var(--t2)', fontWeight: 400 }}>(comma-separated)</span></label>
+                      <label className="form-label">Sizes <span style={{ color: '#8892b0', fontWeight: 400 }}>(comma-separated)</span></label>
                       <input className="form-input" placeholder="S, M, L, XL" value={bulkSizes} onChange={e => setBulkSizes(e.target.value)} />
                     </div>
                   )}
                   {product?.has_colors && (
                     <div className="form-group">
-                      <label className="form-label">Colors <span style={{ color: 'var(--t2)', fontWeight: 400 }}>(comma-separated)</span></label>
+                      <label className="form-label">Colors <span style={{ color: '#8892b0', fontWeight: 400 }}>(comma-separated)</span></label>
                       <input className="form-input" placeholder="Black, White, Blue" value={bulkColors} onChange={e => setBulkColors(e.target.value)} />
                     </div>
                   )}
@@ -553,7 +555,7 @@ export default function Products({ readOnly = false }) {
                 {/* Preview combinations */}
                 {combos.length > 0 && (
                   <div style={{ marginTop: 12 }}>
-                    <div style={{ fontSize: 12, color: 'var(--t2)', marginBottom: 8 }}>
+                    <div style={{ fontSize: 12, color: '#8892b0', marginBottom: 8 }}>
                       {combos.length} variant{combos.length !== 1 ? 's' : ''} will be created:
                     </div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
@@ -608,7 +610,7 @@ export default function Products({ readOnly = false }) {
                   </div>
                 )}
                 <div className="form-group">
-                  <label className="form-label">SKU <span style={{ color: 'var(--t2)', fontWeight: 400 }}>(optional)</span></label>
+                  <label className="form-label">SKU <span style={{ color: '#8892b0', fontWeight: 400 }}>(optional)</span></label>
                   <input className="form-input" placeholder="e.g. CAP-BLK-M" value={editForm.sku || ''} onChange={e => setEditForm({...editForm, sku: e.target.value})} />
                 </div>
                 <div className="form-group">

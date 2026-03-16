@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { getProducts, getStockArrivals, addBulkStockArrival, getBrokenStock, addBrokenStock, updateBrokenStock, deleteBrokenStock, deleteArrival, adjustStock, errorMessage } from '../api';
+import { getProducts, getStockArrivals, addBulkStockArrival, getBrokenStock, addBrokenStock, updateBrokenStock, deleteBrokenStock, deleteArrival, adjustStock } from '../api';
 
-const emptyItem = () => ({ product_id: '', variant_id: '', quantity: 1 });
+const SERIES_CATEGORIES = ['pants', 'shoes'];
+const emptyItem = () => ({ product_id: '', variant_id: '', quantity: 1, seriesMode: false, series: 1 });
 
 export default function Stock({ readOnly = false }) {
-  const [tab, setTab] = useState('overview');
+  const [tab, setTab] = useState('arrivals');
   const [products, setProducts] = useState([]);
   const [arrivals, setArrivals] = useState([]);
   const [broken, setBroken] = useState([]);
@@ -42,6 +43,9 @@ export default function Stock({ readOnly = false }) {
   // Calculate total cost preview
   const totalStockCost = items.reduce((sum, item) => {
     const variants = getVariants(item.product_id);
+    if (item.seriesMode) {
+      return sum + variants.reduce((s, v) => s + v.buying_price * (parseInt(item.series) || 0), 0);
+    }
     const variant = variants.find(v => v.id === parseInt(item.variant_id));
     return sum + (variant ? variant.buying_price * (parseInt(item.quantity) || 0) : 0);
   }, 0);
@@ -50,8 +54,12 @@ export default function Stock({ readOnly = false }) {
   const updateItem = (index, field, value) => {
     const updated = [...items];
     updated[index] = { ...updated[index], [field]: value };
-    // Reset variant when product changes
-    if (field === 'product_id') updated[index].variant_id = '';
+    if (field === 'product_id') {
+      updated[index].variant_id = '';
+      const product = products.find(p => p.id === parseInt(value));
+      updated[index].seriesMode = SERIES_CATEGORIES.includes(product?.category);
+      updated[index].series = 1;
+    }
     setItems(updated);
   };
 
@@ -60,12 +68,24 @@ export default function Stock({ readOnly = false }) {
 
   const handleAddStock = async () => {
     setError('');
-    const validItems = items.filter(item => item.variant_id && item.quantity > 0);
-    if (validItems.length === 0) { setError('Select at least one product variant with a quantity'); return; }
+    const expanded = [];
+    for (const item of items) {
+      if (item.seriesMode) {
+        if (!item.product_id || !(parseInt(item.series) > 0)) continue;
+        const variants = getVariants(item.product_id);
+        if (variants.length === 0) continue;
+        for (const v of variants) {
+          expanded.push({ variant_id: v.id, quantity: parseInt(item.series) });
+        }
+      } else if (item.variant_id && parseInt(item.quantity) > 0) {
+        expanded.push({ variant_id: parseInt(item.variant_id), quantity: parseInt(item.quantity) });
+      }
+    }
+    if (expanded.length === 0) { setError('Select at least one product variant with a quantity'); return; }
 
     try {
       const res = await addBulkStockArrival({
-        items: validItems.map(item => ({ variant_id: parseInt(item.variant_id), quantity: parseInt(item.quantity) })),
+        items: expanded,
         additional_fees: parseFloat(additionalFees) || 0,
         description: description || null,
         date,
@@ -77,7 +97,7 @@ export default function Stock({ readOnly = false }) {
       setDescription('');
       setDate(new Date().toISOString().split('T')[0]);
       load();
-    } catch (e) { setError(errorMessage(e)); }
+    } catch (e) { setError(e.response?.data?.detail || 'Error adding stock'); }
   };
 
   const handleAddBroken = async () => {
@@ -88,7 +108,8 @@ export default function Stock({ readOnly = false }) {
       setBrokenForm({ product_id: '', variant_id: '', quantity: 1, source: 'storage', returnable_to_supplier: false });
       load();
     } catch (e) {
-      setError(errorMessage(e));
+      const d = e.response?.data?.detail;
+      setError(typeof d === 'string' ? d : d ? JSON.stringify(d) : `Error ${e.response?.status ?? ''} — check backend terminal`);
     }
   };
 
@@ -98,7 +119,7 @@ export default function Stock({ readOnly = false }) {
       setEditBroken(null);
       setSuccess('Updated successfully');
       load();
-    } catch (e) { setError(errorMessage(e)); }
+    } catch (e) { setError(e.response?.data?.detail || 'Error'); }
   };
 
   const handleDeleteBroken = async (id) => {
@@ -107,7 +128,7 @@ export default function Stock({ readOnly = false }) {
       await deleteBrokenStock(id);
       setSuccess('Deleted');
       load();
-    } catch (e) { setError(errorMessage(e)); }
+    } catch (e) { setError(e.response?.data?.detail || 'Error'); }
   };
 
   const handleDeleteArrival = async (id) => {
@@ -116,7 +137,7 @@ export default function Stock({ readOnly = false }) {
       await deleteArrival(id);
       setSuccess('Arrival deleted and stock reversed');
       load();
-    } catch (e) { setError(errorMessage(e)); }
+    } catch (e) { setError(e.response?.data?.detail || 'Error'); }
   };
 
   const handleAdjustStock = async () => {
@@ -125,7 +146,7 @@ export default function Stock({ readOnly = false }) {
       setAdjustVariant(null);
       setSuccess('Stock updated');
       load();
-    } catch (e) { setError(errorMessage(e)); }
+    } catch (e) { setError(e.response?.data?.detail || 'Error'); }
   };
 
   return (
@@ -148,9 +169,9 @@ export default function Stock({ readOnly = false }) {
       )}
 
       <div className="tabs">
-        <div className={`tab ${tab === 'overview' ? 'active' : ''}`} onClick={() => setTab('overview')}>Current Stock</div>
+        <div className={`tab ${tab === 'arrivals' ? 'active' : ''}`} onClick={() => setTab('arrivals')}>Stock Arrivals</div>
         <div className={`tab ${tab === 'broken' ? 'active' : ''}`} onClick={() => setTab('broken')}>Broken Stock</div>
-        <div className={`tab ${tab === 'arrivals' ? 'active' : ''}`} onClick={() => setTab('arrivals')}>New Arrivals</div>
+        <div className={`tab ${tab === 'overview' ? 'active' : ''}`} onClick={() => setTab('overview')}>Current Stock</div>
       </div>
 
       {/* Current Stock Overview */}
@@ -175,7 +196,7 @@ export default function Stock({ readOnly = false }) {
                         <td style={{ fontWeight: 700, color: v.stock <= v.low_stock_threshold ? '#fbbf24' : '#4ade80' }}>
                           {v.stock}
                         </td>
-                        <td style={{ color: v.broken_stock > 0 ? '#f87171' : 'var(--t2)' }}>
+                        <td style={{ color: v.broken_stock > 0 ? '#f87171' : '#8892b0' }}>
                           {v.broken_stock || 0}
                         </td>
                         <td>
@@ -211,7 +232,7 @@ export default function Stock({ readOnly = false }) {
                 <tbody>
                   {arrivals.map(a => (
                     <tr key={a.id}>
-                      <td style={{ color: 'var(--t2)', fontSize: 12 }}>{a.date ? new Date(a.date).toLocaleDateString() : '—'}</td>
+                      <td style={{ color: '#8892b0', fontSize: 12 }}>{a.date ? new Date(a.date).toLocaleDateString() : '—'}</td>
                       <td style={{ fontWeight: 500 }}>{a.product_name}</td>
                       <td>
                         {(a.size || a.color)
@@ -219,16 +240,16 @@ export default function Stock({ readOnly = false }) {
                           : '—'}
                       </td>
                       <td style={{ fontWeight: 600 }}>+{a.quantity}</td>
-                      <td style={{ color: 'var(--t2)' }}>
+                      <td style={{ color: '#8892b0' }}>
                         {a.additional_fees > 0
                           ? `${(a.total_cost - a.additional_fees).toFixed(0)} MAD`
                           : `${a.total_cost} MAD`}
                       </td>
-                      <td style={{ color: a.additional_fees > 0 ? '#fbbf24' : 'var(--t2)' }}>
+                      <td style={{ color: a.additional_fees > 0 ? '#fbbf24' : '#8892b0' }}>
                         {a.additional_fees > 0 ? `${a.additional_fees} MAD` : '—'}
                       </td>
                       <td style={{ fontWeight: 600, color: '#f87171' }}>{a.total_cost} MAD</td>
-                      <td style={{ color: 'var(--t2)', fontSize: 12 }}>{a.description || '—'}</td>
+                      <td style={{ color: '#8892b0', fontSize: 12 }}>{a.description || '—'}</td>
                       <td><button className="btn btn-danger btn-sm" onClick={() => handleDeleteArrival(a.id)}>Delete</button></td>
                     </tr>
                   ))}
@@ -253,7 +274,7 @@ export default function Stock({ readOnly = false }) {
                 <tbody>
                   {broken.map(b => (
                     <tr key={b.id}>
-                      <td style={{ color: 'var(--t2)', fontSize: 12 }}>{b.date ? new Date(b.date).toLocaleDateString() : '—'}</td>
+                      <td style={{ color: '#8892b0', fontSize: 12 }}>{b.date ? new Date(b.date).toLocaleDateString() : '—'}</td>
                       <td style={{ fontWeight: 500 }}>{b.product_name}</td>
                       <td>
                         {(b.size || b.color)
@@ -267,7 +288,7 @@ export default function Stock({ readOnly = false }) {
                           ? <span className="badge badge-green">Yes</span>
                           : <span className="badge badge-red">No</span>}
                       </td>
-                      <td style={{ color: b.returnable_to_supplier ? 'var(--t2)' : '#f87171' }}>
+                      <td style={{ color: b.returnable_to_supplier ? '#8892b0' : '#f87171' }}>
                         {b.returnable_to_supplier ? '0 (refund)' : `${b.value_lost} MAD`}
                       </td>
                       <td>
@@ -298,53 +319,77 @@ export default function Stock({ readOnly = false }) {
 
               {/* Items */}
               <div style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 12, color: 'var(--t2)', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 10 }}>Products in this Shipment</div>
+                <div style={{ fontSize: 12, color: '#8892b0', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 10 }}>Products in this Shipment</div>
                 {items.map((item, index) => (
-                  <div key={index} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 80px 36px', gap: 8, marginBottom: 8, alignItems: 'end' }}>
-                    <div>
-                      {index === 0 && <div className="form-label">Product</div>}
-                      <select
-                        className="form-input"
-                        value={item.product_id}
-                        onChange={e => updateItem(index, 'product_id', e.target.value)}
-                      >
-                        <option value="">Select product...</option>
-                        {products.map(p => (
-                          <option key={p.id} value={p.id}>{p.name}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      {index === 0 && <div className="form-label">Variant</div>}
-                      <select
-                        className="form-input"
-                        value={item.variant_id}
-                        onChange={e => updateItem(index, 'variant_id', e.target.value)}
-                        disabled={!item.product_id}
-                      >
-                        <option value="">Select variant...</option>
-                        {getVariants(item.product_id).map(v => (
-                          <option key={v.id} value={v.id}>
-                            {[v.size, v.color].filter(Boolean).join(' / ') || 'Default'} — {v.buying_price} MAD (stock: {v.stock})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      {index === 0 && <div className="form-label">Qty</div>}
-                      <input
-                        className="form-input"
-                        type="number"
-                        min="1"
-                        value={item.quantity}
-                        onChange={e => updateItem(index, 'quantity', e.target.value)}
-                      />
-                    </div>
-                    <div style={{ paddingBottom: 1 }}>
-                      {items.length > 1 && (
-                        <button className="btn btn-danger btn-sm" style={{ width: '100%' }} onClick={() => removeItem(index)}>✕</button>
+                  <div key={index}>
+                    <div style={{ display: 'grid', gridTemplateColumns: item.seriesMode ? '1fr 120px 36px' : '1fr 1fr 80px 36px', gap: 8, marginBottom: item.seriesMode && item.product_id ? 4 : 8, alignItems: 'end' }}>
+                      <div>
+                        {index === 0 && <div className="form-label">Product</div>}
+                        <select
+                          className="form-input"
+                          value={item.product_id}
+                          onChange={e => updateItem(index, 'product_id', e.target.value)}
+                        >
+                          <option value="">Select product...</option>
+                          {products.map(p => (
+                            <option key={p.id} value={p.id}>{p.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      {item.seriesMode ? (
+                        <div>
+                          {index === 0 && <div className="form-label">Series</div>}
+                          <input
+                            className="form-input"
+                            type="number"
+                            min="1"
+                            placeholder="Series"
+                            value={item.series}
+                            onChange={e => updateItem(index, 'series', e.target.value)}
+                          />
+                        </div>
+                      ) : (
+                        <>
+                          <div>
+                            {index === 0 && <div className="form-label">Variant</div>}
+                            <select
+                              className="form-input"
+                              value={item.variant_id}
+                              onChange={e => updateItem(index, 'variant_id', e.target.value)}
+                              disabled={!item.product_id}
+                            >
+                              <option value="">Select variant...</option>
+                              {getVariants(item.product_id).map(v => (
+                                <option key={v.id} value={v.id}>
+                                  {[v.size, v.color].filter(Boolean).join(' / ') || 'Default'} — {v.buying_price} MAD (stock: {v.stock})
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            {index === 0 && <div className="form-label">Qty</div>}
+                            <input
+                              className="form-input"
+                              type="number"
+                              min="1"
+                              value={item.quantity}
+                              onChange={e => updateItem(index, 'quantity', e.target.value)}
+                            />
+                          </div>
+                        </>
                       )}
+                      <div style={{ paddingBottom: 1 }}>
+                        {items.length > 1 && (
+                          <button className="btn btn-danger btn-sm" style={{ width: '100%' }} onClick={() => removeItem(index)}>✕</button>
+                        )}
+                      </div>
                     </div>
+                    {item.seriesMode && item.product_id && (
+                      <div style={{ fontSize: 12, color: '#8892b0', marginBottom: 8, paddingLeft: 2 }}>
+                        {getVariants(item.product_id).map(v => [v.size, v.color].filter(Boolean).join('/') || 'Default').join(' · ')}
+                        {' '}× {parseInt(item.series) || 0} each
+                      </div>
+                    )}
                   </div>
                 ))}
                 <button className="btn btn-secondary btn-sm" onClick={addItem}>+ Add Another Product</button>
@@ -371,17 +416,17 @@ export default function Stock({ readOnly = false }) {
               {/* Cost preview */}
               <div style={{ background: '#0f1117', border: '1px solid #2d3248', borderRadius: 8, padding: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                  <div style={{ color: 'var(--t2)', fontSize: 12 }}>Stock cost</div>
+                  <div style={{ color: '#8892b0', fontSize: 12 }}>Stock cost</div>
                   <div style={{ fontWeight: 600 }}>{totalStockCost} MAD</div>
                 </div>
-                <div style={{ color: 'var(--t2)' }}>+</div>
+                <div style={{ color: '#8892b0' }}>+</div>
                 <div>
-                  <div style={{ color: 'var(--t2)', fontSize: 12 }}>Additional fees</div>
+                  <div style={{ color: '#8892b0', fontSize: 12 }}>Additional fees</div>
                   <div style={{ fontWeight: 600 }}>{parseFloat(additionalFees) || 0} MAD</div>
                 </div>
-                <div style={{ color: 'var(--t2)' }}>=</div>
+                <div style={{ color: '#8892b0' }}>=</div>
                 <div>
-                  <div style={{ color: 'var(--t2)', fontSize: 12 }}>Total withdrawn</div>
+                  <div style={{ color: '#8892b0', fontSize: 12 }}>Total withdrawn</div>
                   <div style={{ fontWeight: 700, fontSize: 18, color: '#f87171' }}>{totalCost} MAD</div>
                 </div>
               </div>
