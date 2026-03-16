@@ -6,8 +6,8 @@ import {
   getPromoCodes, createPromoCode, updatePromoCode, togglePromoCode, deletePromoCode,
 } from '../api';
 
-const EMPTY_PACK = { name: '', product_id: '', selling_price: '', packaging_cost: '', item_count: '', is_active: true };
-const EMPTY_OFFER = { name: '', selling_price: '', packaging_cost: '', start_date: '', end_date: '', is_active: true, items: [{ variant_id: '', quantity: 1 }] };
+const EMPTY_PACK = { name: '', product_id: '', selling_price: '', packaging_cost: 0, item_count: 1, is_active: true };
+const EMPTY_OFFER = { name: '', selling_price: '', packaging_cost: 0, start_date: '', end_date: '', is_active: true, items: [{ product_id: '', variant_id: '', quantity: 1 }] };
 const EMPTY_PROMO = { code: '', discount_type: 'percentage', discount_value: '', min_order_value: '', usage_limit: '', expiry_date: '', applies_to: 'all', target_ids: [], is_active: true };
 
 function Toggle({ checked, onChange }) {
@@ -58,7 +58,7 @@ export default function Packs({ readOnly = false }) {
   const [packForm, setPackForm] = useState(EMPTY_PACK);
   const [addingPresetTo, setAddingPresetTo] = useState(null);
   const [presetName, setPresetName] = useState('');
-  const [presetItems, setPresetItems] = useState([{ variant_id: '', quantity: 1 }]);
+  const [presetItems, setPresetItems] = useState([{ product_id: '', variant_id: '', quantity: 1 }]);
 
   // ── Offers ──
   const [offers, setOffers] = useState([]);
@@ -145,7 +145,7 @@ export default function Packs({ readOnly = false }) {
   const openAddPreset = (e, packId) => {
     e.stopPropagation();
     setAddingPresetTo(packId); setPresetName('');
-    setPresetItems([{ variant_id: '', quantity: 1 }]); setError('');
+    setPresetItems([{ product_id: '', variant_id: '', quantity: 1 }]); setError('');
   };
   const handleSavePreset = async () => {
     if (!presetName.trim()) { setError('Preset name is required'); return; }
@@ -173,13 +173,17 @@ export default function Packs({ readOnly = false }) {
       name: offer.name, selling_price: offer.selling_price, packaging_cost: offer.packaging_cost,
       start_date: offer.start_date || '', end_date: offer.end_date || '',
       is_active: offer.is_active,
-      items: offer.items.length ? offer.items.map(i => ({ variant_id: String(i.variant_id), quantity: i.quantity })) : [{ variant_id: '', quantity: 1 }],
+      items: offer.items.length ? offer.items.map(i => {
+        const p = products.find(p => p.variants.some(v => v.id === i.variant_id));
+        return { product_id: p ? String(p.id) : '', variant_id: String(i.variant_id), quantity: i.quantity };
+      }) : [{ product_id: '', variant_id: '', quantity: 1 }],
     });
     setError(''); setShowOfferForm(true);
   };
   const setOfferItem = (idx, field, val) => {
     const items = [...offerForm.items];
     items[idx] = { ...items[idx], [field]: val };
+    if (field === 'product_id') items[idx].variant_id = '';
     setOfferForm({ ...offerForm, items });
   };
   const handleSaveOffer = async () => {
@@ -556,35 +560,45 @@ export default function Packs({ readOnly = false }) {
                 <input className="form-input" placeholder="e.g. 3 Black NY" value={presetName} onChange={e => setPresetName(e.target.value)} />
               </div>
               <label className="form-label" style={{ marginBottom: 8, display: 'block' }}>Products</label>
-              {presetItems.map((item, i) => (
-                <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 10 }}>
-                  <select
-                    className="form-input" style={{ flex: 1 }}
-                    value={item.variant_id}
-                    onChange={e => { const u = [...presetItems]; u[i] = { ...u[i], variant_id: e.target.value }; setPresetItems(u); }}
-                  >
-                    <option value="">— Select variant —</option>
-                    {products.map(p => p.variants.length > 0 && (
-                      <optgroup key={p.id} label={p.name}>
-                        {p.variants.map(v => {
-                          const detail = [v.size, v.color].filter(Boolean).join(' · ') || 'Default';
-                          return <option key={v.id} value={v.id}>{detail} — stock: {v.stock}</option>;
-                        })}
-                      </optgroup>
-                    ))}
-                  </select>
-                  <input
-                    className="form-input" type="number" min="1" style={{ width: 70 }}
-                    value={item.quantity}
-                    onChange={e => { const u = [...presetItems]; u[i] = { ...u[i], quantity: parseInt(e.target.value) || 1 }; setPresetItems(u); }}
-                  />
-                  <button className="btn btn-danger btn-sm" onClick={() => {
-                    const u = presetItems.filter((_, idx) => idx !== i);
-                    setPresetItems(u.length ? u : [{ variant_id: '', quantity: 1 }]);
-                  }}>✕</button>
-                </div>
-              ))}
-              <button className="btn btn-secondary btn-sm" style={{ marginTop: 4 }} onClick={() => setPresetItems([...presetItems, { variant_id: '', quantity: 1 }])}>+ Add Product</button>
+              {presetItems.map((item, i) => {
+                const variantsForProduct = item.product_id
+                  ? (products.find(p => p.id === parseInt(item.product_id))?.variants || [])
+                  : [];
+                return (
+                  <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 70px 32px', gap: 8, marginBottom: 10, alignItems: 'center' }}>
+                    <select
+                      className="form-input"
+                      value={item.product_id}
+                      onChange={e => { const u = [...presetItems]; u[i] = { ...u[i], product_id: e.target.value, variant_id: '' }; setPresetItems(u); }}
+                    >
+                      <option value="">— Product —</option>
+                      {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </select>
+                    <select
+                      className="form-input"
+                      value={item.variant_id}
+                      disabled={!item.product_id}
+                      onChange={e => { const u = [...presetItems]; u[i] = { ...u[i], variant_id: e.target.value }; setPresetItems(u); }}
+                    >
+                      <option value="">— Variant —</option>
+                      {variantsForProduct.map(v => {
+                        const detail = [v.size, v.color].filter(Boolean).join(' · ') || 'Default';
+                        return <option key={v.id} value={v.id}>{detail} (stock: {v.stock})</option>;
+                      })}
+                    </select>
+                    <input
+                      className="form-input" type="number" min="1"
+                      value={item.quantity}
+                      onChange={e => { const u = [...presetItems]; u[i] = { ...u[i], quantity: parseInt(e.target.value) || 1 }; setPresetItems(u); }}
+                    />
+                    <button className="btn btn-danger btn-sm" onClick={() => {
+                      const u = presetItems.filter((_, idx) => idx !== i);
+                      setPresetItems(u.length ? u : [{ product_id: '', variant_id: '', quantity: 1 }]);
+                    }}>✕</button>
+                  </div>
+                );
+              })}
+              <button className="btn btn-secondary btn-sm" style={{ marginTop: 4 }} onClick={() => setPresetItems([...presetItems, { product_id: '', variant_id: '', quantity: 1 }])}>+ Add Product</button>
             </div>
             <div className="modal-footer">
               <button className="btn btn-secondary" onClick={() => setAddingPresetTo(null)}>Cancel</button>
@@ -610,35 +624,45 @@ export default function Packs({ readOnly = false }) {
               </div>
 
               <label className="form-label" style={{ marginBottom: 8, display: 'block' }}>Products</label>
-              {offerForm.items.map((item, i) => (
-                <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 10 }}>
-                  <select
-                    className="form-input" style={{ flex: 1 }}
-                    value={item.variant_id}
-                    onChange={e => setOfferItem(i, 'variant_id', e.target.value)}
-                  >
-                    <option value="">— Select variant —</option>
-                    {products.map(p => p.variants.length > 0 && (
-                      <optgroup key={p.id} label={p.name}>
-                        {p.variants.map(v => {
-                          const detail = [v.size, v.color].filter(Boolean).join(' · ') || 'Default';
-                          return <option key={v.id} value={v.id}>{detail} — stock: {v.stock}</option>;
-                        })}
-                      </optgroup>
-                    ))}
-                  </select>
-                  <input
-                    className="form-input" type="number" min="1" style={{ width: 70 }}
-                    value={item.quantity}
-                    onChange={e => setOfferItem(i, 'quantity', parseInt(e.target.value) || 1)}
-                  />
-                  <button className="btn btn-danger btn-sm" onClick={() => {
-                    const u = offerForm.items.filter((_, idx) => idx !== i);
-                    setOfferForm({ ...offerForm, items: u.length ? u : [{ variant_id: '', quantity: 1 }] });
-                  }}>✕</button>
-                </div>
-              ))}
-              <button className="btn btn-secondary btn-sm" style={{ marginBottom: 16 }} onClick={() => setOfferForm({ ...offerForm, items: [...offerForm.items, { variant_id: '', quantity: 1 }] })}>+ Add Product</button>
+              {offerForm.items.map((item, i) => {
+                const variantsForProduct = item.product_id
+                  ? (products.find(p => p.id === parseInt(item.product_id))?.variants || [])
+                  : [];
+                return (
+                  <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 70px 32px', gap: 8, marginBottom: 10, alignItems: 'center' }}>
+                    <select
+                      className="form-input"
+                      value={item.product_id}
+                      onChange={e => setOfferItem(i, 'product_id', e.target.value)}
+                    >
+                      <option value="">— Product —</option>
+                      {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </select>
+                    <select
+                      className="form-input"
+                      value={item.variant_id}
+                      disabled={!item.product_id}
+                      onChange={e => setOfferItem(i, 'variant_id', e.target.value)}
+                    >
+                      <option value="">— Variant —</option>
+                      {variantsForProduct.map(v => {
+                        const detail = [v.size, v.color].filter(Boolean).join(' · ') || 'Default';
+                        return <option key={v.id} value={v.id}>{detail} (stock: {v.stock})</option>;
+                      })}
+                    </select>
+                    <input
+                      className="form-input" type="number" min="1"
+                      value={item.quantity}
+                      onChange={e => setOfferItem(i, 'quantity', parseInt(e.target.value) || 1)}
+                    />
+                    <button className="btn btn-danger btn-sm" onClick={() => {
+                      const u = offerForm.items.filter((_, idx) => idx !== i);
+                      setOfferForm({ ...offerForm, items: u.length ? u : [{ product_id: '', variant_id: '', quantity: 1 }] });
+                    }}>✕</button>
+                  </div>
+                );
+              })}
+              <button className="btn btn-secondary btn-sm" style={{ marginBottom: 16 }} onClick={() => setOfferForm({ ...offerForm, items: [...offerForm.items, { product_id: '', variant_id: '', quantity: 1 }] })}>+ Add Product</button>
 
               <div className="form-grid-2">
                 <div className="form-group">

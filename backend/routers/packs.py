@@ -79,7 +79,7 @@ def create_pack(data: PackCreate, db: Session = Depends(get_db), user: models.Us
     if user.role == "confirmer":
         raise HTTPException(status_code=403, detail="Confirmers cannot create packs")
     pack = models.Pack(
-        user_id=user.id,
+        user_id=get_store_id(user),
         name=data.name,
         selling_price=data.selling_price,
         packaging_cost=data.packaging_cost,
@@ -97,7 +97,7 @@ def create_pack(data: PackCreate, db: Session = Depends(get_db), user: models.Us
 def update_pack(pack_id: int, data: PackCreate, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
     if user.role == "confirmer":
         raise HTTPException(status_code=403, detail="Confirmers cannot edit packs")
-    pack = db.query(models.Pack).filter(models.Pack.id == pack_id, models.Pack.user_id == user.id).first()
+    pack = db.query(models.Pack).filter(models.Pack.id == pack_id, models.Pack.user_id == get_store_id(user)).first()
     if not pack:
         raise HTTPException(status_code=404, detail="Pack not found")
     pack.name = data.name
@@ -112,7 +112,7 @@ def update_pack(pack_id: int, data: PackCreate, db: Session = Depends(get_db), u
 
 @router.patch("/{pack_id}/toggle")
 def toggle_pack(pack_id: int, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
-    pack = db.query(models.Pack).filter(models.Pack.id == pack_id, models.Pack.user_id == user.id).first()
+    pack = db.query(models.Pack).filter(models.Pack.id == pack_id, models.Pack.user_id == get_store_id(user)).first()
     if not pack:
         raise HTTPException(status_code=404, detail="Pack not found")
     pack.is_active = not pack.is_active
@@ -124,7 +124,7 @@ def toggle_pack(pack_id: int, db: Session = Depends(get_db), user: models.User =
 def delete_pack(pack_id: int, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
     if user.role == "confirmer":
         raise HTTPException(status_code=403, detail="Confirmers cannot delete packs")
-    pack = db.query(models.Pack).filter(models.Pack.id == pack_id, models.Pack.user_id == user.id).first()
+    pack = db.query(models.Pack).filter(models.Pack.id == pack_id, models.Pack.user_id == get_store_id(user)).first()
     if not pack:
         raise HTTPException(status_code=404, detail="Pack not found")
     db.delete(pack)
@@ -136,7 +136,7 @@ def delete_pack(pack_id: int, db: Session = Depends(get_db), user: models.User =
 def add_preset(pack_id: int, data: PackPresetInput, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
     if user.role == "confirmer":
         raise HTTPException(status_code=403, detail="Confirmers cannot add presets")
-    pack = db.query(models.Pack).filter(models.Pack.id == pack_id, models.Pack.user_id == user.id).first()
+    pack = db.query(models.Pack).filter(models.Pack.id == pack_id, models.Pack.user_id == get_store_id(user)).first()
     if not pack:
         raise HTTPException(status_code=404, detail="Pack not found")
 
