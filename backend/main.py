@@ -35,6 +35,8 @@ with engine.connect() as conn:
         "CREATE TABLE IF NOT EXISTS suppliers (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id), name VARCHAR NOT NULL, phone VARCHAR, platform VARCHAR, notes TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)",
         "CREATE TABLE IF NOT EXISTS supplier_payments (id INTEGER PRIMARY KEY, supplier_id INTEGER NOT NULL REFERENCES suppliers(id), amount FLOAT NOT NULL, date DATETIME NOT NULL, note TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)",
         "ALTER TABLE products ADD COLUMN supplier_id INTEGER REFERENCES suppliers(id)",
+        "ALTER TABLE leads ADD COLUMN message_count INTEGER DEFAULT 0",
+        "ALTER TABLE leads ADD COLUMN last_message_at DATETIME",
     ]:
         try:
             conn.execute(text(stmt))
