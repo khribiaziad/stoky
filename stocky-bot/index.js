@@ -5,6 +5,7 @@ import makeWASocket, {
   makeCacheableSignalKeyStore,
 } from '@whiskeysockets/baileys'
 import pino from 'pino'
+import qrcode from 'qrcode-terminal'
 import 'dotenv/config'
 import { handleMessage } from './bot.js'
 
@@ -21,14 +22,17 @@ async function startBot() {
       creds: state.creds,
       keys: makeCacheableSignalKeyStore(state.keys, logger),
     },
-    printQRInTerminal: true,
     browser: ['Stocky Bot', 'Chrome', '1.0.0'],
     markOnlineOnConnect: false,
   })
 
   sock.ev.on('creds.update', saveCreds)
 
-  sock.ev.on('connection.update', ({ connection, lastDisconnect }) => {
+  sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+    if (qr) {
+      console.log('\n📱 Scan this QR code with your store WhatsApp:\n')
+      qrcode.generate(qr, { small: true })
+    }
     if (connection === 'close') {
       const code = lastDisconnect?.error?.output?.statusCode
       const shouldReconnect = code !== DisconnectReason.loggedOut
