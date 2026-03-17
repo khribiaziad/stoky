@@ -271,5 +271,11 @@ export const getForcelogStatus       = (orderId) => api.get(`/forcelog/status/${
 export const requestForcelogRamassage = () => api.post('/forcelog/ramassage');
 export const syncAllForcelog         = () => api.post('/forcelog/sync-all');
 
+// WhatsApp Bot
+export const getBotStatus  = ()  => api.get('/bot/status');
+export const getBotQR      = ()  => api.get('/bot/qr');
+export const connectBot    = ()  => api.post('/bot/connect');
+export const disconnectBot = ()  => api.delete('/bot/disconnect');
+
 // Utility
 export const errorMessage = (e) => e?.response?.data?.detail || e?.message || 'An error occurred';

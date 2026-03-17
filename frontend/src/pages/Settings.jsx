@@ -2,9 +2,9 @@ import { useState, useEffect, useRef } from 'react';
 import {
   Sun, Moon, Globe, Lock, User, Store, ShieldCheck,
   Upload, Package, DollarSign, Truck, AlertTriangle, Edit2, Check,
-  MapPin, Plus, Trash2, Search, X, Link, RotateCcw, Copy, Zap,
+  MapPin, Plus, Trash2, Search, X, Link, RotateCcw, Copy, Zap, MessageCircle,
 } from 'lucide-react';
-import { changePassword, updateStoreName, updateProfile, getSetting, setSetting, getCityList, createCity, updateCity, deleteCity, uploadCityPDF, getCityPdfJob, getApiKey, rotateApiKey, errorMessage } from '../api';
+import { changePassword, updateStoreName, updateProfile, getSetting, setSetting, getCityList, createCity, updateCity, deleteCity, uploadCityPDF, getCityPdfJob, getApiKey, rotateApiKey, errorMessage, getBotStatus, getBotQR, connectBot, disconnectBot } from '../api';
 
 const LANGUAGES = [
   { code: 'en', label: 'English',  flag: '🇬🇧' },
@@ -171,6 +171,123 @@ function CityRow({ city, onSave, onDelete }) {
         </div>
       </td>
     </tr>
+  );
+}
+
+// ── WhatsApp Bot Card ───────────────────────────────────────
+function WhatsAppBotCard() {
+  const [status,      setStatus]      = useState('disconnected'); // disconnected | connecting | qr_pending | connected
+  const [qr,          setQr]          = useState(null);
+  const [loading,     setLoading]     = useState(false);
+  const [err,         setErr]         = useState('');
+  const pollRef = useRef(null);
+
+  const stopPolling = () => {
+    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+  };
+
+  const poll = () => {
+    stopPolling();
+    pollRef.current = setInterval(async () => {
+      try {
+        const r = await getBotQR();
+        const d = r.data;
+        if (d.status === 'connected') {
+          setStatus('connected'); setQr(null); stopPolling();
+        } else if (d.status === 'qr_pending' && d.qr) {
+          setStatus('qr_pending'); setQr(d.qr);
+        } else if (d.status === 'disconnected') {
+          setStatus('disconnected'); setQr(null); stopPolling();
+        }
+      } catch {}
+    }, 2500);
+  };
+
+  useEffect(() => {
+    getBotStatus().then(r => {
+      const s = r.data.status;
+      setStatus(s);
+      if (s === 'qr_pending' || s === 'connecting') poll();
+    }).catch(() => {});
+    return stopPolling;
+  }, []);
+
+  const handleConnect = async () => {
+    setLoading(true); setErr('');
+    try {
+      await connectBot();
+      setStatus('connecting');
+      poll();
+    } catch (e) { setErr(errorMessage(e)); }
+    finally { setLoading(false); }
+  };
+
+  const handleDisconnect = async () => {
+    setLoading(true); setErr('');
+    try {
+      await disconnectBot();
+      setStatus('disconnected'); setQr(null); stopPolling();
+    } catch (e) { setErr(errorMessage(e)); }
+    finally { setLoading(false); }
+  };
+
+  const statusColor = status === 'connected' ? '#22c55e' : status === 'qr_pending' ? '#f59e0b' : '#6b7280';
+  const statusLabel = { connected: 'Connected', qr_pending: 'Scan QR Code', connecting: 'Connecting…', disconnected: 'Disconnected' }[status] || status;
+
+  return (
+    <div className="card">
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18, flexWrap: 'wrap', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <MessageCircle size={18} strokeWidth={1.75} style={{ color: 'var(--accent)' }} />
+          <span style={{ fontWeight: 600, fontSize: 15 }}>WhatsApp AI Bot</span>
+        </div>
+        <span style={{
+          fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 99,
+          background: statusColor + '22', color: statusColor,
+        }}>● {statusLabel}</span>
+      </div>
+
+      <p style={{ fontSize: 13, color: 'var(--t2)', marginBottom: 18 }}>
+        Connect your WhatsApp number to let an AI assistant handle customer inquiries and create orders automatically.
+      </p>
+
+      {err && <div className="alert alert-error" style={{ marginBottom: 14, fontSize: 13 }}>{err}</div>}
+
+      {status === 'qr_pending' && qr && (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, marginBottom: 18 }}>
+          <img src={qr} alt="WhatsApp QR Code" style={{ width: 200, height: 200, borderRadius: 12, border: '2px solid var(--border)' }} />
+          <p style={{ fontSize: 12, color: 'var(--t2)', textAlign: 'center' }}>
+            Open WhatsApp → Settings → Linked Devices → Link a Device
+          </p>
+        </div>
+      )}
+
+      {(status === 'qr_pending' || status === 'connecting') && !qr && (
+        <div style={{ fontSize: 13, color: 'var(--t3)', marginBottom: 18 }}>Waiting for QR code…</div>
+      )}
+
+      <div style={{ display: 'flex', gap: 10 }}>
+        {status === 'disconnected' && (
+          <button className="btn btn-primary" onClick={handleConnect} disabled={loading}
+            style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <MessageCircle size={14} strokeWidth={2} />
+            {loading ? 'Connecting…' : 'Connect WhatsApp'}
+          </button>
+        )}
+        {status === 'connected' && (
+          <button className="btn btn-secondary" onClick={handleDisconnect} disabled={loading}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--danger)' }}>
+            {loading ? 'Disconnecting…' : 'Disconnect'}
+          </button>
+        )}
+        {(status === 'connecting' || status === 'qr_pending') && (
+          <button className="btn btn-secondary" onClick={handleDisconnect} disabled={loading}
+            style={{ fontSize: 13, color: 'var(--t3)' }}>
+            Cancel
+          </button>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -1287,6 +1404,9 @@ Content-Type: application/json
               </span>
             </div>
           </div>
+
+          {/* WhatsApp Bot */}
+          <WhatsAppBotCard />
 
           {/* ── Delivery Companies ── */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
