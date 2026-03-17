@@ -447,8 +447,9 @@ class Lead(Base):
     matched_items    = Column(JSON, nullable=True)  # [{variant_id, name, qty, price}]
     total_amount     = Column(Float, nullable=True)
     notes            = Column(Text, nullable=True)
-    status           = Column(String, default="pending")  # pending|confirmed|cancelled|unresponsive
+    status           = Column(String, default="pending")  # pending|confirmed|cancelled|unresponsive|reported
     order_id         = Column(Integer, ForeignKey("orders.id"), nullable=True)
+    reported_date    = Column(DateTime, nullable=True)
     message_count    = Column(Integer, default=0)
     last_message_at  = Column(DateTime, nullable=True)
     created_at       = Column(DateTime, server_default=func.now())
