@@ -57,7 +57,9 @@ with engine.connect() as conn:
         "ALTER TABLE order_expenses ADD COLUMN product_broken BOOLEAN DEFAULT 0",
         "ALTER TABLE order_items ADD COLUMN unit_price FLOAT",
         "ALTER TABLE variants ADD COLUMN under_1kg BOOLEAN DEFAULT 0",
+        "ALTER TABLE variants ADD COLUMN low_stock_threshold INTEGER DEFAULT 5",
         "ALTER TABLE orders ADD COLUMN confirmed_by INTEGER REFERENCES team_members(id)",
+        "ALTER TABLE packs ADD COLUMN item_count INTEGER DEFAULT 1",
     ]:
         try:
             conn.execute(text(stmt))

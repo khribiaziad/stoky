@@ -269,7 +269,7 @@ export default function Orders() {
         setOffers(off.data);
         setPromoCodes(promo.data);
       })
-      .catch(e => setError(e.response?.data?.detail || 'Failed to load orders'))
+      .catch(e => setError(e.response?.data?.detail || e.message || `HTTP ${e.response?.status} — Failed to load orders`))
       .finally(() => setLoading(false));
   };
 
