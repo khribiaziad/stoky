@@ -149,7 +149,7 @@ export default function Orders() {
   const [ramassageLoading, setRamassageLoading] = useState(false);
 
   // Date range selectors
-  const [dateRange,     setDateRange]     = useState('today'); // for order_date (non-reported)
+  const [dateRange,     setDateRange]     = useState('all'); // for order_date (non-reported)
   const [reportedRange, setReportedRange] = useState('all');  // for reported_date (reported tab)
 
 
@@ -269,14 +269,15 @@ export default function Orders() {
         setOffers(off.data);
         setPromoCodes(promo.data);
       })
+      .catch(e => setError(e.response?.data?.detail || 'Failed to load orders'))
       .finally(() => setLoading(false));
   };
 
   useEffect(() => {
-    load({ p: 1, f: 'all', t: 'orders', dr: 'today' });
+    load({ p: 1, f: 'all', t: 'orders', dr: 'all' });
     // Silently sync delivery statuses in the background on page load
     Promise.allSettled([syncAllForcelog(), syncAllOlivraison()])
-      .then(() => load({ p: 1, f: 'all', t: 'orders', dr: 'today' }))
+      .then(() => load({ p: 1, f: 'all', t: 'orders', dr: 'all' }))
       .catch(() => {});
   }, []);
 
