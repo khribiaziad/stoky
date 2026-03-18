@@ -193,6 +193,7 @@ class Order(Base):
     total_amount = Column(Float, nullable=False)
     status = Column(String, default="pending", index=True)
     order_date = Column(DateTime, nullable=True)
+    reported_date = Column(DateTime, nullable=True)
     notes = Column(Text, nullable=True)
     tracking_id = Column(String, nullable=True, index=True)
     delivery_status = Column(String, nullable=True)

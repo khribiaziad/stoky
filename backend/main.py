@@ -49,6 +49,7 @@ with engine.connect() as conn:
         "ALTER TABLE orders ADD COLUMN offer_id INTEGER REFERENCES offers(id)",
         "ALTER TABLE orders ADD COLUMN promo_code_used VARCHAR",
         "ALTER TABLE orders ADD COLUMN discount_amount FLOAT DEFAULT 0",
+        "ALTER TABLE orders ADD COLUMN reported_date DATETIME",
         "ALTER TABLE leads ADD COLUMN reported_date DATETIME",
         "ALTER TABLE leads ADD COLUMN message_count INTEGER DEFAULT 0",
         "ALTER TABLE leads ADD COLUMN last_message_at DATETIME",

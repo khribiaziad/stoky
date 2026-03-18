@@ -139,6 +139,7 @@ def serialize_order(order: models.Order, db: Session) -> dict:
         "tracking_id": order.tracking_id,
         "delivery_status": order.delivery_status,
         "order_date": order.order_date.isoformat() if order.order_date else None,
+        "reported_date": order.reported_date.isoformat() if order.reported_date else None,
         "created_at": order.created_at.isoformat() if order.created_at else None,
         "uploaded_by": uploaded_by_name,
         "confirmed_by": confirmed_by_name,
@@ -150,6 +151,10 @@ def serialize_order(order: models.Order, db: Session) -> dict:
 @router.get("")
 def list_orders(
     status: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    reported_from: Optional[str] = None,
+    reported_to: Optional[str] = None,
     db: Session = Depends(get_db),
     user: models.User = Depends(get_current_user),
 ):
@@ -160,6 +165,14 @@ def list_orders(
         query = query.filter(models.Order.uploaded_by == user.id)
     if status:
         query = query.filter(models.Order.status == status)
+    if date_from:
+        query = query.filter(models.Order.order_date >= datetime.fromisoformat(date_from))
+    if date_to:
+        query = query.filter(models.Order.order_date <= datetime.fromisoformat(date_to + "T23:59:59"))
+    if reported_from:
+        query = query.filter(models.Order.reported_date >= datetime.fromisoformat(reported_from))
+    if reported_to:
+        query = query.filter(models.Order.reported_date <= datetime.fromisoformat(reported_to + "T23:59:59"))
     orders = query.all()
     return [serialize_order(o, db) for o in orders]
 
