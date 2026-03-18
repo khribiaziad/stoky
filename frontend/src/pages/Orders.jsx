@@ -46,7 +46,7 @@ const statusStyle = (o) => {
 };
 
 const rowStyle = (o) => {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })();
   const isDueToday = o.status === 'reported' && o.reported_date && o.reported_date.slice(0, 10) === today;
   if (isDueToday) return { background: 'rgba(0,194,203,0.10)', borderLeft: '3px solid #00c2cb' };
   const S = {
@@ -220,7 +220,7 @@ export default function Orders() {
   const getDateBounds = (range, future = false) => {
     if (!range || range === 'all') return {};
     const today = new Date(); today.setHours(0, 0, 0, 0);
-    const fmt = d => d.toISOString().slice(0, 10);
+    const fmt = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     if (range === 'today') return { from: fmt(today), to: fmt(today) };
     if (range === 'week') {
       if (future) { const e = new Date(today); e.setDate(today.getDate() + 7); return { from: fmt(today), to: fmt(e) }; }
@@ -1033,7 +1033,7 @@ export default function Orders() {
               </thead>
               <tbody>
                 {filtered.map(o => {
-                  const today = new Date().toISOString().slice(0, 10);
+                  const today = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })();
                   const isDueToday = o.status === 'reported' && o.reported_date && o.reported_date.slice(0, 10) === today;
                   const trStyle = selectedIds.has(o.id)
                     ? { background: '#1a2a1a', borderLeft: '3px solid var(--accent)', cursor: 'pointer' }
@@ -2166,7 +2166,7 @@ export default function Orders() {
           {filtered.length === 0 ? (
             <div className="empty-state"><h3>No orders found</h3></div>
           ) : filtered.map(o => {
-            const today = new Date().toISOString().slice(0, 10);
+            const today = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })();
             const isDueToday = o.status === 'reported' && o.reported_date && o.reported_date.slice(0, 10) === today;
             const isExpanded = expandedCardId === o.id;
             return (
