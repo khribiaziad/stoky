@@ -227,7 +227,7 @@ export const confirmLead       = (id)  => api.post(`/leads/${id}/confirm`);
 export const confirmPickup     = (id)  => api.post(`/leads/${id}/confirm`);
 export const cancelLead        = (id)  => api.post(`/leads/${id}/cancel`);
 export const notAnsweringLead  = (id)  => api.post(`/leads/${id}/not-answering`);
-export const reportLead        = (id)  => api.post(`/leads/${id}/report`);
+export const reportLead        = (id, reported_date)  => api.post(`/leads/${id}/report`, null, { params: { reported_date } });
 export const getApiKey         = ()    => api.get('/leads/api-key');
 export const rotateApiKey      = ()    => api.post('/leads/api-key/rotate');
 
