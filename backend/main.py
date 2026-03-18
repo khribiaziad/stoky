@@ -53,6 +53,11 @@ with engine.connect() as conn:
         "ALTER TABLE leads ADD COLUMN reported_date DATETIME",
         "ALTER TABLE leads ADD COLUMN message_count INTEGER DEFAULT 0",
         "ALTER TABLE leads ADD COLUMN last_message_at DATETIME",
+        "ALTER TABLE order_expenses ADD COLUMN seal_bag_returned BOOLEAN DEFAULT 0",
+        "ALTER TABLE order_expenses ADD COLUMN product_broken BOOLEAN DEFAULT 0",
+        "ALTER TABLE order_items ADD COLUMN unit_price FLOAT",
+        "ALTER TABLE variants ADD COLUMN under_1kg BOOLEAN DEFAULT 0",
+        "ALTER TABLE orders ADD COLUMN confirmed_by INTEGER REFERENCES team_members(id)",
     ]:
         try:
             conn.execute(text(stmt))
