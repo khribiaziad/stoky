@@ -19,6 +19,7 @@ export default function SuppliersMobile() {
 
   const [paymentForm, setPaymentForm] = useState({ amount: '', date: new Date().toISOString().split('T')[0], note: '' });
   const [showPayment, setShowPayment] = useState(null);
+  const [historyTab, setHistoryTab] = useState({}); // { [supplierId]: 'purchases' | 'payments' }
 
   const load = () => {
     getSuppliers().then(r => setSuppliers(r.data)).finally(() => setLoading(false));
@@ -345,120 +346,101 @@ export default function SuppliersMobile() {
                         </>
                       )}
 
-                      {/* Purchase History */}
-                      <div style={S.sectionLabel}>Purchase History</div>
-                      {d.arrivals.length === 0 ? (
-                        <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>No purchases yet.</div>
-                      ) : (
-                        d.arrivals.map(a => (
-                          <div key={a.id} style={S.arrivalCard}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                              <div>
-                                <div style={{ fontWeight: 600, fontSize: 13 }}>{a.product_name}</div>
-                                {a.variant && a.variant !== '—' && (
-                                  <div style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 1 }}>{a.variant}</div>
+                      {/* History toggle filter */}
+                      {(() => {
+                        const hTab = historyTab[s.id] || 'purchases';
+                        const setHTab = (t) => setHistoryTab(h => ({ ...h, [s.id]: t }));
+                        return (
+                          <>
+                            <div style={{ display: 'flex', marginTop: 16, marginBottom: 10, background: 'var(--bg)', borderRadius: 8, padding: 3, gap: 3 }}>
+                              {[{ key: 'purchases', label: 'Purchases' }, { key: 'payments', label: 'Payments' }].map(opt => (
+                                <button
+                                  key={opt.key}
+                                  onClick={() => setHTab(opt.key)}
+                                  style={{
+                                    flex: 1, padding: '7px 0', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 13, fontWeight: hTab === opt.key ? 700 : 400,
+                                    background: hTab === opt.key ? 'var(--card)' : 'transparent',
+                                    color: hTab === opt.key ? 'var(--accent)' : 'var(--text-muted)',
+                                    boxShadow: hTab === opt.key ? '0 1px 3px rgba(0,0,0,0.2)' : 'none',
+                                  }}
+                                >
+                                  {opt.label}
+                                  <span style={{ marginLeft: 5, fontSize: 11, opacity: 0.7 }}>
+                                    ({opt.key === 'purchases' ? d.arrivals.length : d.payments.length})
+                                  </span>
+                                </button>
+                              ))}
+                            </div>
+
+                            {/* Purchases */}
+                            {hTab === 'purchases' && (
+                              d.arrivals.length === 0 ? (
+                                <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>No purchases yet.</div>
+                              ) : (
+                                d.arrivals.map(a => (
+                                  <div key={a.id} style={S.arrivalCard}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                      <div>
+                                        <div style={{ fontWeight: 600, fontSize: 13 }}>{a.product_name}</div>
+                                        {a.variant && a.variant !== '—' && (
+                                          <div style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 1 }}>{a.variant}</div>
+                                        )}
+                                        <div style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 2 }}>
+                                          {a.date?.split('T')[0]} · qty {a.quantity}
+                                        </div>
+                                      </div>
+                                      <div style={{ fontWeight: 700, fontSize: 13, color: '#fbbf24', flexShrink: 0, marginLeft: 8 }}>
+                                        {fmt(a.total_cost)} MAD
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))
+                              )
+                            )}
+
+                            {/* Payments */}
+                            {hTab === 'payments' && (
+                              <>
+                                {showPayment === s.id && (
+                                  <div style={S.paymentFormBox}>
+                                    {error && <div className="alert alert-error" style={{ marginBottom: 10 }}>{error}</div>}
+                                    <div className="form-group">
+                                      <label className="form-label">Amount (MAD) *</label>
+                                      <input className="form-input" type="number" placeholder="0" value={paymentForm.amount} onChange={e => setPaymentForm(f => ({ ...f, amount: e.target.value }))} />
+                                    </div>
+                                    <div className="form-group">
+                                      <label className="form-label">Date</label>
+                                      <input className="form-input" type="date" value={paymentForm.date} onChange={e => setPaymentForm(f => ({ ...f, date: e.target.value }))} />
+                                    </div>
+                                    <div className="form-group">
+                                      <label className="form-label">Note</label>
+                                      <input className="form-input" placeholder="e.g. cash, transfer..." value={paymentForm.note} onChange={e => setPaymentForm(f => ({ ...f, note: e.target.value }))} />
+                                    </div>
+                                    <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                                      <button style={{ ...S.actionBtn(), flex: 'none', padding: '0 16px' }} onClick={() => setShowPayment(null)}>Cancel</button>
+                                      <button style={{ ...S.actionBtn('var(--accent)'), flex: 1 }} onClick={() => handleAddPayment(s.id)}>Save Payment</button>
+                                    </div>
+                                  </div>
                                 )}
-                                <div style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 2 }}>
-                                  {a.date?.split('T')[0]} · qty {a.quantity}
-                                </div>
-                              </div>
-                              <div style={{ fontWeight: 700, fontSize: 13, color: '#fbbf24', flexShrink: 0, marginLeft: 8 }}>
-                                {fmt(a.total_cost)} MAD
-                              </div>
-                            </div>
-                          </div>
-                        ))
-                      )}
-
-                      {/* Payments Made */}
-                      <div style={{ ...S.sectionLabel, marginTop: 16 }}>Payments Made</div>
-
-                      {/* Inline + Payment form */}
-                      {showPayment === s.id && (
-                        <div style={S.paymentFormBox}>
-                          {error && <div className="alert alert-error" style={{ marginBottom: 10 }}>{error}</div>}
-                          <div className="form-group">
-                            <label className="form-label">Amount (MAD) *</label>
-                            <input
-                              className="form-input"
-                              type="number"
-                              placeholder="0"
-                              value={paymentForm.amount}
-                              onChange={e => setPaymentForm(f => ({ ...f, amount: e.target.value }))}
-                            />
-                          </div>
-                          <div className="form-group">
-                            <label className="form-label">Date</label>
-                            <input
-                              className="form-input"
-                              type="date"
-                              value={paymentForm.date}
-                              onChange={e => setPaymentForm(f => ({ ...f, date: e.target.value }))}
-                            />
-                          </div>
-                          <div className="form-group">
-                            <label className="form-label">Note</label>
-                            <input
-                              className="form-input"
-                              placeholder="e.g. cash, transfer..."
-                              value={paymentForm.note}
-                              onChange={e => setPaymentForm(f => ({ ...f, note: e.target.value }))}
-                            />
-                          </div>
-                          <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-                            <button
-                              style={{ ...S.actionBtn(), flex: 'none', padding: '0 16px' }}
-                              onClick={() => setShowPayment(null)}
-                            >
-                              Cancel
-                            </button>
-                            <button
-                              style={{ ...S.actionBtn('var(--accent)'), flex: 1 }}
-                              onClick={() => handleAddPayment(s.id)}
-                            >
-                              Save Payment
-                            </button>
-                          </div>
-                        </div>
-                      )}
-
-                      {d.payments.length === 0 ? (
-                        <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>No payments recorded yet.</div>
-                      ) : (
-                        <div style={{ marginTop: 4 }}>
-                          {d.payments.map((p, idx) => (
-                            <div
-                              key={p.id}
-                              style={{
-                                ...S.paymentRow,
-                                borderBottom: idx === d.payments.length - 1 ? 'none' : '1px solid var(--border)',
-                              }}
-                            >
-                              <span style={{ color: 'var(--text-muted)', fontSize: 12, flexShrink: 0 }}>
-                                {p.date?.split('T')[0]}
-                              </span>
-                              <span style={{ fontWeight: 700, color: '#4ade80', fontSize: 13, flexShrink: 0 }}>
-                                {fmt(p.amount)} MAD
-                              </span>
-                              <span style={{ color: 'var(--text-muted)', fontSize: 12, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {p.note || '—'}
-                              </span>
-                              <button
-                                style={{
-                                  ...S.actionBtn('#f87171'),
-                                  flex: 'none',
-                                  padding: '0 10px',
-                                  minHeight: 30,
-                                  fontSize: 11,
-                                }}
-                                onClick={() => handleDeletePayment(s.id, p.id)}
-                              >
-                                ✕
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                                {d.payments.length === 0 ? (
+                                  <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>No payments recorded yet.</div>
+                                ) : (
+                                  <div style={{ marginTop: 4 }}>
+                                    {d.payments.map((p, idx) => (
+                                      <div key={p.id} style={{ ...S.paymentRow, borderBottom: idx === d.payments.length - 1 ? 'none' : '1px solid var(--border)' }}>
+                                        <span style={{ color: 'var(--text-muted)', fontSize: 12, flexShrink: 0 }}>{p.date?.split('T')[0]}</span>
+                                        <span style={{ fontWeight: 700, color: '#4ade80', fontSize: 13, flexShrink: 0 }}>{fmt(p.amount)} MAD</span>
+                                        <span style={{ color: 'var(--text-muted)', fontSize: 12, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.note || '—'}</span>
+                                        <button style={{ ...S.actionBtn('#f87171'), flex: 'none', padding: '0 10px', minHeight: 30, fontSize: 11 }} onClick={() => handleDeletePayment(s.id, p.id)}>✕</button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </>
+                            )}
+                          </>
+                        );
+                      })()}
                     </>
                   )}
                 </div>
