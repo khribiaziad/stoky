@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { getSuppliers, createSupplier, updateSupplier, deleteSupplier, getSupplierDetail, addSupplierPayment, deleteSupplierPayment } from '../api';
+import SuppliersMobile from './SuppliersMobile';
 
 const PLATFORMS = ['Alibaba', 'AliExpress', 'Local', 'Wholesale', 'Direct', 'Other'];
 
 const fmt = (n) => Number(n || 0).toLocaleString('fr-MA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export default function Suppliers() {
+  if (window.innerWidth < 768) return <SuppliersMobile />;
   const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(null);

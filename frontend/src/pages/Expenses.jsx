@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Receipt, ArrowDownCircle, Trash2, Edit2, Power, Megaphone, Users, LayoutGrid } from 'lucide-react';
+import ExpensesMobile from './ExpensesMobile';
 import {
   getFixedExpenses, createFixedExpense, updateFixedExpense,
   toggleFixedExpense, deleteFixedExpense,
@@ -71,6 +72,7 @@ const emptyExpense = () => ({
 
 // ── Component ─────────────────────────────────────────────────
 export default function Expenses() {
+  if (window.innerWidth < 768) return <ExpensesMobile />;
   const [tab, setTab] = useState('overview');
 
   // Data

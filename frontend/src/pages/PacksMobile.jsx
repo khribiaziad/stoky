@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { Copy, Check, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
-import PacksMobile from './PacksMobile';
 import {
   getPacks, getProducts, createPack, updatePack, togglePack, deletePack, addPackPreset, deletePackPreset,
   getOffers, createOffer, updateOffer, toggleOffer, deleteOffer,
@@ -44,8 +43,7 @@ function promoStatus(promo) {
   return 'active';
 }
 
-export default function Packs({ readOnly = false }) {
-  if (window.innerWidth < 768) return <PacksMobile readOnly={readOnly} />;
+export default function PacksMobile({ readOnly = false }) {
   const [tab, setTab] = useState('packs');
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -265,9 +263,10 @@ export default function Packs({ readOnly = false }) {
   if (loading) return <div className="loading">Loading...</div>;
 
   const tabStyle = (active) => ({
-    padding: '9px 22px', border: 'none', borderBottom: active ? '2px solid #1fd98a' : '2px solid transparent',
+    flex: 1,
+    padding: '10px 4px', border: 'none', borderBottom: active ? '2px solid #1fd98a' : '2px solid transparent',
     background: 'none', color: active ? '#1fd98a' : '#8892b0', cursor: 'pointer',
-    fontWeight: active ? 600 : 400, fontSize: 14, transition: 'all 0.15s',
+    fontWeight: active ? 600 : 400, fontSize: 13, transition: 'all 0.15s', textAlign: 'center',
   });
 
   const onNew = () => {
@@ -276,28 +275,61 @@ export default function Packs({ readOnly = false }) {
     else openCreatePromo();
   };
 
+  // ── Shared mobile card styles ──
+  const S = {
+    card: {
+      background: 'var(--card)',
+      border: '1px solid var(--border)',
+      borderRadius: 12,
+      marginBottom: 10,
+      overflow: 'hidden',
+    },
+    actionBtn: (color) => ({
+      flex: 1,
+      minHeight: 38,
+      fontSize: 12,
+      fontWeight: 600,
+      borderRadius: 8,
+      border: `1px solid ${color || 'var(--border)'}`,
+      background: 'transparent',
+      color: color || 'var(--text)',
+      cursor: 'pointer',
+      padding: '0 6px',
+    }),
+    pill: {
+      background: '#1e2235',
+      borderRadius: 6,
+      padding: '3px 10px',
+      fontSize: 12,
+      color: '#a5b4fc',
+    },
+  };
+
   return (
     <div>
+      {/* ── Header ── */}
       <div className="page-header">
         <h1 className="page-title">Packs & Promos</h1>
         {!readOnly && (
-          <button className="btn btn-primary" onClick={onNew}>
-            {tab === 'packs' ? '+ New Pack' : tab === 'offers' ? '+ New Offer' : '+ New Promo Code'}
+          <button className="btn btn-primary" style={{ whiteSpace: 'nowrap' }} onClick={onNew}>
+            {tab === 'packs' ? '+ Pack' : tab === 'offers' ? '+ Offer' : '+ Promo'}
           </button>
         )}
       </div>
 
-      {/* Tabs */}
-      <div style={{ display: 'flex', borderBottom: '1px solid #222733', marginBottom: 24 }}>
+      {/* ── Tabs bar ── */}
+      <div style={{ display: 'flex', borderBottom: '1px solid #222733', marginBottom: 16 }}>
         <button style={tabStyle(tab === 'packs')} onClick={() => setTab('packs')}>📦 Packs</button>
         <button style={tabStyle(tab === 'offers')} onClick={() => setTab('offers')}>🎁 Offers</button>
-        <button style={tabStyle(tab === 'promo')} onClick={() => setTab('promo')}>🏷️ Promo Codes</button>
+        <button style={tabStyle(tab === 'promo')} onClick={() => setTab('promo')}>🏷️ Promo</button>
       </div>
 
-      {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
-      {success && <div className="alert alert-success" style={{ marginBottom: 16 }}>{success}</div>}
+      {error && <div className="alert alert-error" style={{ marginBottom: 12 }}>{error}</div>}
+      {success && <div className="alert alert-success" style={{ marginBottom: 12 }}>{success}</div>}
 
-      {/* ── PACKS TAB ── */}
+      {/* ════════════════════════════════════════
+          PACKS TAB — accordion cards
+          ════════════════════════════════════════ */}
       {tab === 'packs' && (
         <>
           {packs.length === 0 ? (
@@ -306,77 +338,100 @@ export default function Packs({ readOnly = false }) {
               <p>Create a pack to group items together with a custom price and packaging</p>
             </div>
           ) : (
-            packs.map(pack => (
-              <div
-                key={pack.id}
-                className="card"
-                style={{ marginBottom: 12, cursor: 'pointer', opacity: pack.is_active ? 1 : 0.7 }}
-                onClick={() => setExpandedPack(expandedPack === pack.id ? null : pack.id)}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <span style={{ color: '#8892b0', fontSize: 12 }}>
-                      {expandedPack === pack.id ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            packs.map(pack => {
+              const isOpen = expandedPack === pack.id;
+              return (
+                <div
+                  key={pack.id}
+                  style={{ ...S.card, opacity: pack.is_active ? 1 : 0.7 }}
+                >
+                  {/* Collapsed header — tap to expand */}
+                  <div
+                    style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 14px', cursor: 'pointer', userSelect: 'none' }}
+                    onClick={() => setExpandedPack(isOpen ? null : pack.id)}
+                  >
+                    {/* Chevron */}
+                    <span style={{ color: '#8892b0', flexShrink: 0 }}>
+                      {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                     </span>
-                    <div>
-                      <div style={{ fontWeight: 600, fontSize: 15, display: 'flex', alignItems: 'center', gap: 8 }}>
+
+                    {/* Main content */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 700, fontSize: 15, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                         📦 {pack.name}
                         <StatusBadge active={pack.is_active} />
                       </div>
-                      <div style={{ color: '#8892b0', fontSize: 12, marginTop: 3, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                        {pack.product_name && <span style={{ color: '#a5b4fc' }}>{pack.product_name}</span>}
+                      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 4, fontSize: 12, color: '#8892b0' }}>
+                        {pack.product_name && (
+                          <span style={{ color: '#a5b4fc' }}>{pack.product_name}</span>
+                        )}
+                        <span style={{ color: '#1fd98a', fontWeight: 600 }}>{pack.selling_price} MAD</span>
                         <span>{pack.item_count} item{pack.item_count !== 1 ? 's' : ''}</span>
-                        <span style={{ color: '#1fd98a' }}>{pack.selling_price} MAD</span>
-                        {pack.packaging_cost > 0 && <span>Box: {pack.packaging_cost} MAD</span>}
                         <span>{pack.presets.length} preset{pack.presets.length !== 1 ? 's' : ''}</span>
                       </div>
                     </div>
                   </div>
-                  {!readOnly && (
-                    <div style={{ display: 'flex', gap: 8 }} onClick={e => e.stopPropagation()}>
-                      <button className="btn btn-secondary btn-sm" onClick={e => handleTogglePack(e, pack.id)}>
-                        {pack.is_active ? 'Disable' : 'Enable'}
-                      </button>
-                      <button className="btn btn-secondary btn-sm" onClick={e => openEditPack(e, pack)}>Edit</button>
-                      <button className="btn btn-secondary btn-sm" onClick={e => openAddPreset(e, pack.id)}>+ Preset</button>
-                      <button className="btn btn-danger btn-sm" onClick={e => handleDeletePack(e, pack.id)}>Delete</button>
+
+                  {/* Expanded body */}
+                  {isOpen && (
+                    <div style={{ borderTop: '1px solid var(--border)', padding: '0 12px 12px' }} onClick={e => e.stopPropagation()}>
+                      {/* Action row */}
+                      {!readOnly && (
+                        <div style={{ display: 'flex', gap: 8, paddingTop: 12, paddingBottom: 12 }}>
+                          <button style={S.actionBtn()} onClick={e => handleTogglePack(e, pack.id)}>
+                            {pack.is_active ? 'Disable' : 'Enable'}
+                          </button>
+                          <button style={S.actionBtn()} onClick={e => openEditPack(e, pack)}>Edit</button>
+                          <button style={S.actionBtn('var(--accent)')} onClick={e => openAddPreset(e, pack.id)}>+ Preset</button>
+                          <button style={S.actionBtn('#f87171')} onClick={e => handleDeletePack(e, pack.id)}>Delete</button>
+                        </div>
+                      )}
+
+                      {/* Presets */}
+                      {pack.presets.length === 0 ? (
+                        <div style={{ color: '#8892b0', fontSize: 13, padding: '4px 0 8px' }}>
+                          No presets yet — tap "+ Preset" to add a saved composition.
+                        </div>
+                      ) : (
+                        pack.presets.map(preset => (
+                          <div
+                            key={preset.id}
+                            style={{ border: '1px solid #2d3248', borderRadius: 8, padding: '10px 12px', marginBottom: 8 }}
+                          >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                              <div style={{ fontWeight: 600, fontSize: 14 }}>{preset.name}</div>
+                              {!readOnly && (
+                                <button
+                                  style={{ ...S.actionBtn('#f87171'), flex: 'none', padding: '0 10px', minHeight: 30, fontSize: 12 }}
+                                  onClick={e => handleDeletePreset(e, preset.id)}
+                                >
+                                  ✕
+                                </button>
+                              )}
+                            </div>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                              {preset.items.map(item => (
+                                <span key={item.id} style={S.pill}>
+                                  {item.label} × {item.quantity}
+                                  <span style={{ color: '#8892b0', marginLeft: 6 }}>(stock: {item.stock})</span>
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        ))
+                      )}
                     </div>
                   )}
                 </div>
-
-                {expandedPack === pack.id && (
-                  <div style={{ marginTop: 16 }} onClick={e => e.stopPropagation()}>
-                    {pack.presets.length === 0 ? (
-                      <div style={{ color: '#8892b0', fontSize: 13, padding: '8px 0' }}>
-                        No presets yet — click "+ Preset" to add a saved composition.
-                      </div>
-                    ) : (
-                      pack.presets.map(preset => (
-                        <div key={preset.id} style={{ border: '1px solid #2d3248', borderRadius: 8, padding: 12, marginBottom: 10 }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                            <div style={{ fontWeight: 500 }}>{preset.name}</div>
-                            {!readOnly && <button className="btn btn-danger btn-sm" onClick={e => handleDeletePreset(e, preset.id)}>✕</button>}
-                          </div>
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                            {preset.items.map(item => (
-                              <span key={item.id} style={{ background: '#1e2235', borderRadius: 6, padding: '4px 10px', fontSize: 12, color: '#a5b4fc' }}>
-                                {item.label} × {item.quantity}
-                                <span style={{ color: '#8892b0', marginLeft: 6 }}>(stock: {item.stock})</span>
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                )}
-              </div>
-            ))
+              );
+            })
           )}
         </>
       )}
 
-      {/* ── OFFERS TAB ── */}
+      {/* ════════════════════════════════════════
+          OFFERS TAB — simple cards
+          ════════════════════════════════════════ */}
       {tab === 'offers' && (
         <>
           {offers.length === 0 ? (
@@ -386,47 +441,54 @@ export default function Packs({ readOnly = false }) {
             </div>
           ) : (
             offers.map(offer => (
-              <div key={offer.id} className="card" style={{ marginBottom: 12, opacity: offer.is_active ? 1 : 0.7 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div>
-                    <div style={{ fontWeight: 600, fontSize: 15, display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                      🎁 {offer.name}
-                      <StatusBadge active={offer.is_active} />
-                    </div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
-                      {offer.items.map(item => (
-                        <span key={item.id} style={{ background: '#1e2235', borderRadius: 6, padding: '3px 10px', fontSize: 12, color: '#a5b4fc' }}>
-                          {item.label} × {item.quantity}
-                        </span>
-                      ))}
-                    </div>
-                    <div style={{ color: '#8892b0', fontSize: 12, display: 'flex', gap: 14, flexWrap: 'wrap' }}>
-                      <span style={{ color: '#1fd98a' }}>{offer.selling_price} MAD</span>
-                      {offer.packaging_cost > 0 && <span>Box: {offer.packaging_cost} MAD</span>}
-                      {(offer.start_date || offer.end_date) && (
-                        <span>
-                          {offer.start_date ? offer.start_date : '…'} → {offer.end_date ? offer.end_date : '∞'}
-                        </span>
-                      )}
-                    </div>
+              <div key={offer.id} style={{ ...S.card, opacity: offer.is_active ? 1 : 0.7 }}>
+                <div style={{ padding: '14px 14px 0' }}>
+                  {/* Name + badge */}
+                  <div style={{ fontWeight: 700, fontSize: 15, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+                    🎁 {offer.name}
+                    <StatusBadge active={offer.is_active} />
                   </div>
-                  {!readOnly && (
-                    <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-                      <button className="btn btn-secondary btn-sm" onClick={() => handleToggleOffer(offer.id)}>
-                        {offer.is_active ? 'Disable' : 'Enable'}
-                      </button>
-                      <button className="btn btn-secondary btn-sm" onClick={() => openEditOffer(offer)}>Edit</button>
-                      <button className="btn btn-danger btn-sm" onClick={() => handleDeleteOffer(offer.id)}>Delete</button>
-                    </div>
-                  )}
+
+                  {/* Item pills */}
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+                    {offer.items.map(item => (
+                      <span key={item.id} style={S.pill}>
+                        {item.label} × {item.quantity}
+                      </span>
+                    ))}
+                  </div>
+
+                  {/* Price + dates */}
+                  <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 12, color: '#8892b0', marginBottom: 12 }}>
+                    <span style={{ color: '#1fd98a', fontWeight: 700 }}>{offer.selling_price} MAD</span>
+                    {offer.packaging_cost > 0 && <span>Box: {offer.packaging_cost} MAD</span>}
+                    {(offer.start_date || offer.end_date) && (
+                      <span>
+                        {offer.start_date ? offer.start_date : '…'} → {offer.end_date ? offer.end_date : '∞'}
+                      </span>
+                    )}
+                  </div>
                 </div>
+
+                {/* Action row at bottom */}
+                {!readOnly && (
+                  <div style={{ display: 'flex', gap: 8, padding: '0 12px 12px' }}>
+                    <button style={S.actionBtn()} onClick={() => handleToggleOffer(offer.id)}>
+                      {offer.is_active ? 'Disable' : 'Enable'}
+                    </button>
+                    <button style={S.actionBtn()} onClick={() => openEditOffer(offer)}>Edit</button>
+                    <button style={S.actionBtn('#f87171')} onClick={() => handleDeleteOffer(offer.id)}>Delete</button>
+                  </div>
+                )}
               </div>
             ))
           )}
         </>
       )}
 
-      {/* ── PROMO CODES TAB ── */}
+      {/* ════════════════════════════════════════
+          PROMO CODES TAB — cards instead of table
+          ════════════════════════════════════════ */}
       {tab === 'promo' && (
         <>
           {promoCodes.length === 0 ? (
@@ -435,71 +497,72 @@ export default function Packs({ readOnly = false }) {
               <p>Create discount codes to share with customers</p>
             </div>
           ) : (
-            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ borderBottom: '1px solid #222733' }}>
-                    {['Code', 'Discount', 'Usage', 'Expiry', 'Applies to', 'Status', ''].map(h => (
-                      <th key={h} style={{ padding: '12px 16px', textAlign: 'left', fontSize: 12, color: '#8892b0', fontWeight: 600 }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {promoCodes.map(promo => {
-                    const status = promoStatus(promo);
-                    return (
-                      <tr key={promo.id} style={{ borderBottom: '1px solid #1a1d27', opacity: status === 'inactive' ? 0.6 : 1 }}>
-                        <td style={{ padding: '12px 16px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <span style={{ fontFamily: 'monospace', fontWeight: 700, color: '#eef0f8', fontSize: 14 }}>{promo.code}</span>
-                            <button
-                              className="btn-icon"
-                              style={{ padding: 4 }}
-                              onClick={() => copyCode(promo.id, promo.code)}
-                              title="Copy code"
-                            >
-                              {copiedId === promo.id ? <Check size={14} color="#1fd98a" /> : <Copy size={14} />}
-                            </button>
-                          </div>
-                        </td>
-                        <td style={{ padding: '12px 16px', color: '#1fd98a', fontWeight: 600 }}>
-                          {promo.discount_type === 'percentage' ? `${promo.discount_value}%` : `${promo.discount_value} MAD`}
-                          {promo.min_order_value && <div style={{ color: '#8892b0', fontSize: 11, fontWeight: 400 }}>Min {promo.min_order_value} MAD</div>}
-                        </td>
-                        <td style={{ padding: '12px 16px', color: '#8892b0', fontSize: 13 }}>
-                          {promo.used_count} used{promo.usage_limit ? ` / ${promo.usage_limit}` : ''}
-                        </td>
-                        <td style={{ padding: '12px 16px', color: '#8892b0', fontSize: 13 }}>
-                          {promo.expiry_date || '—'}
-                        </td>
-                        <td style={{ padding: '12px 16px', color: '#8892b0', fontSize: 13 }}>
-                          {promo.applies_to === 'all' ? 'All products' : promo.applies_to === 'products' ? 'Specific products' : 'Specific packs'}
-                        </td>
-                        <td style={{ padding: '12px 16px' }}>
-                          <StatusBadge active={status === 'active'} expired={status === 'expired'} />
-                        </td>
-                        <td style={{ padding: '12px 16px' }}>
-                          {!readOnly && (
-                            <div style={{ display: 'flex', gap: 6 }}>
-                              <button className="btn btn-secondary btn-sm" onClick={() => handleTogglePromo(promo.id)}>
-                                {promo.is_active ? 'Disable' : 'Enable'}
-                              </button>
-                              <button className="btn btn-secondary btn-sm" onClick={() => openEditPromo(promo)}>Edit</button>
-                              <button className="btn btn-danger btn-sm" onClick={() => handleDeletePromo(promo.id)}>Delete</button>
-                            </div>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+            promoCodes.map(promo => {
+              const status = promoStatus(promo);
+              return (
+                <div key={promo.id} style={{ ...S.card, opacity: status === 'inactive' ? 0.65 : 1 }}>
+                  <div style={{ padding: '14px 14px 0' }}>
+                    {/* Code row */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 18, color: '#eef0f8', letterSpacing: 1 }}>
+                          {promo.code}
+                        </span>
+                        <button
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: '#8892b0', display: 'flex', alignItems: 'center' }}
+                          onClick={() => copyCode(promo.id, promo.code)}
+                          title="Copy code"
+                        >
+                          {copiedId === promo.id ? <Check size={15} color="#1fd98a" /> : <Copy size={15} />}
+                        </button>
+                      </div>
+                      <StatusBadge active={status === 'active'} expired={status === 'expired'} />
+                    </div>
+
+                    {/* Discount value */}
+                    <div style={{ fontSize: 14, color: '#1fd98a', fontWeight: 700, marginBottom: 4 }}>
+                      {promo.discount_type === 'percentage' ? `${promo.discount_value}% off` : `${promo.discount_value} MAD off`}
+                      {promo.min_order_value && (
+                        <span style={{ color: '#8892b0', fontSize: 12, fontWeight: 400, marginLeft: 8 }}>
+                          Min order: {promo.min_order_value} MAD
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Meta row */}
+                    <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', fontSize: 12, color: '#8892b0', marginBottom: 12 }}>
+                      <span>
+                        {promo.used_count} used{promo.usage_limit ? ` / ${promo.usage_limit}` : ''}
+                      </span>
+                      <span>
+                        Expires: {promo.expiry_date || '—'}
+                      </span>
+                      <span>
+                        {promo.applies_to === 'all' ? 'All products' : promo.applies_to === 'products' ? 'Specific products' : 'Specific packs'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Action row */}
+                  {!readOnly && (
+                    <div style={{ display: 'flex', gap: 8, padding: '0 12px 12px' }}>
+                      <button style={S.actionBtn()} onClick={() => handleTogglePromo(promo.id)}>
+                        {promo.is_active ? 'Disable' : 'Enable'}
+                      </button>
+                      <button style={S.actionBtn()} onClick={() => openEditPromo(promo)}>Edit</button>
+                      <button style={S.actionBtn('#f87171')} onClick={() => handleDeletePromo(promo.id)}>Delete</button>
+                    </div>
+                  )}
+                </div>
+              );
+            })
           )}
         </>
       )}
 
-      {/* ── PACK FORM MODAL ── */}
+      {/* ════════════════════════════════════════
+          PACK FORM MODAL
+          ════════════════════════════════════════ */}
       {showPackForm && (
         <div className="modal-overlay" onClick={() => setShowPackForm(false)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
@@ -547,7 +610,9 @@ export default function Packs({ readOnly = false }) {
         </div>
       )}
 
-      {/* ── PRESET MODAL ── */}
+      {/* ════════════════════════════════════════
+          PRESET MODAL
+          ════════════════════════════════════════ */}
       {addingPresetTo && (
         <div className="modal-overlay" onClick={() => setAddingPresetTo(null)}>
           <div className="modal" style={{ maxWidth: 560 }} onClick={e => e.stopPropagation()}>
@@ -610,7 +675,9 @@ export default function Packs({ readOnly = false }) {
         </div>
       )}
 
-      {/* ── OFFER FORM MODAL ── */}
+      {/* ════════════════════════════════════════
+          OFFER FORM MODAL
+          ════════════════════════════════════════ */}
       {showOfferForm && (
         <div className="modal-overlay" onClick={() => setShowOfferForm(false)}>
           <div className="modal" style={{ maxWidth: 580 }} onClick={e => e.stopPropagation()}>
@@ -701,7 +768,9 @@ export default function Packs({ readOnly = false }) {
         </div>
       )}
 
-      {/* ── PROMO CODE FORM MODAL ── */}
+      {/* ════════════════════════════════════════
+          PROMO CODE FORM MODAL
+          ════════════════════════════════════════ */}
       {showPromoForm && (
         <div className="modal-overlay" onClick={() => setShowPromoForm(false)}>
           <div className="modal" style={{ maxWidth: 540 }} onClick={e => e.stopPropagation()}>
