@@ -21,7 +21,7 @@ export default function ProductsMobileDemo({ readOnly = false }) {
 
   const CATEGORIES = ['caps', 'clothing', 'pants', 'shoes', 'bags', 'accessories', 'electronics', 'beauty', 'home', 'other'];
 
-  const [newProduct, setNewProduct] = useState({ name: '', category: 'caps', has_sizes: true, has_colors: true, under_1kg: false, supplier_id: '', image_url: '' });
+  const [newProduct, setNewProduct] = useState({ name: '', short_name: '', category: 'caps', has_sizes: true, has_colors: true, under_1kg: false, supplier_id: '', image_url: '' });
   const [newVariant, setNewVariant] = useState({ sku: '', size: '', color: '', buying_price: '', selling_price: '', stock: 0, low_stock_threshold: 5 });
   const [editForm, setEditForm] = useState({});
 
@@ -74,7 +74,7 @@ export default function ProductsMobileDemo({ readOnly = false }) {
     try {
       await createProduct({ ...newProduct, is_pack: false, supplier_id: newProduct.supplier_id ? parseInt(newProduct.supplier_id) : null });
       setShowAddProduct(false);
-      setNewProduct({ name: '', category: 'caps', has_sizes: true, has_colors: true, under_1kg: false, supplier_id: '', image_url: '' });
+      setNewProduct({ name: '', short_name: '', category: 'caps', has_sizes: true, has_colors: true, under_1kg: false, supplier_id: '', image_url: '' });
       setError('');
       load();
     } catch (e) { setError(e.response?.data?.detail || 'Error creating product'); }
@@ -152,7 +152,7 @@ export default function ProductsMobileDemo({ readOnly = false }) {
   };
 
   const openEditProduct = (product) => {
-    setEditingProduct({ ...product, supplier_id: product.supplier_id || '', image_url: product.image_url || '' });
+    setEditingProduct({ ...product, short_name: product.short_name || '', supplier_id: product.supplier_id || '', image_url: product.image_url || '' });
     setError('');
   };
 
@@ -161,6 +161,7 @@ export default function ProductsMobileDemo({ readOnly = false }) {
     try {
       await updateProduct(editingProduct.id, {
         name: editingProduct.name,
+        short_name: editingProduct.short_name || null,
         category: editingProduct.category,
         has_sizes: editingProduct.has_sizes,
         has_colors: editingProduct.has_colors,
@@ -191,7 +192,10 @@ export default function ProductsMobileDemo({ readOnly = false }) {
     setExpandedProduct(expandedProduct === productId ? null : productId);
   };
 
-  const filtered = products.filter(p => p.name.toLowerCase().includes(search.toLowerCase()));
+  const filtered = products.filter(p =>
+    p.name.toLowerCase().includes(search.toLowerCase()) ||
+    (p.short_name && p.short_name.toLowerCase().includes(search.toLowerCase()))
+  );
 
   if (loading) return <div className="loading">Loading products...</div>;
 
@@ -358,7 +362,10 @@ export default function ProductsMobileDemo({ readOnly = false }) {
                 )}
 
                 <div style={S.meta}>
-                  <div style={S.productName}>{product.name}</div>
+                  <div style={S.productName}>
+                    {product.name}
+                    {product.short_name && <span style={{ fontWeight: 500, color: 'var(--accent)', fontSize: 12, marginLeft: 6 }}>[{product.short_name}]</span>}
+                  </div>
                   <div style={S.badges}>
                     <span style={S.pill('#8892b0')}>{product.category}</span>
                     {supplier && <span style={S.pill('var(--accent)')}>{supplier.name}</span>}
@@ -446,6 +453,10 @@ export default function ProductsMobileDemo({ readOnly = false }) {
                 <input className="form-input" placeholder="e.g. NY Cap" value={newProduct.name} onChange={e => setNewProduct({...newProduct, name: e.target.value})} />
               </div>
               <div className="form-group">
+                <label className="form-label">Short Name <span style={{ color: '#8892b0', fontWeight: 400 }}>(optional)</span></label>
+                <input className="form-input" placeholder="e.g. NYC" value={newProduct.short_name} onChange={e => setNewProduct({...newProduct, short_name: e.target.value})} />
+              </div>
+              <div className="form-group">
                 <label className="form-label">Category</label>
                 <select className="form-input" value={newProduct.category} onChange={e => setNewProduct({...newProduct, category: e.target.value})}>
                   {CATEGORIES.map(c => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
@@ -507,6 +518,10 @@ export default function ProductsMobileDemo({ readOnly = false }) {
               <div className="form-group">
                 <label className="form-label">Product Name</label>
                 <input className="form-input" value={editingProduct.name} onChange={e => setEditingProduct({...editingProduct, name: e.target.value})} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Short Name <span style={{ color: '#8892b0', fontWeight: 400 }}>(optional)</span></label>
+                <input className="form-input" placeholder="e.g. NYC" value={editingProduct.short_name || ''} onChange={e => setEditingProduct({...editingProduct, short_name: e.target.value})} />
               </div>
               <div className="form-group">
                 <label className="form-label">Category</label>

@@ -50,6 +50,7 @@ class Product(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     name = Column(String, nullable=False)
+    short_name = Column(String, nullable=True)
     category = Column(String, default="caps")
     has_sizes = Column(Boolean, default=True)
     has_colors = Column(Boolean, default=True)

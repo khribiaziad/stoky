@@ -61,6 +61,7 @@ with engine.connect() as conn:
         "ALTER TABLE variants ADD COLUMN low_stock_threshold INTEGER DEFAULT 5",
         "ALTER TABLE orders ADD COLUMN confirmed_by INTEGER REFERENCES team_members(id)",
         "ALTER TABLE packs ADD COLUMN item_count INTEGER DEFAULT 1",
+        "ALTER TABLE products ADD COLUMN short_name VARCHAR",
     ]:
         try:
             conn.execute(text(stmt))
