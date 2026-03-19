@@ -70,8 +70,11 @@ def serialize_pack(pack: models.Pack, db: Session) -> dict:
 
 @router.get("")
 def list_packs(db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
-    packs = db.query(models.Pack).filter(models.Pack.user_id == get_store_id(user)).all()
-    return [serialize_pack(p, db) for p in packs]
+    try:
+        packs = db.query(models.Pack).filter(models.Pack.user_id == get_store_id(user)).all()
+        return [serialize_pack(p, db) for p in packs]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"packs error: {e}")
 
 
 @router.post("")
