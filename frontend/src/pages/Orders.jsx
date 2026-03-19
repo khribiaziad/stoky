@@ -1784,7 +1784,6 @@ export default function Orders() {
                 if (isMobile) {
                   // ── MOBILE LAYOUT ──────────────────────────────────────────
                   const isReadOnly = manualOrderType === 'offer' || (manualOrderType === 'pack' && selectedPresetId);
-                  const firstItem = manualItems[0] || { variant_id: '', quantity: 1 };
                   return (
                     <>
                       {orderTypeToggle}
@@ -1815,17 +1814,19 @@ export default function Orders() {
                           style={inputH} onChange={e => setManualOrder({ ...manualOrder, customer_address: e.target.value })} />
                       </div>
 
-                      {/* Pack / Offer / Product selector */}
+                      {/* Pack / Offer / Product rows */}
                       {packSelector}
                       {offerSelector}
-                      {manualOrderType === 'single' && (
-                        <div style={{ marginBottom: 12 }}>
-                          <select className="form-input" style={inputH} value={firstItem.variant_id} disabled={isReadOnly}
+                      {manualFieldErrors.products && <div style={fieldErrorStyle}>{manualFieldErrors.products}</div>}
+                      {manualItems.map((item, j) => (
+                        <div key={j} style={{ display: 'flex', gap: 8, marginBottom: 8, opacity: isReadOnly ? 0.7 : 1 }}>
+                          <select className="form-input" style={{ ...inputH, flex: 1 }} value={item.variant_id} disabled={isReadOnly}
                             onChange={e => {
-                              const newItems = [{ ...firstItem, variant_id: e.target.value }];
+                              if (isReadOnly) return;
+                              const newItems = [...manualItems]; newItems[j] = { ...newItems[j], variant_id: e.target.value };
                               setManualItems(newItems);
                               setManualExpenses(prev => ({ ...prev, seal_bag: autoSealBag(newItems) }));
-                              setManualOrder(prev => ({ ...prev, total_amount: calcManualTotal(newItems) }));
+                              if (manualOrderType === 'single') setManualOrder(prev => ({ ...prev, total_amount: calcManualTotal(newItems) }));
                             }}>
                             <option value="">Select product...</option>
                             {allVariants.map(v => (
@@ -1834,27 +1835,39 @@ export default function Orders() {
                               </option>
                             ))}
                           </select>
+                          <input className="form-input" type="number" inputMode="numeric" min="1" placeholder="Qty"
+                            style={{ ...inputH, width: 64, textAlign: 'center', fontWeight: 700 }}
+                            value={item.quantity} readOnly={manualOrderType === 'offer'}
+                            onChange={e => {
+                              if (manualOrderType === 'offer') return;
+                              const newItems = [...manualItems]; newItems[j] = { ...newItems[j], quantity: e.target.value };
+                              setManualItems(newItems);
+                              if (manualOrderType === 'single') setManualOrder(prev => ({ ...prev, total_amount: calcManualTotal(newItems) }));
+                            }} />
+                          {manualItems.length > 1 && manualOrderType === 'single' && (
+                            <button type="button" className="btn btn-danger btn-sm" style={{ minHeight: 48, padding: '0 12px' }} onClick={() => {
+                              const newItems = manualItems.filter((_, idx) => idx !== j);
+                              setManualItems(newItems);
+                              setManualExpenses(prev => ({ ...prev, seal_bag: autoSealBag(newItems) }));
+                              setManualOrder(prev => ({ ...prev, total_amount: calcManualTotal(newItems) }));
+                            }}>✕</button>
+                          )}
                         </div>
+                      ))}
+                      {manualOrderType === 'single' && (
+                        <button type="button" className="btn btn-secondary btn-sm" style={{ width: '100%', marginBottom: 12, minHeight: 44 }}
+                          onClick={() => setManualItems([...manualItems, { variant_id: '', quantity: 1 }])}>
+                          + Add Product
+                        </button>
                       )}
 
-                      {/* Qty + Total row */}
-                      <div style={{ display: 'flex', gap: 10, marginBottom: 16, alignItems: 'stretch' }}>
-                        <input className="form-input" type="number" inputMode="numeric" min="1" placeholder="Qty"
-                          style={{ ...inputH, width: 80, flexShrink: 0, textAlign: 'center', fontSize: 18, fontWeight: 700 }}
-                          value={firstItem.quantity} readOnly={manualOrderType === 'offer'}
-                          onChange={e => {
-                            if (manualOrderType === 'offer') return;
-                            const newItems = [{ ...firstItem, quantity: e.target.value }];
-                            setManualItems(newItems);
-                            if (manualOrderType === 'single') setManualOrder(prev => ({ ...prev, total_amount: calcManualTotal(newItems) }));
-                          }} />
-                        <div style={{ flex: 1, position: 'relative' }}>
-                          <input className="form-input" type="number" min="0" placeholder="Total (MAD)"
-                            style={{ ...inputH, width: '100%', fontWeight: 700, fontSize: 18, color: '#4ade80', cursor: manualOrderType !== 'single' ? 'default' : undefined }}
-                            value={manualOrder.total_amount} readOnly={manualOrderType !== 'single'}
-                            onChange={e => { if (manualOrderType === 'single') setManualOrder({ ...manualOrder, total_amount: e.target.value }); }} />
-                          {manualFieldErrors.total_amount && <div style={fieldErrorStyle}>{manualFieldErrors.total_amount}</div>}
-                        </div>
+                      {/* Total */}
+                      <div style={{ marginBottom: 16 }}>
+                        <input className="form-input" type="number" min="0" placeholder="Total (MAD)"
+                          style={{ ...inputH, width: '100%', fontWeight: 700, fontSize: 20, color: '#4ade80', cursor: manualOrderType !== 'single' ? 'default' : undefined }}
+                          value={manualOrder.total_amount} readOnly={manualOrderType !== 'single'}
+                          onChange={e => { if (manualOrderType === 'single') setManualOrder({ ...manualOrder, total_amount: e.target.value }); }} />
+                        {manualFieldErrors.total_amount && <div style={fieldErrorStyle}>{manualFieldErrors.total_amount}</div>}
                       </div>
 
                       {/* Extra options — collapsed */}
@@ -1968,9 +1981,9 @@ export default function Orders() {
                 );
               })()}
             </div>
-            <div className="modal-footer">
-              <button type="button" className="btn btn-secondary" onClick={() => { setShowManualOrder(false); setError(''); setManualOrderType('single'); setSelectedPackId(''); setSelectedPresetId(''); setSelectedOfferId(''); setPromoCode(''); setPromoResult(null); }}>Cancel</button>
-              <button type="submit" className="btn btn-primary">Create Order</button>
+            <div className="modal-footer" style={window.innerWidth < 768 ? { display: 'flex', gap: 10 } : {}}>
+              <button type="button" className="btn btn-secondary" style={window.innerWidth < 768 ? { flex: 1, minHeight: 52, fontSize: 16 } : {}} onClick={() => { setShowManualOrder(false); setError(''); setManualOrderType('single'); setSelectedPackId(''); setSelectedPresetId(''); setSelectedOfferId(''); setPromoCode(''); setPromoResult(null); }}>Cancel</button>
+              <button type="submit" className="btn btn-primary" style={window.innerWidth < 768 ? { flex: 1, minHeight: 52, fontSize: 16, fontWeight: 700 } : {}}>Create Order</button>
             </div>
           </form>
         </div>
