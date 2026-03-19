@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getSuppliers, createSupplier, updateSupplier, deleteSupplier, getSupplierDetail, addSupplierPayment, deleteSupplierPayment, errorMessage } from '../api';
-import { validateAmount, validateRequired, fieldErrorStyle } from '../utils/validate';
+import { getSuppliers, createSupplier, updateSupplier, deleteSupplier, getSupplierDetail, addSupplierPayment, deleteSupplierPayment } from '../api';
 
 const PLATFORMS = ['Alibaba', 'AliExpress', 'Local', 'Wholesale', 'Direct', 'Other'];
 
@@ -20,8 +19,6 @@ export default function Suppliers() {
 
   const [paymentForm, setPaymentForm] = useState({ amount: '', date: new Date().toISOString().split('T')[0], note: '' });
   const [showPayment, setShowPayment] = useState(null); // supplier id
-  const [paymentFieldErrors, setPaymentFieldErrors] = useState({});
-  const [supplierFieldErrors, setSupplierFieldErrors] = useState({});
 
   const load = () => {
     getSuppliers().then(r => setSuppliers(r.data)).finally(() => setLoading(false));
@@ -65,11 +62,7 @@ export default function Suppliers() {
   };
 
   const handleSave = async () => {
-    const errs = {};
-    const nameErr = validateRequired(form.name, 'Supplier name');
-    if (nameErr) errs.name = nameErr;
-    if (Object.keys(errs).length) { setSupplierFieldErrors(errs); return; }
-    setSupplierFieldErrors({});
+    if (!form.name.trim()) { setError('Supplier name is required'); return; }
     try {
       if (editingSupplier) {
         await updateSupplier(editingSupplier.id, form);
@@ -81,7 +74,7 @@ export default function Suppliers() {
       }
       setError('');
       load();
-    } catch (e) { setError(errorMessage(e)); }
+    } catch (e) { setError(e.response?.data?.detail || 'Error saving supplier'); }
   };
 
   const handleDelete = async (id) => {
@@ -91,16 +84,14 @@ export default function Suppliers() {
   };
 
   const handleAddPayment = async (supplierId) => {
-    const amtErr = validateAmount(paymentForm.amount);
-    if (amtErr) { setPaymentFieldErrors({ amount: amtErr }); return; }
-    setPaymentFieldErrors({});
+    if (!paymentForm.amount || parseFloat(paymentForm.amount) <= 0) { setError('Enter a valid amount'); return; }
     try {
       await addSupplierPayment(supplierId, { ...paymentForm, amount: parseFloat(paymentForm.amount) });
       setShowPayment(null);
       setPaymentForm({ amount: '', date: new Date().toISOString().split('T')[0], note: '' });
       setError('');
       await reloadDetail(supplierId);
-    } catch (e) { setError(errorMessage(e)); }
+    } catch (e) { setError(e.response?.data?.detail || 'Error adding payment'); }
   };
 
   const handleDeletePayment = async (supplierId, paymentId) => {
@@ -136,10 +127,10 @@ export default function Suppliers() {
                 onClick={() => toggleExpand(s.id)}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <span style={{ color: 'var(--t2)', fontSize: 12 }}>{isExpanded ? '▼' : '▶'}</span>
+                  <span style={{ color: '#8892b0', fontSize: 12 }}>{isExpanded ? '▼' : '▶'}</span>
                   <div>
                     <div style={{ fontWeight: 600, fontSize: 16 }}>{s.name}</div>
-                    <div style={{ color: 'var(--t2)', fontSize: 12, marginTop: 2, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                    <div style={{ color: '#8892b0', fontSize: 12, marginTop: 2, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                       {s.platform && <span style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 4, padding: '1px 7px', fontSize: 11 }}>{s.platform}</span>}
                       {s.phone && <span>📞 {s.phone}</span>}
                       <span>{s.product_count} product{s.product_count !== 1 ? 's' : ''}</span>
@@ -160,7 +151,7 @@ export default function Suppliers() {
               {/* Expanded detail */}
               {isExpanded && (
                 <div onClick={e => e.stopPropagation()}>
-                  {loadingDetail === s.id && <div style={{ color: 'var(--t2)', fontSize: 13 }}>Loading...</div>}
+                  {loadingDetail === s.id && <div style={{ color: '#8892b0', fontSize: 13 }}>Loading...</div>}
                   {d && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
@@ -172,7 +163,7 @@ export default function Suppliers() {
                           { label: 'Balance Owed', value: `${fmt(d.balance)} MAD`, color: d.balance > 0 ? '#f87171' : '#4ade80' },
                         ].map(stat => (
                           <div key={stat.label} className="card" style={{ flex: '1 1 140px', padding: '12px 16px', background: 'var(--bg)' }}>
-                            <div style={{ fontSize: 11, color: 'var(--t2)', marginBottom: 4 }}>{stat.label}</div>
+                            <div style={{ fontSize: 11, color: '#8892b0', marginBottom: 4 }}>{stat.label}</div>
                             <div style={{ fontWeight: 700, fontSize: 18, color: stat.color }}>{stat.value}</div>
                           </div>
                         ))}
@@ -181,12 +172,12 @@ export default function Suppliers() {
                       {/* Linked products */}
                       {d.products.length > 0 && (
                         <div>
-                          <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 13, color: 'var(--t2)', textTransform: 'uppercase', letterSpacing: 1 }}>Linked Products</div>
+                          <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 13, color: '#8892b0', textTransform: 'uppercase', letterSpacing: 1 }}>Linked Products</div>
                           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                             {d.products.map(p => (
                               <div key={p.id} style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 14px', fontSize: 13 }}>
                                 <div style={{ fontWeight: 600 }}>{p.name}</div>
-                                <div style={{ color: 'var(--t2)', fontSize: 11 }}>{p.variant_count} variants · {p.total_stock} in stock</div>
+                                <div style={{ color: '#8892b0', fontSize: 11 }}>{p.variant_count} variants · {p.total_stock} in stock</div>
                               </div>
                             ))}
                           </div>
@@ -198,9 +189,9 @@ export default function Suppliers() {
 
                         {/* Purchase History */}
                         <div>
-                          <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 13, color: 'var(--t2)', textTransform: 'uppercase', letterSpacing: 1 }}>Purchase History</div>
+                          <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 13, color: '#8892b0', textTransform: 'uppercase', letterSpacing: 1 }}>Purchase History</div>
                           {d.arrivals.length === 0 ? (
-                            <div style={{ color: 'var(--t2)', fontSize: 13 }}>No purchases yet.</div>
+                            <div style={{ color: '#8892b0', fontSize: 13 }}>No purchases yet.</div>
                           ) : (
                             <div className="table-wrapper">
                               <table>
@@ -215,10 +206,10 @@ export default function Suppliers() {
                                 <tbody>
                                   {d.arrivals.map(a => (
                                     <tr key={a.id}>
-                                      <td style={{ color: 'var(--t2)', fontSize: 12 }}>{a.date?.split('T')[0]}</td>
+                                      <td style={{ color: '#8892b0', fontSize: 12 }}>{a.date?.split('T')[0]}</td>
                                       <td>
                                         <div>{a.product_name}</div>
-                                        {a.variant !== '—' && <div style={{ color: 'var(--t2)', fontSize: 11 }}>{a.variant}</div>}
+                                        {a.variant !== '—' && <div style={{ color: '#8892b0', fontSize: 11 }}>{a.variant}</div>}
                                       </td>
                                       <td>{a.quantity}</td>
                                       <td style={{ fontWeight: 600, color: '#fbbf24' }}>{fmt(a.total_cost)} MAD</td>
@@ -233,7 +224,7 @@ export default function Suppliers() {
                         {/* Payments */}
                         <div>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                            <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--t2)', textTransform: 'uppercase', letterSpacing: 1 }}>Payments Made</div>
+                            <div style={{ fontWeight: 600, fontSize: 13, color: '#8892b0', textTransform: 'uppercase', letterSpacing: 1 }}>Payments Made</div>
                             <button className="btn btn-primary btn-sm" onClick={() => { setError(''); setShowPayment(s.id); }}>+ Add</button>
                           </div>
 
@@ -244,7 +235,6 @@ export default function Suppliers() {
                                 <div className="form-group">
                                   <label className="form-label">Amount (MAD) *</label>
                                   <input className="form-input" type="number" placeholder="0" value={paymentForm.amount} onChange={e => setPaymentForm(f => ({...f, amount: e.target.value}))} />
-                                  {paymentFieldErrors.amount && <div style={fieldErrorStyle}>{paymentFieldErrors.amount}</div>}
                                 </div>
                                 <div className="form-group">
                                   <label className="form-label">Date</label>
@@ -263,7 +253,7 @@ export default function Suppliers() {
                           )}
 
                           {d.payments.length === 0 ? (
-                            <div style={{ color: 'var(--t2)', fontSize: 13 }}>No payments recorded yet.</div>
+                            <div style={{ color: '#8892b0', fontSize: 13 }}>No payments recorded yet.</div>
                           ) : (
                             <div className="table-wrapper">
                               <table>
@@ -273,9 +263,9 @@ export default function Suppliers() {
                                 <tbody>
                                   {d.payments.map(p => (
                                     <tr key={p.id}>
-                                      <td style={{ color: 'var(--t2)', fontSize: 12 }}>{p.date?.split('T')[0]}</td>
+                                      <td style={{ color: '#8892b0', fontSize: 12 }}>{p.date?.split('T')[0]}</td>
                                       <td style={{ fontWeight: 600, color: '#4ade80' }}>{fmt(p.amount)} MAD</td>
-                                      <td style={{ color: 'var(--t2)' }}>{p.note || '—'}</td>
+                                      <td style={{ color: '#8892b0' }}>{p.note || '—'}</td>
                                       <td><button className="btn btn-danger btn-sm" onClick={() => handleDeletePayment(s.id, p.id)}>✕</button></td>
                                     </tr>
                                   ))}
@@ -310,7 +300,6 @@ export default function Suppliers() {
                 <div className="form-group">
                   <label className="form-label">Name *</label>
                   <input className="form-input" placeholder="e.g. Alibaba Store #1" value={form.name} onChange={e => setForm(f => ({...f, name: e.target.value}))} />
-                  {supplierFieldErrors.name && <div style={fieldErrorStyle}>{supplierFieldErrors.name}</div>}
                 </div>
                 <div className="form-group">
                   <label className="form-label">Platform</label>

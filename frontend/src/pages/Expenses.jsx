@@ -5,10 +5,7 @@ import {
   toggleFixedExpense, deleteFixedExpense,
   getWithdrawals, createWithdrawal, deleteWithdrawal,
   getAdPlatforms, getSetting, getTeam,
-  errorMessage,
 } from '../api';
-import ErrorExplain from '../components/ErrorExplain';
-import { validateAmount, validateRequired, fieldErrorStyle } from '../utils/validate';
 
 // ── Catalogues ───────────────────────────────────────────────
 const CATEGORIES = [
@@ -19,7 +16,7 @@ const CATEGORIES = [
   { key: 'equipment',   label: 'Equipment',        color: '#f87171', hint: 'Laptops, printers, label machines' },
   { key: 'legal',       label: 'Legal & Admin',    color: '#fb923c', hint: 'Registration, licenses, accounting fees' },
   { key: 'marketing',   label: 'Marketing',        color: '#e879f9', hint: 'Other marketing not tracked in Ads' },
-  { key: 'other',       label: 'Other',            color: 'var(--t2)', hint: 'Anything else' },
+  { key: 'other',       label: 'Other',            color: '#8892b0', hint: 'Anything else' },
 ];
 
 const TYPES = [
@@ -85,8 +82,6 @@ export default function Expenses() {
 
   const [error,   setError]   = useState('');
   const [success, setSuccess] = useState('');
-  const [expenseFieldErrors,    setExpenseFieldErrors]    = useState({});
-  const [withdrawalFieldErrors, setWithdrawalFieldErrors] = useState({});
 
   // Fixed expense filters
   const [filterType,   setFilterType]   = useState('all');
@@ -113,52 +108,44 @@ export default function Expenses() {
   useEffect(() => { load(); }, []);
 
   // ── Expense CRUD ──────────────────────────────────────────
-  const openNew  = () => { setEditingExpense(null); setExpenseForm(emptyExpense()); setError(''); setExpenseFieldErrors({}); setShowExpenseModal(true); };
+  const openNew  = () => { setEditingExpense(null); setExpenseForm(emptyExpense()); setError(''); setShowExpenseModal(true); };
   const openEdit = (e) => {
     setEditingExpense(e);
     setExpenseForm({ name: e.name, type: e.type, category: e.category || 'other', amount: String(e.amount), description: e.description || '', start_date: e.start_date ? e.start_date.slice(0,10) : todayStr() });
     setError('');
-    setExpenseFieldErrors({});
     setShowExpenseModal(true);
   };
 
   const saveExpense = async () => {
     setError('');
-    const errs = {};
-    const nameErr = validateRequired(expenseForm.name, 'Name');
-    if (nameErr) errs.name = nameErr;
-    const amtErr = validateAmount(expenseForm.amount);
-    if (amtErr) errs.amount = amtErr;
-    if (Object.keys(errs).length) { setExpenseFieldErrors(errs); return; }
-    setExpenseFieldErrors({});
+    if (!expenseForm.name.trim()) { setError('Name is required'); return; }
+    if (!expenseForm.amount || parseFloat(expenseForm.amount) <= 0) { setError('Enter a valid amount'); return; }
     const payload = { ...expenseForm, amount: parseFloat(expenseForm.amount) };
     try {
       editingExpense ? await updateFixedExpense(editingExpense.id, payload) : await createFixedExpense(payload);
       setSuccess(editingExpense ? 'Expense updated' : 'Expense added');
       setShowExpenseModal(false);
       load();
-    } catch (e) { setError(errorMessage(e)); }
+    } catch (e) { setError(e.response?.data?.detail || 'Error saving expense'); }
   };
 
-  const handleToggle        = async (id) => { try { await toggleFixedExpense(id); load(); } catch (e) { setError(errorMessage(e)); } };
-  const handleDeleteExpense = async (id) => { if (!confirm('Delete this expense?')) return; try { await deleteFixedExpense(id); load(); } catch (e) { setError(errorMessage(e)); } };
+  const handleToggle        = async (id) => { try { await toggleFixedExpense(id); load(); } catch (e) { setError('Error'); } };
+  const handleDeleteExpense = async (id) => { if (!confirm('Delete this expense?')) return; try { await deleteFixedExpense(id); load(); } catch (e) { setError('Error'); } };
 
   // ── Withdrawal CRUD ───────────────────────────────────────
   const handleAddWithdrawal = async () => {
     setError('');
-    const amtErr = validateAmount(withdrawalForm.amount);
-    if (amtErr) { setWithdrawalFieldErrors({ amount: amtErr }); return; }
-    setWithdrawalFieldErrors({});
+    if (!withdrawalForm.amount || parseFloat(withdrawalForm.amount) <= 0) { setError('Enter a valid amount'); return; }
     try {
       await createWithdrawal({ ...withdrawalForm, amount: parseFloat(withdrawalForm.amount) });
       setSuccess('Withdrawal recorded');
       setShowAddWithdrawal(false);
       setWithdrawalForm({ amount: '', description: '', date: todayStr() });
       load();
-    } catch (e) { setError(errorMessage(e)); }
+    } catch (e) { setError(e.response?.data?.detail || 'Error'); }
   };
 
-  const handleDeleteWithdrawal = async (id) => { if (!confirm('Delete?')) return; try { await deleteWithdrawal(id); load(); } catch (e) { setError(errorMessage(e)); } };
+  const handleDeleteWithdrawal = async (id) => { if (!confirm('Delete?')) return; try { await deleteWithdrawal(id); load(); } catch (e) { setError('Error'); } };
 
   const exportExpensesCSV = () => {
     const rows = [
@@ -220,29 +207,29 @@ export default function Expenses() {
         </div>
       </div>
 
-      {error   && <ErrorExplain message={error} page="Expenses" />}
+      {error   && <div className="alert alert-error">{error}<button style={{ float:'right', background:'none', border:'none', color:'inherit', cursor:'pointer' }} onClick={() => setError('')}>✕</button></div>}
       {success && <div className="alert alert-success">{success}<button style={{ float:'right', background:'none', border:'none', color:'inherit', cursor:'pointer' }} onClick={() => setSuccess('')}>✕</button></div>}
 
       {/* ── Summary Cards ── */}
       <div className="stat-grid" style={{ marginBottom: 20 }}>
         <div className="stat-card">
           <div className="stat-label">Monthly Burn Rate</div>
-          <div className="stat-value">{fmt(totalMonthlyBurn)} <span style={{ fontSize: 14, color: 'var(--t2)' }}>MAD</span></div>
+          <div className="stat-value">{fmt(totalMonthlyBurn)} <span style={{ fontSize: 14, color: '#8892b0' }}>MAD</span></div>
           <div className="stat-sub">fixed + ads + team salaries</div>
         </div>
         <div className="stat-card">
           <div className="stat-label">Per Order Cost</div>
-          <div className="stat-value">{fmt(totalPerOrder)} <span style={{ fontSize: 14, color: 'var(--t2)' }}>MAD</span></div>
+          <div className="stat-value">{fmt(totalPerOrder)} <span style={{ fontSize: 14, color: '#8892b0' }}>MAD</span></div>
           <div className="stat-sub">expenses + team commissions</div>
         </div>
         <div className="stat-card">
           <div className="stat-label">Ad Spend (This Month)</div>
-          <div className="stat-value" style={{ color: '#a78bfa' }}>{fmt(adsThisMonth)} <span style={{ fontSize: 14, color: 'var(--t2)' }}>MAD</span></div>
+          <div className="stat-value" style={{ color: '#a78bfa' }}>{fmt(adsThisMonth)} <span style={{ fontSize: 14, color: '#8892b0' }}>MAD</span></div>
           <div className="stat-sub">{platforms.length} platform{platforms.length !== 1 ? 's' : ''} · {fmt(adsAllTime)} all time</div>
         </div>
         <div className="stat-card">
           <div className="stat-label">Total Withdrawals</div>
-          <div className="stat-value" style={{ color: '#f87171' }}>{fmt(withdrawalTotal)} <span style={{ fontSize: 14, color: 'var(--t2)' }}>MAD</span></div>
+          <div className="stat-value" style={{ color: '#f87171' }}>{fmt(withdrawalTotal)} <span style={{ fontSize: 14, color: '#8892b0' }}>MAD</span></div>
           <div className="stat-sub">{fmt(manualTotal)} manual · {fmt(stockTotal)} stock</div>
         </div>
       </div>
@@ -286,7 +273,7 @@ export default function Expenses() {
                 <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <span style={{ width: 8, height: 8, borderRadius: '50%', background: (CAT[e.category] || CAT.other).color, flexShrink: 0 }} />
                   <span style={{ flex: 1, fontSize: 14 }}>{e.name}</span>
-                  <span style={{ fontSize: 11, color: 'var(--t2)' }}>{(CAT[e.category] || CAT.other).label}</span>
+                  <span style={{ fontSize: 11, color: '#8892b0' }}>{(CAT[e.category] || CAT.other).label}</span>
                   <span style={{ fontSize: 11 }}><span className={`badge ${TYPE[e.type]?.badge}`}>{TYPE[e.type]?.label}</span></span>
                   <span style={{ fontWeight: 600, minWidth: 110, textAlign: 'right' }}>
                     {fmt(e.type === 'annual' ? e.amount / 12 : e.amount)} MAD/mo
@@ -299,7 +286,7 @@ export default function Expenses() {
                 <div key={`team-${m.id}`} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#60a5fa', flexShrink: 0 }} />
                   <span style={{ flex: 1, fontSize: 14 }}>{m.name}</span>
-                  <span style={{ fontSize: 11, color: 'var(--t2)' }}>Team</span>
+                  <span style={{ fontSize: 11, color: '#8892b0' }}>Team</span>
                   <span className="badge badge-blue" style={{ fontSize: 11 }}>Monthly</span>
                   <span style={{ fontWeight: 600, minWidth: 110, textAlign: 'right' }}>{fmt(m.fixed_monthly)} MAD/mo</span>
                 </div>
@@ -313,7 +300,7 @@ export default function Expenses() {
                   <div key={`ad-${p.id}`} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <span style={{ width: 8, height: 8, borderRadius: '50%', background: p.color, flexShrink: 0 }} />
                     <span style={{ flex: 1, fontSize: 14 }}>{p.label}</span>
-                    <span style={{ fontSize: 11, color: 'var(--t2)' }}>Ads</span>
+                    <span style={{ fontSize: 11, color: '#8892b0' }}>Ads</span>
                     <span className="badge badge-purple" style={{ fontSize: 11 }}>This month</span>
                     <span style={{ fontWeight: 600, minWidth: 110, textAlign: 'right' }}>{fmt(spend)} MAD</span>
                   </div>
@@ -331,14 +318,14 @@ export default function Expenses() {
           <div className="card">
             <div className="card-title" style={{ marginBottom: 16 }}>Per Order Cost Breakdown</div>
             {active.filter(e => e.type === 'per_order').length === 0 && team.filter(m => m.payment_type === 'per_order' || m.payment_type === 'both').length === 0 ? (
-              <div style={{ color: 'var(--t2)', fontSize: 13 }}>No per-order costs configured yet.</div>
+              <div style={{ color: '#8892b0', fontSize: 13 }}>No per-order costs configured yet.</div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {active.filter(e => e.type === 'per_order').map(e => (
                   <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <span style={{ width: 8, height: 8, borderRadius: '50%', background: (CAT[e.category] || CAT.other).color, flexShrink: 0 }} />
                     <span style={{ flex: 1, fontSize: 14 }}>{e.name}</span>
-                    <span style={{ fontSize: 11, color: 'var(--t2)' }}>{(CAT[e.category] || CAT.other).label}</span>
+                    <span style={{ fontSize: 11, color: '#8892b0' }}>{(CAT[e.category] || CAT.other).label}</span>
                     <span style={{ fontWeight: 600, minWidth: 110, textAlign: 'right' }}>{fmt(e.amount)} MAD/order</span>
                   </div>
                 ))}
@@ -346,7 +333,7 @@ export default function Expenses() {
                   <div key={`team-${m.id}`} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#60a5fa', flexShrink: 0 }} />
                     <span style={{ flex: 1, fontSize: 14 }}>{m.name}</span>
-                    <span style={{ fontSize: 11, color: 'var(--t2)' }}>Team</span>
+                    <span style={{ fontSize: 11, color: '#8892b0' }}>Team</span>
                     <span style={{ fontWeight: 600, minWidth: 110, textAlign: 'right' }}>{fmt(m.per_order_rate)} MAD/order</span>
                   </div>
                 ))}
@@ -366,8 +353,8 @@ export default function Expenses() {
                   <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <span style={{ width: 8, height: 8, borderRadius: '50%', background: (CAT[e.category] || CAT.other).color, flexShrink: 0 }} />
                     <span style={{ flex: 1, fontSize: 14 }}>{e.name}</span>
-                    <span style={{ fontSize: 11, color: 'var(--t2)' }}>{(CAT[e.category] || CAT.other).label}</span>
-                    <span style={{ fontSize: 11, color: 'var(--t2)' }}>{e.start_date ? new Date(e.start_date).toLocaleDateString() : ''}</span>
+                    <span style={{ fontSize: 11, color: '#8892b0' }}>{(CAT[e.category] || CAT.other).label}</span>
+                    <span style={{ fontSize: 11, color: '#8892b0' }}>{e.start_date ? new Date(e.start_date).toLocaleDateString() : ''}</span>
                     <span style={{ fontWeight: 600, minWidth: 110, textAlign: 'right' }}>{fmt(e.amount)} MAD</span>
                   </div>
                 ))}
@@ -407,7 +394,7 @@ export default function Expenses() {
           <div className="card">
             {filtered.length === 0 ? (
               <div className="empty-state">
-                <Receipt size={36} strokeWidth={1} style={{ margin: '0 auto 12px', color: 'var(--t2)' }} />
+                <Receipt size={36} strokeWidth={1} style={{ margin: '0 auto 12px', color: '#8892b0' }} />
                 <h3>{expenses.length === 0 ? 'No expenses yet' : 'No results'}</h3>
                 <p>{expenses.length === 0 ? 'Track every recurring and one-time cost' : 'Try adjusting the filters'}</p>
               </div>
@@ -434,15 +421,15 @@ export default function Expenses() {
                           <td><span className={`badge ${type.badge}`}>{type.label}</span></td>
                           <td style={{ fontWeight: 600 }}>
                             {fmt(e.amount)} MAD
-                            <span style={{ fontSize: 11, color: 'var(--t2)', marginLeft: 3 }}>
+                            <span style={{ fontSize: 11, color: '#8892b0', marginLeft: 3 }}>
                               {e.type === 'monthly' ? '/mo' : e.type === 'annual' ? '/yr' : e.type === 'per_order' ? '/order' : ''}
                             </span>
                           </td>
-                          <td style={{ color: 'var(--t2)', fontSize: 13 }}>{monthlyEquiv !== null ? `${fmt(monthlyEquiv)} MAD` : '—'}</td>
-                          <td style={{ color: 'var(--t2)', fontSize: 12 }}>{e.description || '—'}</td>
-                          <td style={{ color: 'var(--t2)', fontSize: 12 }}>{e.start_date ? new Date(e.start_date).toLocaleDateString() : '—'}</td>
+                          <td style={{ color: '#8892b0', fontSize: 13 }}>{monthlyEquiv !== null ? `${fmt(monthlyEquiv)} MAD` : '—'}</td>
+                          <td style={{ color: '#8892b0', fontSize: 12 }}>{e.description || '—'}</td>
+                          <td style={{ color: '#8892b0', fontSize: 12 }}>{e.start_date ? new Date(e.start_date).toLocaleDateString() : '—'}</td>
                           <td>
-                            <button onClick={() => handleToggle(e.id)} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 600, background: e.is_active ? '#0d2a1e' : '#2d3248', color: e.is_active ? '#00d48f' : 'var(--t2)' }}>
+                            <button onClick={() => handleToggle(e.id)} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 600, background: e.is_active ? '#0d2a1e' : '#2d3248', color: e.is_active ? '#00d48f' : '#8892b0' }}>
                               <Power size={10} /> {e.is_active ? 'Active' : 'Paused'}
                             </button>
                           </td>
@@ -470,7 +457,7 @@ export default function Expenses() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {platforms.length === 0 ? (
             <div className="card"><div className="empty-state">
-              <Megaphone size={36} strokeWidth={1} style={{ margin: '0 auto 12px', color: 'var(--t2)' }} />
+              <Megaphone size={36} strokeWidth={1} style={{ margin: '0 auto 12px', color: '#8892b0' }} />
               <h3>No platforms added</h3>
               <p>Go to the Ads page to add your ad platforms</p>
             </div></div>
@@ -484,18 +471,18 @@ export default function Expenses() {
                   <span style={{ width: 12, height: 12, borderRadius: '50%', background: p.color, flexShrink: 0 }} />
                   <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: 700, fontSize: 16 }}>{p.label}</div>
-                    <div style={{ fontSize: 12, color: 'var(--t2)', marginTop: 2 }}>
+                    <div style={{ fontSize: 12, color: '#8892b0', marginTop: 2 }}>
                       {running
                         ? <span style={{ color: '#00d48f' }}>● Running · ${running.daily_rate_usd}/day ({fmt(running.daily_rate_usd * usdRate)} MAD)</span>
                         : <span>No active campaign</span>}
                     </div>
                   </div>
                   <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: 11, color: 'var(--t2)' }}>This month</div>
+                    <div style={{ fontSize: 11, color: '#8892b0' }}>This month</div>
                     <div style={{ fontWeight: 700, fontSize: 18, color: p.color }}>{fmt(thisMonth)} MAD</div>
                   </div>
                   <div style={{ textAlign: 'right', paddingLeft: 20, borderLeft: '1px solid #2d3248' }}>
-                    <div style={{ fontSize: 11, color: 'var(--t2)' }}>All time</div>
+                    <div style={{ fontSize: 11, color: '#8892b0' }}>All time</div>
                     <div style={{ fontWeight: 700, fontSize: 18 }}>{fmt(allTime)} MAD</div>
                   </div>
                 </div>
@@ -510,8 +497,8 @@ export default function Expenses() {
                           return (
                             <tr key={c.id}>
                               <td>{isRunning ? <span className="badge badge-green">● Running</span> : <span className="badge badge-gray">Ended</span>}</td>
-                              <td style={{ fontSize: 12, color: 'var(--t2)' }}>{c.start_date.slice(0,10)}</td>
-                              <td style={{ fontSize: 12, color: 'var(--t2)' }}>{c.end_date ? c.end_date.slice(0,10) : <span style={{ color: '#00d48f' }}>Today</span>}</td>
+                              <td style={{ fontSize: 12, color: '#8892b0' }}>{c.start_date.slice(0,10)}</td>
+                              <td style={{ fontSize: 12, color: '#8892b0' }}>{c.end_date ? c.end_date.slice(0,10) : <span style={{ color: '#00d48f' }}>Today</span>}</td>
                               <td style={{ color: '#60a5fa' }}>${c.daily_rate_usd}</td>
                               <td style={{ fontWeight: 600, color: '#f59e0b' }}>{fmt(days * c.daily_rate_usd * usdRate)}</td>
                             </tr>
@@ -534,7 +521,7 @@ export default function Expenses() {
         <div className="card">
           {team.length === 0 ? (
             <div className="empty-state">
-              <Users size={36} strokeWidth={1} style={{ margin: '0 auto 12px', color: 'var(--t2)' }} />
+              <Users size={36} strokeWidth={1} style={{ margin: '0 auto 12px', color: '#8892b0' }} />
               <h3>No team members</h3>
               <p>Add team members on the Team page to track labor costs</p>
             </div>
@@ -548,13 +535,13 @@ export default function Expenses() {
                   {team.map(m => (
                     <tr key={m.id}>
                       <td style={{ fontWeight: 600 }}>{m.name}</td>
-                      <td style={{ color: 'var(--t2)' }}>{m.role || '—'}</td>
+                      <td style={{ color: '#8892b0' }}>{m.role || '—'}</td>
                       <td><span className="badge badge-purple">{m.payment_type}</span></td>
                       <td style={{ fontWeight: 600 }}>
-                        {m.fixed_monthly ? <>{fmt(m.fixed_monthly)} <span style={{ fontSize: 11, color: 'var(--t2)' }}>MAD/mo</span></> : '—'}
+                        {m.fixed_monthly ? <>{fmt(m.fixed_monthly)} <span style={{ fontSize: 11, color: '#8892b0' }}>MAD/mo</span></> : '—'}
                       </td>
                       <td style={{ fontWeight: 600 }}>
-                        {m.per_order_rate ? <>{fmt(m.per_order_rate)} <span style={{ fontSize: 11, color: 'var(--t2)' }}>MAD/order</span></> : '—'}
+                        {m.per_order_rate ? <>{fmt(m.per_order_rate)} <span style={{ fontSize: 11, color: '#8892b0' }}>MAD/order</span></> : '—'}
                       </td>
                       <td>{m.is_active ? <span className="badge badge-green">Active</span> : <span className="badge badge-gray">Inactive</span>}</td>
                     </tr>
@@ -581,7 +568,7 @@ export default function Expenses() {
         <div className="card">
           {withdrawals.length === 0 ? (
             <div className="empty-state">
-              <ArrowDownCircle size={36} strokeWidth={1} style={{ margin: '0 auto 12px', color: 'var(--t2)' }} />
+              <ArrowDownCircle size={36} strokeWidth={1} style={{ margin: '0 auto 12px', color: '#8892b0' }} />
               <h3>No withdrawals yet</h3>
               <p>Manual cash withdrawals and auto-logged stock purchases appear here</p>
             </div>
@@ -592,11 +579,11 @@ export default function Expenses() {
                 <tbody>
                   {withdrawals.map(w => (
                     <tr key={w.id}>
-                      <td style={{ color: 'var(--t2)', fontSize: 12 }}>{w.date ? new Date(w.date).toLocaleDateString() : '—'}</td>
+                      <td style={{ color: '#8892b0', fontSize: 12 }}>{w.date ? new Date(w.date).toLocaleDateString() : '—'}</td>
                       <td style={{ fontWeight: 700, color: '#f87171' }}>{fmt(w.amount)} MAD</td>
                       <td><span className={`badge ${w.type === 'stock_purchase' ? 'badge-yellow' : 'badge-red'}`}>{w.type === 'stock_purchase' ? 'Stock Purchase' : 'Manual'}</span></td>
-                      <td style={{ color: 'var(--t2)' }}>{w.description || '—'}</td>
-                      <td>{w.type === 'manual' ? <button className="btn btn-danger btn-sm" onClick={() => handleDeleteWithdrawal(w.id)}><Trash2 size={12} /></button> : <span style={{ fontSize: 11, color: 'var(--t2)' }}>auto</span>}</td>
+                      <td style={{ color: '#8892b0' }}>{w.description || '—'}</td>
+                      <td>{w.type === 'manual' ? <button className="btn btn-danger btn-sm" onClick={() => handleDeleteWithdrawal(w.id)}><Trash2 size={12} /></button> : <span style={{ fontSize: 11, color: '#8892b0' }}>auto</span>}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -619,14 +606,13 @@ export default function Expenses() {
               <div className="form-group">
                 <label className="form-label">Name *</label>
                 <input className="form-input" placeholder="e.g. Office Rent, Caleo Subscription..." value={expenseForm.name} onChange={e => setExpenseForm({ ...expenseForm, name: e.target.value })} />
-                {expenseFieldErrors.name && <div style={fieldErrorStyle}>{expenseFieldErrors.name}</div>}
               </div>
               <div className="form-group">
                 <label className="form-label">Category</label>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: 8 }}>
                   {CATEGORIES.map(c => (
                     <button key={c.key} onClick={() => setExpenseForm({ ...expenseForm, category: c.key })}
-                      style={{ padding: '8px 12px', borderRadius: 8, border: `1.5px solid ${expenseForm.category === c.key ? c.color : '#2d3248'}`, background: expenseForm.category === c.key ? `${c.color}18` : '#1d1d27', color: expenseForm.category === c.key ? c.color : 'var(--t2)', cursor: 'pointer', textAlign: 'left', fontSize: 12 }}>
+                      style={{ padding: '8px 12px', borderRadius: 8, border: `1.5px solid ${expenseForm.category === c.key ? c.color : '#2d3248'}`, background: expenseForm.category === c.key ? `${c.color}18` : '#1d1d27', color: expenseForm.category === c.key ? c.color : '#8892b0', cursor: 'pointer', textAlign: 'left', fontSize: 12 }}>
                       <div style={{ fontWeight: 600, marginBottom: 2 }}>{c.label}</div>
                       <div style={{ fontSize: 10, opacity: 0.7 }}>{c.hint}</div>
                     </button>
@@ -638,7 +624,7 @@ export default function Expenses() {
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   {TYPES.map(t => (
                     <button key={t.key} onClick={() => setExpenseForm({ ...expenseForm, type: t.key })}
-                      style={{ padding: '7px 16px', borderRadius: 8, border: `1.5px solid ${expenseForm.type === t.key ? '#00d48f' : '#2d3248'}`, background: expenseForm.type === t.key ? '#00d48f18' : '#1d1d27', color: expenseForm.type === t.key ? '#00d48f' : 'var(--t2)', cursor: 'pointer', fontSize: 12 }}>
+                      style={{ padding: '7px 16px', borderRadius: 8, border: `1.5px solid ${expenseForm.type === t.key ? '#00d48f' : '#2d3248'}`, background: expenseForm.type === t.key ? '#00d48f18' : '#1d1d27', color: expenseForm.type === t.key ? '#00d48f' : '#8892b0', cursor: 'pointer', fontSize: 12 }}>
                       <div style={{ fontWeight: 600 }}>{t.label}</div>
                       <div style={{ fontSize: 10, opacity: 0.7 }}>{t.hint}</div>
                     </button>
@@ -650,11 +636,10 @@ export default function Expenses() {
                   <label className="form-label">
                     Amount (MAD)
                     {expenseForm.type === 'annual' && expenseForm.amount && (
-                      <span style={{ color: 'var(--t2)', fontWeight: 400, marginLeft: 8 }}>= {fmt(parseFloat(expenseForm.amount) / 12)} MAD/month</span>
+                      <span style={{ color: '#8892b0', fontWeight: 400, marginLeft: 8 }}>= {fmt(parseFloat(expenseForm.amount) / 12)} MAD/month</span>
                     )}
                   </label>
                   <input className="form-input" type="number" min="0" step="0.01" placeholder="0.00" value={expenseForm.amount} onChange={e => setExpenseForm({ ...expenseForm, amount: e.target.value })} />
-                  {expenseFieldErrors.amount && <div style={fieldErrorStyle}>{expenseFieldErrors.amount}</div>}
                 </div>
                 <div className="form-group">
                   <label className="form-label">Start Date</label>
@@ -662,7 +647,7 @@ export default function Expenses() {
                 </div>
               </div>
               <div className="form-group">
-                <label className="form-label">Description <span style={{ color: 'var(--t2)', fontWeight: 400 }}>(optional)</span></label>
+                <label className="form-label">Description <span style={{ color: '#8892b0', fontWeight: 400 }}>(optional)</span></label>
                 <input className="form-input" placeholder="Notes, supplier, contract details..." value={expenseForm.description} onChange={e => setExpenseForm({ ...expenseForm, description: e.target.value })} />
               </div>
             </div>
@@ -687,10 +672,9 @@ export default function Expenses() {
               <div className="form-group">
                 <label className="form-label">Amount (MAD) *</label>
                 <input className="form-input" type="number" min="0" placeholder="0.00" value={withdrawalForm.amount} onChange={e => setWithdrawalForm({ ...withdrawalForm, amount: e.target.value })} />
-                {withdrawalFieldErrors.amount && <div style={fieldErrorStyle}>{withdrawalFieldErrors.amount}</div>}
               </div>
               <div className="form-group">
-                <label className="form-label">Description <span style={{ color: 'var(--t2)', fontWeight: 400 }}>(optional)</span></label>
+                <label className="form-label">Description <span style={{ color: '#8892b0', fontWeight: 400 }}>(optional)</span></label>
                 <input className="form-input" placeholder="e.g. Owner withdrawal, cash taken..." value={withdrawalForm.description} onChange={e => setWithdrawalForm({ ...withdrawalForm, description: e.target.value })} />
               </div>
               <div className="form-group">

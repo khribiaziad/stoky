@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getReportSummary, getTopProducts, getTopCities, errorMessage } from '../api';
-import ErrorExplain from '../components/ErrorExplain';
+import { getReportSummary, getTopProducts, getTopCities } from '../api';
 
 const PERIODS = [
   { value: 'this_month', label: 'This Month' },
@@ -20,7 +19,6 @@ export default function Reports() {
   const [topProducts, setTopProducts] = useState([]);
   const [topCities, setTopCities] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState('');
   const [compare, setCompare] = useState(false);
   const [prevSummary, setPrevSummary] = useState(null);
 
@@ -58,7 +56,6 @@ export default function Reports() {
 
   const load = () => {
     setLoading(true);
-    setLoadError('');
     const params = { period: period || undefined };
     if (period === 'custom') {
       params.start = customStart;
@@ -73,8 +70,7 @@ export default function Reports() {
       setSummary(s.data);
       setTopProducts(p.data);
       setTopCities(c.data);
-    }).catch(e => setLoadError(errorMessage(e)))
-      .finally(() => setLoading(false));
+    }).finally(() => setLoading(false));
   };
 
   useEffect(() => {
@@ -108,7 +104,7 @@ export default function Reports() {
           {period === 'custom' && (
             <>
               <input className="form-input" type="date" style={{ width: 'auto' }} value={customStart} onChange={e => setCustomStart(e.target.value)} />
-              <span style={{ color: 'var(--t2)' }}>to</span>
+              <span style={{ color: '#8892b0' }}>to</span>
               <input className="form-input" type="date" style={{ width: 'auto' }} value={customEnd} onChange={e => setCustomEnd(e.target.value)} />
               <button className="btn btn-primary" onClick={load}>Apply</button>
             </>
@@ -127,13 +123,11 @@ export default function Reports() {
         </div>
       </div>
 
-      {loadError && <ErrorExplain message={loadError} page="Reports" />}
-
       {loading ? <div className="loading">Loading reports...</div> : (
         <>
           {/* Capital Summary */}
           {compare && prevSummary && (
-            <div style={{ background: '#1a1a2e', border: '1px solid #2d3248', borderRadius: 8, padding: '8px 14px', marginBottom: 12, fontSize: 12, color: 'var(--t2)' }}>
+            <div style={{ background: '#1a1a2e', border: '1px solid #2d3248', borderRadius: 8, padding: '8px 14px', marginBottom: 12, fontSize: 12, color: '#8892b0' }}>
               ⇄ Comparing to previous period
             </div>
           )}
@@ -172,7 +166,7 @@ export default function Reports() {
                   { label: 'Facebook Ads', value: f.ads_costs },
                 ].map(item => (
                   <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ color: 'var(--t2)' }}>{item.label}</span>
+                    <span style={{ color: '#8892b0' }}>{item.label}</span>
                     <span style={{ fontWeight: 600, color: '#f87171' }}>{item.value?.toLocaleString()} MAD</span>
                   </div>
                 ))}
@@ -200,7 +194,7 @@ export default function Reports() {
                   { label: 'Avg Order Value', value: o.avg_order_value, unit: ' MAD' },
                 ].map(item => (
                   <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ color: 'var(--t2)' }}>{item.label}</span>
+                    <span style={{ color: '#8892b0' }}>{item.label}</span>
                     <span style={{ fontWeight: 600 }}>{item.value}{item.unit}</span>
                   </div>
                 ))}
@@ -208,7 +202,7 @@ export default function Reports() {
                   <>
                     <hr className="divider" />
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ color: 'var(--t2)' }}>Ads Cost / Order</span>
+                      <span style={{ color: '#8892b0' }}>Ads Cost / Order</span>
                       <span style={{ fontWeight: 600, color: '#fbbf24' }}>
                         {o.delivered > 0 ? `${(f.ads_costs / o.delivered).toFixed(1)} MAD` : '—'}
                       </span>
@@ -224,7 +218,7 @@ export default function Reports() {
             <div className="card">
               <div className="card-title">Top Products</div>
               {topProducts.length === 0 ? (
-                <div style={{ color: 'var(--t2)', textAlign: 'center', padding: 20 }}>No data yet</div>
+                <div style={{ color: '#8892b0', textAlign: 'center', padding: 20 }}>No data yet</div>
               ) : (
                 <div className="table-wrapper">
                   <table>
@@ -232,7 +226,7 @@ export default function Reports() {
                     <tbody>
                       {topProducts.map((p, i) => (
                         <tr key={p.product_name}>
-                          <td style={{ color: 'var(--t2)' }}>{i + 1}</td>
+                          <td style={{ color: '#8892b0' }}>{i + 1}</td>
                           <td style={{ fontWeight: 500 }}>{p.product_name}</td>
                           <td style={{ fontWeight: 600, color: '#4ade80' }}>{p.total_qty}</td>
                           <td>{p.order_count}</td>
@@ -248,7 +242,7 @@ export default function Reports() {
             <div className="card">
               <div className="card-title">Top Cities</div>
               {topCities.length === 0 ? (
-                <div style={{ color: 'var(--t2)', textAlign: 'center', padding: 20 }}>No data yet</div>
+                <div style={{ color: '#8892b0', textAlign: 'center', padding: 20 }}>No data yet</div>
               ) : (
                 <div className="table-wrapper">
                   <table>
@@ -256,7 +250,7 @@ export default function Reports() {
                     <tbody>
                       {topCities.map((c, i) => (
                         <tr key={c.city}>
-                          <td style={{ color: 'var(--t2)' }}>{i + 1}</td>
+                          <td style={{ color: '#8892b0' }}>{i + 1}</td>
                           <td style={{ fontWeight: 500 }}>{c.city}</td>
                           <td style={{ fontWeight: 600, color: '#60a5fa' }}>{c.order_count}</td>
                           <td>{c.revenue?.toLocaleString()} MAD</td>
