@@ -99,6 +99,8 @@ export default function Orders() {
   const [manualItems, setManualItems] = useState([{ variant_id: '', quantity: 1 }]);
   const [manualExpenses, setManualExpenses] = useState({ sticker: 0, seal_bag: 0, packaging: 1 });
   const [manualOrderType, setManualOrderType] = useState('single'); // 'single' | 'pack' | 'offer'
+  const [showExtraOptions, setShowExtraOptions] = useState(false);
+  const nameInputRef = useRef(null);
   const [selectedPackId, setSelectedPackId] = useState('');
   const [selectedPresetId, setSelectedPresetId] = useState('');
   const [selectedOfferId, setSelectedOfferId] = useState('');
@@ -281,6 +283,13 @@ export default function Orders() {
       .catch(() => {});
   }, []);
 
+  // Auto-focus name field when manual order form opens (mobile UX)
+  useEffect(() => {
+    if (showManualOrder && nameInputRef.current) {
+      setTimeout(() => nameInputRef.current?.focus(), 80);
+    }
+  }, [showManualOrder]);
+
   useEffect(() => {
     if (!showMoreMenu) return;
     const handler = (e) => {
@@ -322,14 +331,21 @@ export default function Orders() {
         promo_code: promoResult?.discount > 0 ? promoResult.code : null,
         discount_amount: discount,
       }]);
+      const isMobileSubmit = window.innerWidth < 768;
       setSuccess('Order created successfully!');
-      setShowManualOrder(false);
       setManualOrder(emptyManualOrder());
       setManualItems([{ variant_id: '', quantity: 1 }]);
       setManualExpenses({ sticker: 0, seal_bag: 0, packaging: 1 });
       setManualOrderType('single');
       setSelectedPackId(''); setSelectedPresetId(''); setSelectedOfferId('');
       setPromoCode(''); setPromoResult(null);
+      setShowExtraOptions(false);
+      if (isMobileSubmit) {
+        // Keep form open for next order — re-focus name field
+        setTimeout(() => nameInputRef.current?.focus(), 80);
+      } else {
+        setShowManualOrder(false);
+      }
       load();
     } catch (e) { setError(errorMessage(e)); }
   };
@@ -1646,250 +1662,311 @@ export default function Orders() {
             <div className="modal-body">
               {error && <div className="alert alert-error">{error}</div>}
 
-              {/* Order type toggle — only shown if store has active packs or offers */}
-              {hasPacksOrOffers && (
-                <div style={{ display: 'flex', gap: 4, marginBottom: 16, background: '#0f1117', borderRadius: 8, padding: 4 }}>
-                  {['single', 'pack', 'offer'].map(type => (
-                    <button key={type} onClick={() => {
-                      setManualOrderType(type);
-                      setSelectedPackId(''); setSelectedPresetId(''); setSelectedOfferId('');
+              {(() => {
+                const isMobile = window.innerWidth < 768;
+                const inputH = { minHeight: 48 };
+
+                // Shared: order type toggle
+                const orderTypeToggle = hasPacksOrOffers && (
+                  <div style={{ display: 'flex', gap: 4, marginBottom: 16, background: '#0f1117', borderRadius: 8, padding: 4 }}>
+                    {['single', 'pack', 'offer'].map(type => (
+                      <button key={type} type="button" onClick={() => {
+                        setManualOrderType(type);
+                        setSelectedPackId(''); setSelectedPresetId(''); setSelectedOfferId('');
+                        setManualItems([{ variant_id: '', quantity: 1 }]);
+                        setManualOrder(prev => ({ ...prev, total_amount: '' }));
+                        setManualExpenses({ sticker: 0, seal_bag: 0, packaging: 1 });
+                        setPromoCode(''); setPromoResult(null);
+                      }} style={{
+                        flex: 1, padding: isMobile ? '10px 0' : '7px 0', borderRadius: 6, border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: 13,
+                        background: manualOrderType === type ? 'var(--accent)' : 'transparent',
+                        color: manualOrderType === type ? '#0f1117' : '#8892b0',
+                        transition: 'all 0.15s',
+                      }}>
+                        {type === 'single' ? 'Product' : type === 'pack' ? 'Pack' : 'Offer'}
+                      </button>
+                    ))}
+                  </div>
+                );
+
+                // Shared: pack selector
+                const packSelector = manualOrderType === 'pack' && (
+                  <div style={{ marginBottom: 12 }}>
+                    <select className="form-input" style={isMobile ? inputH : {}} value={selectedPackId} onChange={e => {
+                      const pid = e.target.value;
+                      setSelectedPackId(pid); setSelectedPresetId('');
                       setManualItems([{ variant_id: '', quantity: 1 }]);
-                      setManualOrder(prev => ({ ...prev, total_amount: '' }));
-                      setManualExpenses({ sticker: 0, seal_bag: 0, packaging: 1 });
-                      setPromoCode(''); setPromoResult(null);
-                    }} style={{
-                      flex: 1, padding: '7px 0', borderRadius: 6, border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: 13,
-                      background: manualOrderType === type ? 'var(--accent)' : 'transparent',
-                      color: manualOrderType === type ? '#0f1117' : '#8892b0',
-                      transition: 'all 0.15s',
+                      if (pid) {
+                        const pk = activePacks.find(p => p.id === parseInt(pid));
+                        if (pk) { setManualOrder(prev => ({ ...prev, total_amount: String(pk.selling_price) })); setManualExpenses(prev => ({ ...prev, packaging: pk.packaging_cost || 1 })); }
+                      }
                     }}>
-                      {type === 'single' ? 'Single Product' : type === 'pack' ? 'Pack' : 'Offer'}
-                    </button>
-                  ))}
-                </div>
-              )}
+                      <option value="">— Select a pack —</option>
+                      {activePacks.map(p => <option key={p.id} value={p.id}>{p.name} — {p.selling_price} MAD</option>)}
+                    </select>
+                    {selectedPackId && (() => {
+                      const pk = activePacks.find(p => p.id === parseInt(selectedPackId));
+                      if (!pk || pk.presets.length === 0) return null;
+                      return (
+                        <div style={{ marginTop: 8 }}>
+                          <select className="form-input" style={isMobile ? inputH : {}} value={selectedPresetId} onChange={e => {
+                            const prid = e.target.value; setSelectedPresetId(prid);
+                            if (prid) { const pr = pk.presets.find(p => p.id === parseInt(prid)); if (pr) setManualItems(pr.items.map(it => ({ variant_id: String(it.variant_id), quantity: it.quantity }))); }
+                            else setManualItems([{ variant_id: '', quantity: 1 }]);
+                          }}>
+                            <option value="">— Select a preset —</option>
+                            {pk.presets.map(pr => <option key={pr.id} value={pr.id}>{pr.name}</option>)}
+                          </select>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                );
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
-                <div>
-                  <label className="form-label">CMD ID <span style={{ color: 'var(--accent)', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>auto</span></label>
-                  <input className="form-input" value={manualOrder.caleo_id} readOnly
-                    style={{ color: 'var(--accent)', fontFamily: 'monospace', opacity: 0.8, cursor: 'default' }} />
-                </div>
-                <div>
-                  <label className="form-label">Customer Name *</label>
-                  <input className="form-input" placeholder="Full name" value={manualOrder.customer_name}
-                    onChange={e => setManualOrder({ ...manualOrder, customer_name: e.target.value })} />
-                  {manualFieldErrors.customer_name && <div style={fieldErrorStyle}>{manualFieldErrors.customer_name}</div>}
-                </div>
-                <div>
-                  <label className="form-label">Phone</label>
-                  <input className="form-input" placeholder="0600000000" value={manualOrder.customer_phone}
-                    onKeyDown={numericOnly}
-                    onChange={e => setManualOrder({ ...manualOrder, customer_phone: e.target.value })} />
-                  {manualFieldErrors.customer_phone && <div style={fieldErrorStyle}>{manualFieldErrors.customer_phone}</div>}
-                </div>
-                <div>
-                  <label className="form-label">City</label>
-                  <input className="form-input" placeholder="City" value={manualOrder.city}
-                    onChange={e => setManualOrder({ ...manualOrder, city: e.target.value })} />
-                </div>
-                <div style={{ gridColumn: '1 / -1' }}>
-                  <label className="form-label">Address</label>
-                  <input className="form-input" placeholder="Delivery address" value={manualOrder.customer_address}
-                    onChange={e => setManualOrder({ ...manualOrder, customer_address: e.target.value })} />
-                </div>
-                <div>
-                  <label className="form-label">
-                    Total Amount (MAD) *
-                    {manualOrder.total_amount && manualOrderType === 'single' && <span style={{ fontWeight: 400, color: 'var(--accent)', textTransform: 'none', letterSpacing: 0, marginLeft: 6 }}>auto</span>}
-                  </label>
-                  <input className="form-input" type="number" min="0" placeholder="0.00"
-                    value={manualOrder.total_amount}
-                    readOnly={manualOrderType !== 'single'}
-                    style={manualOrderType !== 'single' ? { opacity: 0.6, cursor: 'default' } : {}}
-                    onChange={e => {
-                      if (manualOrderType === 'single') setManualOrder({ ...manualOrder, total_amount: e.target.value });
-                    }} />
-                  {manualFieldErrors.total_amount && <div style={fieldErrorStyle}>{manualFieldErrors.total_amount}</div>}
-                </div>
-              </div>
+                // Shared: offer selector
+                const offerSelector = manualOrderType === 'offer' && (
+                  <div style={{ marginBottom: 12 }}>
+                    <select className="form-input" style={isMobile ? inputH : {}} value={selectedOfferId} onChange={e => {
+                      const oid = e.target.value; setSelectedOfferId(oid);
+                      if (oid) {
+                        const off = activeOffers.find(o => o.id === parseInt(oid));
+                        if (off) { setManualOrder(prev => ({ ...prev, total_amount: String(off.selling_price) })); setManualExpenses(prev => ({ ...prev, packaging: off.packaging_cost || 1 })); setManualItems(off.items.map(it => ({ variant_id: String(it.variant_id), quantity: it.quantity }))); }
+                      } else { setManualItems([{ variant_id: '', quantity: 1 }]); setManualOrder(prev => ({ ...prev, total_amount: '' })); }
+                    }}>
+                      <option value="">— Select an offer —</option>
+                      {activeOffers.map(o => <option key={o.id} value={o.id}>{o.name} — {o.selling_price} MAD</option>)}
+                    </select>
+                  </div>
+                );
 
-              {/* Pack selector */}
-              {manualOrderType === 'pack' && (
-                <div style={{ marginBottom: 16 }}>
-                  <label className="form-label">Select Pack</label>
-                  <select className="form-input" value={selectedPackId} onChange={e => {
-                    const pid = e.target.value;
-                    setSelectedPackId(pid);
-                    setSelectedPresetId('');
-                    setManualItems([{ variant_id: '', quantity: 1 }]);
-                    if (pid) {
-                      const pk = activePacks.find(p => p.id === parseInt(pid));
-                      if (pk) {
-                        setManualOrder(prev => ({ ...prev, total_amount: String(pk.selling_price) }));
-                        setManualExpenses(prev => ({ ...prev, packaging: pk.packaging_cost || 1 }));
-                      }
-                    }
-                  }}>
-                    <option value="">— Select a pack —</option>
-                    {activePacks.map(p => (
-                      <option key={p.id} value={p.id}>{p.name} — {p.selling_price} MAD</option>
-                    ))}
-                  </select>
-                  {selectedPackId && (() => {
-                    const pk = activePacks.find(p => p.id === parseInt(selectedPackId));
-                    if (!pk || pk.presets.length === 0) return null;
-                    return (
-                      <div style={{ marginTop: 10 }}>
-                        <label className="form-label">Preset</label>
-                        <select className="form-input" value={selectedPresetId} onChange={e => {
-                          const prid = e.target.value;
-                          setSelectedPresetId(prid);
-                          if (prid) {
-                            const preset = pk.presets.find(pr => pr.id === parseInt(prid));
-                            if (preset) setManualItems(preset.items.map(it => ({ variant_id: String(it.variant_id), quantity: it.quantity })));
-                          } else {
-                            setManualItems([{ variant_id: '', quantity: 1 }]);
-                          }
-                        }}>
-                          <option value="">— Select a preset —</option>
-                          {pk.presets.map(pr => (
-                            <option key={pr.id} value={pr.id}>{pr.name}</option>
-                          ))}
-                        </select>
-                      </div>
-                    );
-                  })()}
-                </div>
-              )}
+                // Shared: expenses row (sticker, seal bag, packaging)
+                const expensesRow = (
+                  <div style={{ display: 'flex', gap: 16, padding: 12, background: '#0f1117', borderRadius: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+                    <label className="checkbox-label">
+                      <input type="checkbox" checked={manualExpenses.sticker === 1} onChange={e => setManualExpenses({ ...manualExpenses, sticker: e.target.checked ? 1 : 0 })} />
+                      Sticker (1 MAD)
+                    </label>
+                    <label className="checkbox-label">
+                      <input type="checkbox" checked={manualExpenses.seal_bag === 1} onChange={e => setManualExpenses({ ...manualExpenses, seal_bag: e.target.checked ? 1 : 0 })} />
+                      Seal Bag (1 MAD)
+                    </label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ color: 'var(--t2)', fontSize: 13 }}>Packaging:</span>
+                      <input className="form-input" type="number" min="0" style={{ width: 60, padding: '4px 8px' }} value={manualExpenses.packaging} onChange={e => setManualExpenses({ ...manualExpenses, packaging: parseFloat(e.target.value) || 0 })} />
+                      <span style={{ color: 'var(--t2)', fontSize: 13 }}>MAD</span>
+                    </div>
+                  </div>
+                );
 
-              {/* Offer selector */}
-              {manualOrderType === 'offer' && (
-                <div style={{ marginBottom: 16 }}>
-                  <label className="form-label">Select Offer</label>
-                  <select className="form-input" value={selectedOfferId} onChange={e => {
-                    const oid = e.target.value;
-                    setSelectedOfferId(oid);
-                    if (oid) {
-                      const off = activeOffers.find(o => o.id === parseInt(oid));
-                      if (off) {
-                        setManualOrder(prev => ({ ...prev, total_amount: String(off.selling_price) }));
-                        setManualExpenses(prev => ({ ...prev, packaging: off.packaging_cost || 1 }));
-                        setManualItems(off.items.map(it => ({ variant_id: String(it.variant_id), quantity: it.quantity })));
-                      }
-                    } else {
-                      setManualItems([{ variant_id: '', quantity: 1 }]);
-                      setManualOrder(prev => ({ ...prev, total_amount: '' }));
-                    }
-                  }}>
-                    <option value="">— Select an offer —</option>
-                    {activeOffers.map(o => (
-                      <option key={o.id} value={o.id}>{o.name} — {o.selling_price} MAD</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {/* Products */}
-              <div style={{ marginBottom: 16 }}>
-                <label className="form-label">Products</label>
-                {manualFieldErrors.products && <div style={fieldErrorStyle}>{manualFieldErrors.products}</div>}
-                {manualItems.map((item, j) => {
-                  const isReadOnly = manualOrderType === 'offer' || (manualOrderType === 'pack' && selectedPresetId);
-                  return (
-                    <div key={j} style={{ display: 'flex', gap: 8, marginBottom: 8, opacity: isReadOnly ? 0.7 : 1 }}>
-                      <select className="form-input" style={{ flex: 1 }} value={item.variant_id}
-                        disabled={isReadOnly}
+                // Shared: promo code
+                const promoSection = (
+                  <div>
+                    <label className="form-label">Promo Code <span style={{ color: '#8892b0', fontWeight: 400, textTransform: 'none' }}>(optional)</span></label>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <input className="form-input" placeholder="Enter code..." value={promoCode} style={{ flex: 1, textTransform: 'uppercase' }}
                         onChange={e => {
-                          if (isReadOnly) return;
-                          const newItems = [...manualItems];
-                          newItems[j] = { ...newItems[j], variant_id: e.target.value };
-                          setManualItems(newItems);
-                          setManualExpenses(prev => ({ ...prev, seal_bag: autoSealBag(newItems) }));
-                          if (manualOrderType === 'single') setManualOrder(prev => ({ ...prev, total_amount: calcManualTotal(newItems) }));
-                        }}>
-                        <option value="">Select product...</option>
-                        {allVariants.map(v => (
-                          <option key={v.id} value={v.id} disabled={v.stock === 0}>
-                            {v.stock === 0 ? `${v.label} — OUT OF STOCK` : v.stock <= 3 ? `${v.label} (⚠ ${v.stock} left)` : `${v.label} (${v.stock} in stock)`}
-                          </option>
-                        ))}
-                      </select>
-                      <input className="form-input" type="number" min="1" placeholder="Qty" style={{ width: 80 }}
-                        value={item.quantity}
-                        readOnly={manualOrderType === 'offer'}
-                        onChange={e => {
-                          if (manualOrderType === 'offer') return;
-                          const newItems = [...manualItems];
-                          newItems[j] = { ...newItems[j], quantity: e.target.value };
-                          setManualItems(newItems);
-                          if (manualOrderType === 'single') setManualOrder(prev => ({ ...prev, total_amount: calcManualTotal(newItems) }));
+                          const val = e.target.value.toUpperCase(); setPromoCode(val);
+                          if (!val.trim()) { setPromoResult(null); return; }
+                          setPromoResult(validatePromo(val, parseFloat(manualOrder.total_amount) || 0));
                         }} />
-                      {manualItems.length > 1 && manualOrderType === 'single' && (
-                        <button className="btn btn-danger btn-sm" onClick={() => {
-                          const newItems = manualItems.filter((_, idx) => idx !== j);
-                          setManualItems(newItems);
-                          setManualExpenses(prev => ({ ...prev, seal_bag: autoSealBag(newItems) }));
-                          setManualOrder(prev => ({ ...prev, total_amount: calcManualTotal(newItems) }));
-                        }}>✕</button>
+                      {promoResult && (promoResult.error
+                        ? <span style={{ fontSize: 12, color: '#f87171', whiteSpace: 'nowrap' }}>✕ {promoResult.error}</span>
+                        : <span style={{ fontSize: 12, color: '#4ade80', whiteSpace: 'nowrap', fontWeight: 600 }}>✓ {promoResult.label}</span>)}
+                    </div>
+                    {promoResult?.discount > 0 && (
+                      <div style={{ marginTop: 6, fontSize: 13, color: '#8892b0' }}>
+                        Final price: <span style={{ color: '#e2e8f0', fontWeight: 600 }}>{Math.max(0, (parseFloat(manualOrder.total_amount) || 0) - promoResult.discount).toLocaleString()} MAD</span>
+                      </div>
+                    )}
+                  </div>
+                );
+
+                if (isMobile) {
+                  // ── MOBILE LAYOUT ──────────────────────────────────────────
+                  const isReadOnly = manualOrderType === 'offer' || (manualOrderType === 'pack' && selectedPresetId);
+                  const firstItem = manualItems[0] || { variant_id: '', quantity: 1 };
+                  return (
+                    <>
+                      {orderTypeToggle}
+
+                      {/* Name */}
+                      <div style={{ marginBottom: 10 }}>
+                        <input ref={nameInputRef} className="form-input" placeholder="Full name *" value={manualOrder.customer_name}
+                          style={inputH} onChange={e => setManualOrder({ ...manualOrder, customer_name: e.target.value })} />
+                        {manualFieldErrors.customer_name && <div style={fieldErrorStyle}>{manualFieldErrors.customer_name}</div>}
+                      </div>
+
+                      {/* Phone */}
+                      <div style={{ marginBottom: 10 }}>
+                        <input className="form-input" placeholder="Phone" inputMode="tel" value={manualOrder.customer_phone}
+                          style={inputH} onKeyDown={numericOnly} onChange={e => setManualOrder({ ...manualOrder, customer_phone: e.target.value })} />
+                        {manualFieldErrors.customer_phone && <div style={fieldErrorStyle}>{manualFieldErrors.customer_phone}</div>}
+                      </div>
+
+                      {/* City */}
+                      <div style={{ marginBottom: 10 }}>
+                        <input className="form-input" placeholder="City" value={manualOrder.city}
+                          style={inputH} onChange={e => setManualOrder({ ...manualOrder, city: e.target.value })} />
+                      </div>
+
+                      {/* Address */}
+                      <div style={{ marginBottom: 12 }}>
+                        <input className="form-input" placeholder="Delivery address" value={manualOrder.customer_address}
+                          style={inputH} onChange={e => setManualOrder({ ...manualOrder, customer_address: e.target.value })} />
+                      </div>
+
+                      {/* Pack / Offer / Product selector */}
+                      {packSelector}
+                      {offerSelector}
+                      {manualOrderType === 'single' && (
+                        <div style={{ marginBottom: 12 }}>
+                          <select className="form-input" style={inputH} value={firstItem.variant_id} disabled={isReadOnly}
+                            onChange={e => {
+                              const newItems = [{ ...firstItem, variant_id: e.target.value }];
+                              setManualItems(newItems);
+                              setManualExpenses(prev => ({ ...prev, seal_bag: autoSealBag(newItems) }));
+                              setManualOrder(prev => ({ ...prev, total_amount: calcManualTotal(newItems) }));
+                            }}>
+                            <option value="">Select product...</option>
+                            {allVariants.map(v => (
+                              <option key={v.id} value={v.id} disabled={v.stock === 0}>
+                                {v.stock === 0 ? `${v.label} — OUT` : v.stock <= 3 ? `${v.label} (⚠ ${v.stock})` : v.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+
+                      {/* Qty + Total row */}
+                      <div style={{ display: 'flex', gap: 10, marginBottom: 16, alignItems: 'stretch' }}>
+                        <input className="form-input" type="number" inputMode="numeric" min="1" placeholder="Qty"
+                          style={{ ...inputH, width: 80, flexShrink: 0, textAlign: 'center', fontSize: 18, fontWeight: 700 }}
+                          value={firstItem.quantity} readOnly={manualOrderType === 'offer'}
+                          onChange={e => {
+                            if (manualOrderType === 'offer') return;
+                            const newItems = [{ ...firstItem, quantity: e.target.value }];
+                            setManualItems(newItems);
+                            if (manualOrderType === 'single') setManualOrder(prev => ({ ...prev, total_amount: calcManualTotal(newItems) }));
+                          }} />
+                        <div style={{ flex: 1, position: 'relative' }}>
+                          <input className="form-input" type="number" min="0" placeholder="Total (MAD)"
+                            style={{ ...inputH, width: '100%', fontWeight: 700, fontSize: 18, color: '#4ade80', cursor: manualOrderType !== 'single' ? 'default' : undefined }}
+                            value={manualOrder.total_amount} readOnly={manualOrderType !== 'single'}
+                            onChange={e => { if (manualOrderType === 'single') setManualOrder({ ...manualOrder, total_amount: e.target.value }); }} />
+                          {manualFieldErrors.total_amount && <div style={fieldErrorStyle}>{manualFieldErrors.total_amount}</div>}
+                        </div>
+                      </div>
+
+                      {/* Extra options — collapsed */}
+                      <div style={{ marginBottom: 8 }}>
+                        <button type="button" onClick={() => setShowExtraOptions(o => !o)}
+                          style={{ background: 'none', border: 'none', color: 'var(--t3)', fontSize: 12, cursor: 'pointer', padding: '4px 0' }}>
+                          Extra options {showExtraOptions ? '▴' : '▾'}
+                        </button>
+                        {showExtraOptions && (
+                          <div style={{ marginTop: 8 }}>
+                            {expensesRow}
+                            {promoSection}
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  );
+                }
+
+                // ── DESKTOP LAYOUT (unchanged) ─────────────────────────────
+                return (
+                  <>
+                    {orderTypeToggle}
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+                      <div>
+                        <label className="form-label">CMD ID <span style={{ color: 'var(--accent)', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>auto</span></label>
+                        <input className="form-input" value={manualOrder.caleo_id} readOnly style={{ color: 'var(--accent)', fontFamily: 'monospace', opacity: 0.8, cursor: 'default' }} />
+                      </div>
+                      <div>
+                        <label className="form-label">Customer Name *</label>
+                        <input ref={nameInputRef} className="form-input" placeholder="Full name" value={manualOrder.customer_name} onChange={e => setManualOrder({ ...manualOrder, customer_name: e.target.value })} />
+                        {manualFieldErrors.customer_name && <div style={fieldErrorStyle}>{manualFieldErrors.customer_name}</div>}
+                      </div>
+                      <div>
+                        <label className="form-label">Phone</label>
+                        <input className="form-input" placeholder="0600000000" value={manualOrder.customer_phone} onKeyDown={numericOnly} onChange={e => setManualOrder({ ...manualOrder, customer_phone: e.target.value })} />
+                        {manualFieldErrors.customer_phone && <div style={fieldErrorStyle}>{manualFieldErrors.customer_phone}</div>}
+                      </div>
+                      <div>
+                        <label className="form-label">City</label>
+                        <input className="form-input" placeholder="City" value={manualOrder.city} onChange={e => setManualOrder({ ...manualOrder, city: e.target.value })} />
+                      </div>
+                      <div style={{ gridColumn: '1 / -1' }}>
+                        <label className="form-label">Address</label>
+                        <input className="form-input" placeholder="Delivery address" value={manualOrder.customer_address} onChange={e => setManualOrder({ ...manualOrder, customer_address: e.target.value })} />
+                      </div>
+                      <div>
+                        <label className="form-label">
+                          Total Amount (MAD) *
+                          {manualOrder.total_amount && manualOrderType === 'single' && <span style={{ fontWeight: 400, color: 'var(--accent)', textTransform: 'none', letterSpacing: 0, marginLeft: 6 }}>auto</span>}
+                        </label>
+                        <input className="form-input" type="number" min="0" placeholder="0.00"
+                          value={manualOrder.total_amount} readOnly={manualOrderType !== 'single'}
+                          style={manualOrderType !== 'single' ? { opacity: 0.6, cursor: 'default' } : {}}
+                          onChange={e => { if (manualOrderType === 'single') setManualOrder({ ...manualOrder, total_amount: e.target.value }); }} />
+                        {manualFieldErrors.total_amount && <div style={fieldErrorStyle}>{manualFieldErrors.total_amount}</div>}
+                      </div>
+                    </div>
+
+                    {packSelector}
+                    {offerSelector}
+
+                    {/* Products (desktop multi-item) */}
+                    <div style={{ marginBottom: 16 }}>
+                      <label className="form-label">Products</label>
+                      {manualFieldErrors.products && <div style={fieldErrorStyle}>{manualFieldErrors.products}</div>}
+                      {manualItems.map((item, j) => {
+                        const isReadOnly = manualOrderType === 'offer' || (manualOrderType === 'pack' && selectedPresetId);
+                        return (
+                          <div key={j} style={{ display: 'flex', gap: 8, marginBottom: 8, opacity: isReadOnly ? 0.7 : 1 }}>
+                            <select className="form-input" style={{ flex: 1 }} value={item.variant_id} disabled={isReadOnly}
+                              onChange={e => {
+                                if (isReadOnly) return;
+                                const newItems = [...manualItems]; newItems[j] = { ...newItems[j], variant_id: e.target.value };
+                                setManualItems(newItems); setManualExpenses(prev => ({ ...prev, seal_bag: autoSealBag(newItems) }));
+                                if (manualOrderType === 'single') setManualOrder(prev => ({ ...prev, total_amount: calcManualTotal(newItems) }));
+                              }}>
+                              <option value="">Select product...</option>
+                              {allVariants.map(v => (
+                                <option key={v.id} value={v.id} disabled={v.stock === 0}>
+                                  {v.stock === 0 ? `${v.label} — OUT OF STOCK` : v.stock <= 3 ? `${v.label} (⚠ ${v.stock} left)` : `${v.label} (${v.stock} in stock)`}
+                                </option>
+                              ))}
+                            </select>
+                            <input className="form-input" type="number" min="1" placeholder="Qty" style={{ width: 80 }} value={item.quantity} readOnly={manualOrderType === 'offer'}
+                              onChange={e => {
+                                if (manualOrderType === 'offer') return;
+                                const newItems = [...manualItems]; newItems[j] = { ...newItems[j], quantity: e.target.value };
+                                setManualItems(newItems);
+                                if (manualOrderType === 'single') setManualOrder(prev => ({ ...prev, total_amount: calcManualTotal(newItems) }));
+                              }} />
+                            {manualItems.length > 1 && manualOrderType === 'single' && (
+                              <button className="btn btn-danger btn-sm" type="button" onClick={() => {
+                                const newItems = manualItems.filter((_, idx) => idx !== j);
+                                setManualItems(newItems); setManualExpenses(prev => ({ ...prev, seal_bag: autoSealBag(newItems) }));
+                                setManualOrder(prev => ({ ...prev, total_amount: calcManualTotal(newItems) }));
+                              }}>✕</button>
+                            )}
+                          </div>
+                        );
+                      })}
+                      {manualOrderType === 'single' && (
+                        <button className="btn btn-secondary btn-sm" type="button" onClick={() => setManualItems([...manualItems, { variant_id: '', quantity: 1 }])}>+ Add Product</button>
                       )}
                     </div>
-                  );
-                })}
-                {manualOrderType === 'single' && (
-                  <button className="btn btn-secondary btn-sm" onClick={() => setManualItems([...manualItems, { variant_id: '', quantity: 1 }])}>
-                    + Add Product
-                  </button>
-                )}
-              </div>
 
-              <div style={{ display: 'flex', gap: 16, padding: 12, background: '#0f1117', borderRadius: 8, flexWrap: 'wrap', marginBottom: 16 }}>
-                <label className="checkbox-label">
-                  <input type="checkbox" checked={manualExpenses.sticker === 1}
-                    onChange={e => setManualExpenses({ ...manualExpenses, sticker: e.target.checked ? 1 : 0 })} />
-                  Sticker (1 MAD)
-                </label>
-                <label className="checkbox-label">
-                  <input type="checkbox" checked={manualExpenses.seal_bag === 1}
-                    onChange={e => setManualExpenses({ ...manualExpenses, seal_bag: e.target.checked ? 1 : 0 })} />
-                  Sell Bag (1 MAD)
-                </label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ color: 'var(--t2)', fontSize: 13 }}>Packaging:</span>
-                  <input className="form-input" type="number" min="0" style={{ width: 60, padding: '4px 8px' }}
-                    value={manualExpenses.packaging}
-                    onChange={e => setManualExpenses({ ...manualExpenses, packaging: parseFloat(e.target.value) || 0 })} />
-                  <span style={{ color: 'var(--t2)', fontSize: 13 }}>MAD</span>
-                </div>
-              </div>
-
-              {/* Promo Code */}
-              <div>
-                <label className="form-label">Promo Code <span style={{ color: '#8892b0', fontWeight: 400, textTransform: 'none' }}>(optional)</span></label>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <input className="form-input" placeholder="Enter code..." value={promoCode}
-                    style={{ flex: 1, textTransform: 'uppercase' }}
-                    onChange={e => {
-                      const val = e.target.value.toUpperCase();
-                      setPromoCode(val);
-                      if (!val.trim()) { setPromoResult(null); return; }
-                      const base = parseFloat(manualOrder.total_amount) || 0;
-                      setPromoResult(validatePromo(val, base));
-                    }} />
-                  {promoResult && (
-                    promoResult.error
-                      ? <span style={{ fontSize: 12, color: '#f87171', whiteSpace: 'nowrap' }}>✕ {promoResult.error}</span>
-                      : <span style={{ fontSize: 12, color: '#4ade80', whiteSpace: 'nowrap', fontWeight: 600 }}>✓ {promoResult.label}</span>
-                  )}
-                </div>
-                {promoResult?.discount > 0 && (
-                  <div style={{ marginTop: 6, fontSize: 13, color: '#8892b0' }}>
-                    Final price: <span style={{ color: '#e2e8f0', fontWeight: 600 }}>
-                      {Math.max(0, (parseFloat(manualOrder.total_amount) || 0) - promoResult.discount).toLocaleString()} MAD
-                    </span>
-                  </div>
-                )}
-              </div>
+                    {expensesRow}
+                    {promoSection}
+                  </>
+                );
+              })()}
             </div>
             <div className="modal-footer">
               <button type="button" className="btn btn-secondary" onClick={() => { setShowManualOrder(false); setError(''); setManualOrderType('single'); setSelectedPackId(''); setSelectedPresetId(''); setSelectedOfferId(''); setPromoCode(''); setPromoResult(null); }}>Cancel</button>
