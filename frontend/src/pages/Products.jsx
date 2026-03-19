@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { getProducts, createProduct, updateProduct, deleteProduct, addVariant, updateVariant, deleteVariant, uploadProductImage, getSuppliers } from '../api';
+import ProductsMobileDemo from './ProductsMobileDemo';
 
 export default function Products({ readOnly = false }) {
+  if (window.innerWidth < 768) return <ProductsMobileDemo readOnly={readOnly} />;
   const [products, setProducts] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading] = useState(true);
