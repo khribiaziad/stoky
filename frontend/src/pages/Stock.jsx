@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getProducts, getStockArrivals, addBulkStockArrival, getBrokenStock, addBrokenStock, updateBrokenStock, deleteBrokenStock, deleteArrival, adjustStock } from '../api';
+import { getProducts, getStockArrivals, addBulkStockArrival, getBrokenStock, addBrokenStock, updateBrokenStock, deleteBrokenStock, deleteArrival, adjustStock, addSupplierPayment } from '../api';
 
 const emptyItem = () => ({ product_id: '', variant_ids: [], quantity: 1 });
 
@@ -22,6 +22,7 @@ export default function Stock({ readOnly = false }) {
   const [additionalFees, setAdditionalFees] = useState(0);
   const [description, setDescription] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [paid, setPaid] = useState(false);
 
   const [brokenForm, setBrokenForm] = useState({ product_id: '', variant_id: '', quantity: 1, source: 'storage', returnable_to_supplier: false });
 
@@ -91,12 +92,32 @@ export default function Stock({ readOnly = false }) {
         description: description || null,
         date,
       });
-      setSuccess(`Stock arrival saved! ${res.data.items_count} item(s) added. Total cost: ${res.data.total_cost} MAD`);
+
+      // If paid, auto-create a payment per supplier based on their variants' cost
+      if (paid) {
+        const supplierAmounts = {};
+        for (const { variant_id, quantity } of expanded) {
+          for (const p of products) {
+            const v = p.variants.find(v => v.id === variant_id);
+            if (v && p.supplier_id) {
+              supplierAmounts[p.supplier_id] = (supplierAmounts[p.supplier_id] || 0) + v.buying_price * quantity;
+            }
+          }
+        }
+        await Promise.allSettled(
+          Object.entries(supplierAmounts).map(([sid, amount]) =>
+            addSupplierPayment(sid, { amount: parseFloat(amount.toFixed(2)), date, note: description ? `Payment: ${description}` : 'Stock arrival payment' })
+          )
+        );
+      }
+
+      setSuccess(`Stock arrival saved! ${res.data.items_count} item(s) added. Total cost: ${res.data.total_cost} MAD${paid ? ' — Supplier payment recorded.' : ' — Recorded as debt.'}`);
       setShowAdd(false);
       setItems([emptyItem()]);
       setAdditionalFees(0);
       setDescription('');
       setDate(new Date().toISOString().split('T')[0]);
+      setPaid(false);
       load();
     } catch (e) { setError(e.response?.data?.detail || 'Error adding stock'); }
   };
@@ -408,6 +429,19 @@ export default function Stock({ readOnly = false }) {
               <div className="form-group">
                 <label className="form-label">Note (optional)</label>
                 <input className="form-input" placeholder="e.g. From supplier Ali" value={description} onChange={e => setDescription(e.target.value)} />
+              </div>
+
+              {/* Paid checkbox */}
+              <div className="form-group" style={{ marginBottom: 16 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+                  <input type="checkbox" checked={paid} onChange={e => setPaid(e.target.checked)} />
+                  <span style={{ fontWeight: 600, color: paid ? 'var(--accent)' : 'var(--t1)' }}>
+                    Paid
+                  </span>
+                  <span style={{ fontSize: 12, color: 'var(--t2)' }}>
+                    {paid ? '— Payment will be recorded to supplier' : '— Will be recorded as debt to supplier'}
+                  </span>
+                </label>
               </div>
 
               {/* Cost preview */}
