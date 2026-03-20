@@ -8,7 +8,7 @@ from database import engine, get_db
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 import models
-from routers import products, stock, orders, team, expenses, reports, packs, auth as auth_router, cities as cities_router, platform as platform_router, leads as leads_router, suppliers as suppliers_router, olivraison as olivraison_router, youcan as youcan_router, woocommerce as woocommerce_router, shopify as shopify_router, meta_ads as meta_ads_router, tiktok_ads as tiktok_ads_router, snapchat_ads as snapchat_ads_router, pinterest_ads as pinterest_ads_router, google_ads as google_ads_router, offers as offers_router, promo_codes as promo_codes_router, bot as bot_router
+from routers import products, stock, orders, team, expenses, reports, packs, auth as auth_router, cities as cities_router, platform as platform_router, leads as leads_router, suppliers as suppliers_router, olivraison as olivraison_router, youcan as youcan_router, woocommerce as woocommerce_router, shopify as shopify_router, meta_ads as meta_ads_router, tiktok_ads as tiktok_ads_router, snapchat_ads as snapchat_ads_router, pinterest_ads as pinterest_ads_router, google_ads as google_ads_router, offers as offers_router, promo_codes as promo_codes_router, bot as bot_router, campaign_connections as campaign_connections_router
 from auth import get_current_user
 from seed_cities import seed
 
@@ -62,6 +62,7 @@ with engine.connect() as conn:
         "ALTER TABLE orders ADD COLUMN confirmed_by INTEGER REFERENCES team_members(id)",
         "ALTER TABLE packs ADD COLUMN item_count INTEGER DEFAULT 1",
         "ALTER TABLE products ADD COLUMN short_name VARCHAR",
+        "CREATE TABLE IF NOT EXISTS campaign_connections (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id), campaign_id INTEGER NOT NULL REFERENCES facebook_ads(id), item_type VARCHAR NOT NULL, item_id INTEGER NOT NULL, delivery_cost FLOAT DEFAULT 25, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)",
     ]:
         try:
             conn.execute(text(stmt))
@@ -147,6 +148,7 @@ app.include_router(google_ads_router.router, prefix="/api")
 app.include_router(offers_router.router, prefix="/api")
 app.include_router(promo_codes_router.router, prefix="/api")
 app.include_router(bot_router.router, prefix="/api")
+app.include_router(campaign_connections_router.router, prefix="/api")
 
 
 @app.get("/api/health")

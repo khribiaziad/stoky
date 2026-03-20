@@ -455,3 +455,15 @@ class Lead(Base):
     message_count    = Column(Integer, default=0)
     last_message_at  = Column(DateTime, nullable=True)
     created_at       = Column(DateTime, server_default=func.now())
+
+
+class CampaignConnection(Base):
+    __tablename__ = "campaign_connections"
+
+    id          = Column(Integer, primary_key=True, index=True)
+    user_id     = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    campaign_id = Column(Integer, ForeignKey("facebook_ads.id"), nullable=False)
+    item_type   = Column(String, nullable=False)   # "product", "pack", "offer"
+    item_id     = Column(Integer, nullable=False)
+    delivery_cost = Column(Float, default=25)
+    created_at  = Column(DateTime, server_default=func.now())

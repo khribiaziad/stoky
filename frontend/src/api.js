@@ -277,5 +277,12 @@ export const getBotQR      = ()  => api.get('/bot/qr');
 export const connectBot    = ()  => api.post('/bot/connect');
 export const disconnectBot = ()  => api.delete('/bot/disconnect');
 
+// Campaign Connections
+export const getCampaignConnections    = ()                          => api.get('/campaign-connections');
+export const saveCampaignConnection    = (data)                      => api.post('/campaign-connections', data);
+export const deleteCampaignConnection  = (id)                        => api.delete(`/campaign-connections/${id}`);
+export const getCampaignItemStats      = (item_type, item_id, start, end) => api.get('/campaign-connections/item-stats', { params: { item_type, item_id, start, end } });
+export const getCampaignBulkStats      = (start, end)                => api.get('/campaign-connections/bulk-stats', { params: { start, end } });
+
 // Utility
 export const errorMessage = (e) => e?.response?.data?.detail || e?.message || 'An error occurred';

@@ -36,6 +36,7 @@ def serialize_offer(offer: models.Offer, db: Session) -> dict:
                 "quantity": item.quantity,
                 "label": f"{variant.product.name}{' · ' + variant.size if variant.size else ''}{' · ' + variant.color if variant.color else ''}",
                 "stock": variant.stock,
+                "buying_price": variant.buying_price,
             })
     return {
         "id": offer.id,
