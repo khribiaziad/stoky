@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Plus, RefreshCw, Link, Unlink, Play, Pause, ExternalLink, ChevronDown, ChevronUp, Link2, TrendingUp } from 'lucide-react';
 import MetaCampaignWizard from '../components/MetaCampaignWizard';
-import CampaignConnectSidebar from './CampaignConnectSidebar';
+import CampaignConnectModal from './CampaignConnectModal';
+import AdsMobile from './AdsMobile';
 import {
   getSetting, setSetting,
   getMetaStatus, connectMeta, disconnectMeta,
@@ -505,6 +506,7 @@ export default function Ads() {
   const metaActive = metaCampaigns.filter(c => c.status === 'ACTIVE').length;
 
   if (loading) return <div className="loading">Loading ads...</div>;
+  if (window.innerWidth < 768) return <AdsMobile />;
 
   return (
     <div>
@@ -1111,23 +1113,20 @@ export default function Ads() {
         );
       })()}
 
-      {/* ── Campaign Connect Sidebar ── */}
+      {/* ── Campaign Connect Modal ── */}
       {connectSidebar && (
-        <>
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 999 }} onClick={() => setConnectSidebar(null)} />
-          <CampaignConnectSidebar
-            campaign={connectSidebar.campaign}
-            existingConn={connectSidebar.existingConn}
-            products={products}
-            packs={packs}
-            offers={offers}
-            usdRate={usdRate}
-            dateFrom={calcStart}
-            dateTo={calcEnd}
-            onSave={handleSaveConnection}
-            onClose={() => setConnectSidebar(null)}
-          />
-        </>
+        <CampaignConnectModal
+          campaign={connectSidebar.campaign}
+          existingConn={connectSidebar.existingConn}
+          products={products}
+          packs={packs}
+          offers={offers}
+          usdRate={usdRate}
+          dateFrom={calcStart}
+          dateTo={calcEnd}
+          onSave={handleSaveConnection}
+          onClose={() => setConnectSidebar(null)}
+        />
       )}
 
       {/* Full Campaign Wizard */}
