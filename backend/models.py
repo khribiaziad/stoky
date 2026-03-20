@@ -460,10 +460,12 @@ class Lead(Base):
 class CampaignConnection(Base):
     __tablename__ = "campaign_connections"
 
-    id          = Column(Integer, primary_key=True, index=True)
-    user_id     = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    campaign_id = Column(Integer, ForeignKey("facebook_ads.id"), nullable=False)
-    item_type   = Column(String, nullable=False)   # "product", "pack", "offer"
-    item_id     = Column(Integer, nullable=False)
-    delivery_cost = Column(Float, default=25)
-    created_at  = Column(DateTime, server_default=func.now())
+    id               = Column(Integer, primary_key=True, index=True)
+    user_id          = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    platform         = Column(String, nullable=True, default="meta")   # "meta", "tiktok", etc.
+    meta_campaign_id = Column(String, nullable=True)                   # Meta / platform campaign ID string
+    campaign_name    = Column(String, nullable=True)
+    item_type        = Column(String, nullable=False)                  # "product", "pack", "offer"
+    item_id          = Column(Integer, nullable=False)
+    delivery_cost    = Column(Float, default=25)
+    created_at       = Column(DateTime, server_default=func.now())

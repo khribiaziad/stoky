@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Plus, RefreshCw, Link, Unlink, Play, Pause, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, RefreshCw, Link, Unlink, Play, Pause, ExternalLink, ChevronDown, ChevronUp, Link2, TrendingUp } from 'lucide-react';
 import MetaCampaignWizard from '../components/MetaCampaignWizard';
+import CampaignConnectSidebar from './CampaignConnectSidebar';
 import {
   getSetting, setSetting,
   getMetaStatus, connectMeta, disconnectMeta,
@@ -10,6 +11,8 @@ import {
   getTikTokStatus, connectTikTok, disconnectTikTok, getTikTokCampaigns, pauseTikTokCampaign, resumeTikTokCampaign,
   getSnapchatStatus, connectSnapchat, disconnectSnapchat, getSnapchatCampaigns, pauseSnapchatCampaign, resumeSnapchatCampaign,
   getPinterestStatus, connectPinterest, disconnectPinterest, getPinterestCampaigns, pausePinterestCampaign, resumePinterestCampaign,
+  getProducts, getPacks, getOffers,
+  getCampaignConnections, saveCampaignConnection, deleteCampaignConnection, getCampaignBulkStats,
 } from '../api';
 
 const META_OBJECTIVES = [
@@ -440,6 +443,65 @@ export default function Ads() {
     finally { setMetaSpendLoading(false); }
   };
 
+  // ── Campaign connections state ──
+  const [connections,    setConnections]    = useState([]);
+  const [connStats,      setConnStats]      = useState({});
+  const [products,       setProducts]       = useState([]);
+  const [packs,          setPacks]          = useState([]);
+  const [offers,         setOffers]         = useState([]);
+  const [connectSidebar, setConnectSidebar] = useState(null); // { campaign, existingConn }
+
+  useEffect(() => {
+    getCampaignConnections().then(r => setConnections(r.data)).catch(() => {});
+    getProducts().then(r => setProducts(r.data)).catch(() => {});
+    getPacks().then(r => setPacks(r.data)).catch(() => {});
+    getOffers().then(r => setOffers(r.data)).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (connections.length === 0) { setConnStats({}); return; }
+    getCampaignBulkStats(calcStart, calcEnd).then(r => setConnStats(r.data)).catch(() => {});
+  }, [connections.length, calcStart, calcEnd]);
+
+  const handleSaveConnection = async (data) => {
+    const r = await saveCampaignConnection(data);
+    setConnections(prev => {
+      const without = prev.filter(c => c.meta_campaign_id !== data.meta_campaign_id);
+      return [...without, r.data];
+    });
+  };
+
+  const handleDeleteConnection = async (connId) => {
+    if (!confirm('Remove this connection?')) return;
+    await deleteCampaignConnection(connId);
+    setConnections(prev => prev.filter(c => c.id !== connId));
+  };
+
+  const getItemPrices = (itemType, itemId) => {
+    if (itemType === 'product') {
+      const p = products.find(x => x.id === itemId);
+      const v = p?.variants?.[0];
+      return v ? { selling_price: v.selling_price || 0, buy_price: v.buying_price || 0, packaging_cost: 0 } : null;
+    }
+    if (itemType === 'pack') {
+      const pk = packs.find(x => x.id === itemId);
+      if (!pk) return null;
+      const presetBuy = pk.presets?.[0]?.items?.reduce((s, i) => s + (i.buying_price || 0) * i.quantity, 0);
+      let buy_price = presetBuy || 0;
+      if (!buy_price && pk.product_id) {
+        const prod = products.find(x => x.id === pk.product_id);
+        buy_price = (prod?.variants?.[0]?.buying_price || 0) * (pk.item_count || 1);
+      }
+      return { selling_price: pk.selling_price, buy_price, packaging_cost: pk.packaging_cost || 0 };
+    }
+    if (itemType === 'offer') {
+      const of = offers.find(x => x.id === itemId);
+      if (!of) return null;
+      return { selling_price: of.selling_price, buy_price: of.items?.reduce((s, i) => s + (i.buying_price || 0) * i.quantity, 0) || 0, packaging_cost: of.packaging_cost || 0 };
+    }
+    return null;
+  };
+
   const metaActive = metaCampaigns.filter(c => c.status === 'ACTIVE').length;
 
   if (loading) return <div className="loading">Loading ads...</div>;
@@ -550,10 +612,11 @@ export default function Ads() {
                 : (
                   <div className="table-wrapper">
                     <table>
-                      <thead><tr><th>Status</th><th>Campaign</th><th>Objective</th><th>Daily Budget</th><th>Total Spent</th><th></th></tr></thead>
+                      <thead><tr><th>Status</th><th>Campaign</th><th>Objective</th><th>Daily Budget</th><th>Total Spent</th><th>Connected</th><th></th></tr></thead>
                       <tbody>
                         {metaCampaigns.map(c => {
                           const isActive = c.status === 'ACTIVE';
+                          const conn = connections.find(cn => cn.meta_campaign_id === c.id);
                           return (
                             <tr key={c.id}>
                               <td>
@@ -571,6 +634,22 @@ export default function Ads() {
                               <td>
                                 <div style={{ fontWeight: 700, color: '#f59e0b' }}>${fmt(c.spend_all_time_usd)}</div>
                                 <div style={{ fontSize: 11, color: '#8892b0' }}>{fmt(c.spend_all_time_usd * usdRate)} MAD</div>
+                              </td>
+                              <td>
+                                {conn ? (
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <span style={{ background: '#0d2a1e', color: '#00d48f', padding: '3px 8px', borderRadius: 12, fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap' }}>
+                                      ● {conn.item_name}
+                                    </span>
+                                    <span style={{ fontSize: 10, color: '#8892b0', textTransform: 'uppercase' }}>{conn.item_type}</span>
+                                    <button onClick={() => setConnectSidebar({ campaign: c, existingConn: conn })} style={{ background: 'none', border: 'none', color: '#60a5fa', cursor: 'pointer', fontSize: 11, padding: 0 }}>Edit</button>
+                                  </div>
+                                ) : (
+                                  <button onClick={() => setConnectSidebar({ campaign: c, existingConn: null })}
+                                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 6, border: '1px solid #2d3248', background: '#1d1d27', color: '#8892b0', cursor: 'pointer', fontSize: 11 }}>
+                                    <Link2 size={10} /> Connect
+                                  </button>
+                                )}
                               </td>
                               <td>
                                 {isActive ? <button className="btn btn-secondary btn-sm" onClick={() => handlePause(c.id)} style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Pause size={11} /> Pause</button>
@@ -949,6 +1028,106 @@ export default function Ads() {
             )}
           </div>
         </div>
+      )}
+
+      {/* ── Real Profitability Dashboard ── */}
+      {connections.length > 0 && (() => {
+        const rows = connections.map(conn => {
+          const campaign = metaCampaigns.find(c => c.id === conn.meta_campaign_id);
+          if (!campaign) return null;
+          const spend       = (campaign.spend_all_time_usd || 0) * usdRate;
+          const stats       = connStats[conn.id] || {};
+          const delivered   = stats.delivered_orders || 0;
+          const adCost      = delivered > 0 ? spend / delivered : 0;
+          const prices      = getItemPrices(conn.item_type, conn.item_id);
+          const profit      = prices ? prices.selling_price - prices.buy_price - prices.packaging_cost - conn.delivery_cost - adCost : null;
+          const totalProfit = profit !== null ? profit * delivered : null;
+          return { conn, campaign, spend, delivered, stats, profit, totalProfit };
+        }).filter(Boolean);
+
+        if (rows.length === 0) return null;
+
+        const totalSpend     = rows.reduce((s, r) => s + r.spend, 0);
+        const totalDelivered = rows.reduce((s, r) => s + r.delivered, 0);
+        const totalProfit    = rows.reduce((s, r) => s + (r.totalProfit || 0), 0);
+        const avgReturn      = rows.length > 0 ? rows.reduce((s, r) => s + (r.stats.return_rate || 0), 0) / rows.length : 0;
+
+        return (
+          <div className="card" style={{ marginBottom: 20, borderTop: '3px solid #a78bfa' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+              <TrendingUp size={16} style={{ color: '#a78bfa' }} />
+              <span style={{ fontWeight: 700, fontSize: 16 }}>Real Profitability</span>
+              <span style={{ fontSize: 11, background: '#2d3248', borderRadius: 10, padding: '1px 7px', marginLeft: 4 }}>{rows.length} connected</span>
+            </div>
+
+            {/* Summary */}
+            <div style={{ display: 'flex', background: '#13151e', borderRadius: 10, marginBottom: 14, overflow: 'hidden' }}>
+              {[
+                { label: 'Total Spend', value: `${fmt(totalSpend)} MAD`, color: '#a78bfa' },
+                { label: 'Delivered Orders', value: totalDelivered, color: '#60a5fa' },
+                { label: 'Total Real Profit', value: `${fmt(totalProfit)} MAD`, color: totalProfit >= 0 ? '#00d48f' : '#f87171' },
+                { label: 'Avg Return Rate', value: `${avgReturn.toFixed(1)}%`, color: '#fbbf24' },
+              ].map((s, i) => (
+                <div key={i} style={{ flex: 1, padding: '12px 16px', borderRight: i < 3 ? '1px solid #222733' : 'none' }}>
+                  <div style={{ fontSize: 10, color: '#8892b0', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>{s.label}</div>
+                  <div style={{ fontWeight: 700, fontSize: 15, color: s.color }}>{s.value}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Campaign cards */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {rows.map(({ conn, campaign, spend, delivered, stats, profit, totalProfit }) => (
+                <div key={conn.id} style={{ background: '#13151e', borderRadius: 10, padding: '12px 14px', border: `1px solid ${(totalProfit || 0) >= 0 ? '#0d2a1e' : '#2d1b1b'}` }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#0866FF', flexShrink: 0 }} />
+                    <div style={{ flex: 1 }}>
+                      <span style={{ fontWeight: 600, fontSize: 13 }}>{campaign.name}</span>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <span style={{ fontSize: 11, color: '#8892b0', textTransform: 'uppercase' }}>{conn.item_type}</span>
+                      <div style={{ fontWeight: 600, fontSize: 13 }}>{conn.item_name}</div>
+                    </div>
+                    <button onClick={() => handleDeleteConnection(conn.id)} style={{ background: 'none', border: 'none', color: '#8892b0', cursor: 'pointer', fontSize: 10, padding: 4 }}>✕</button>
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap' }}>
+                    {[
+                      { label: 'Spend', value: `${fmt(spend)} MAD`, color: '#a78bfa' },
+                      { label: 'Delivered', value: delivered, color: '#60a5fa' },
+                      { label: 'Return rate', value: `${stats.return_rate || 0}%`, color: (stats.return_rate || 0) > 30 ? '#f87171' : '#fbbf24' },
+                      { label: 'Profit/order', value: profit !== null ? `${fmt(profit)} MAD` : '—', color: profit === null ? '#8892b0' : profit >= 0 ? '#00d48f' : '#f87171' },
+                      { label: 'Total profit', value: totalProfit !== null ? `${fmt(totalProfit)} MAD` : '—', color: totalProfit === null ? '#8892b0' : totalProfit >= 0 ? '#00d48f' : '#f87171' },
+                    ].map((s, i) => (
+                      <div key={i} style={{ flex: '1 0 80px', padding: '6px 10px', borderRight: '1px solid #222733' }}>
+                        <div style={{ fontSize: 10, color: '#8892b0', marginBottom: 2 }}>{s.label}</div>
+                        <div style={{ fontWeight: 700, fontSize: 13, color: s.color }}>{s.value}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── Campaign Connect Sidebar ── */}
+      {connectSidebar && (
+        <>
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 999 }} onClick={() => setConnectSidebar(null)} />
+          <CampaignConnectSidebar
+            campaign={connectSidebar.campaign}
+            existingConn={connectSidebar.existingConn}
+            products={products}
+            packs={packs}
+            offers={offers}
+            usdRate={usdRate}
+            dateFrom={calcStart}
+            dateTo={calcEnd}
+            onSave={handleSaveConnection}
+            onClose={() => setConnectSidebar(null)}
+          />
+        </>
       )}
 
       {/* Full Campaign Wizard */}

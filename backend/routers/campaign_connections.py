@@ -11,8 +11,10 @@ router = APIRouter(prefix="/campaign-connections", tags=["campaign_connections"]
 
 
 class ConnectionCreate(BaseModel):
-    campaign_id: int
-    item_type: str   # "product", "pack", "offer"
+    platform: str = "meta"
+    meta_campaign_id: str          # Platform campaign ID (string)
+    campaign_name: str = ""
+    item_type: str                 # "product", "pack", "offer"
     item_id: int
     delivery_cost: float = 25
 
@@ -38,7 +40,9 @@ def _item_name(item_type: str, item_id: int, db: Session, store_id: int) -> str:
 def _serialize(conn: models.CampaignConnection, db: Session, store_id: int) -> dict:
     return {
         "id": conn.id,
-        "campaign_id": conn.campaign_id,
+        "platform": conn.platform,
+        "meta_campaign_id": conn.meta_campaign_id,
+        "campaign_name": conn.campaign_name,
         "item_type": conn.item_type,
         "item_id": conn.item_id,
         "item_name": _item_name(conn.item_type, conn.item_id, db, store_id),
@@ -85,7 +89,7 @@ def _order_stats(orders):
     }
 
 
-# ── item-stats must come before /{conn_id} to avoid route conflict ──────────
+# ── item-stats / bulk-stats must come before /{conn_id} ─────────────────────
 @router.get("/item-stats")
 def get_item_stats(
     item_type: str = Query(...),
@@ -142,19 +146,23 @@ def upsert_connection(
 ):
     store_id = get_store_id(user)
     existing = db.query(models.CampaignConnection).filter(
-        models.CampaignConnection.campaign_id == data.campaign_id,
+        models.CampaignConnection.meta_campaign_id == data.meta_campaign_id,
         models.CampaignConnection.user_id == store_id,
     ).first()
     if existing:
-        existing.item_type    = data.item_type
-        existing.item_id      = data.item_id
+        existing.item_type     = data.item_type
+        existing.item_id       = data.item_id
         existing.delivery_cost = data.delivery_cost
+        existing.campaign_name = data.campaign_name
+        existing.platform      = data.platform
         db.commit()
         db.refresh(existing)
         return _serialize(existing, db, store_id)
     conn = models.CampaignConnection(
         user_id=store_id,
-        campaign_id=data.campaign_id,
+        platform=data.platform,
+        meta_campaign_id=data.meta_campaign_id,
+        campaign_name=data.campaign_name,
         item_type=data.item_type,
         item_id=data.item_id,
         delivery_cost=data.delivery_cost,

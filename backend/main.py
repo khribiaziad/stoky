@@ -62,7 +62,8 @@ with engine.connect() as conn:
         "ALTER TABLE orders ADD COLUMN confirmed_by INTEGER REFERENCES team_members(id)",
         "ALTER TABLE packs ADD COLUMN item_count INTEGER DEFAULT 1",
         "ALTER TABLE products ADD COLUMN short_name VARCHAR",
-        "CREATE TABLE IF NOT EXISTS campaign_connections (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id), campaign_id INTEGER NOT NULL REFERENCES facebook_ads(id), item_type VARCHAR NOT NULL, item_id INTEGER NOT NULL, delivery_cost FLOAT DEFAULT 25, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)",
+        "DROP TABLE IF EXISTS campaign_connections",
+        "CREATE TABLE IF NOT EXISTS campaign_connections (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id), platform VARCHAR DEFAULT 'meta', meta_campaign_id VARCHAR, campaign_name VARCHAR, item_type VARCHAR NOT NULL, item_id INTEGER NOT NULL, delivery_cost FLOAT DEFAULT 25, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)",
     ]:
         try:
             conn.execute(text(stmt))
