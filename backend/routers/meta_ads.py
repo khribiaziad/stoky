@@ -241,7 +241,7 @@ def list_campaigns(db: Session = Depends(get_db), user: models.User = Depends(ge
         f"{META_API_BASE}/{account_id}/campaigns",
         params={
             "access_token": token,
-            "fields": "id,name,status,objective,daily_budget,lifetime_budget,start_time,stop_time,insights{spend}",
+            "fields": "id,name,status,objective,daily_budget,lifetime_budget,start_time,stop_time,insights{spend,clicks,impressions,ctr,cpc,reach,actions,cost_per_action_type}",
             "limit": 100,
         },
         timeout=15,
@@ -252,7 +252,20 @@ def list_campaigns(db: Session = Depends(get_db), user: models.User = Depends(ge
     campaigns = []
     for c in resp.json().get("data", []):
         insights_data = c.get("insights", {}).get("data", [])
-        spend = float(insights_data[0].get("spend", 0)) if insights_data else 0.0
+        ins = insights_data[0] if insights_data else {}
+
+        spend    = float(ins.get("spend", 0) or 0)
+        clicks   = int(float(ins.get("clicks", 0) or 0))
+        impr     = int(float(ins.get("impressions", 0) or 0))
+        ctr      = round(float(ins.get("ctr", 0) or 0), 2)
+        cpc      = round(float(ins.get("cpc", 0) or 0), 2)
+        reach    = int(float(ins.get("reach", 0) or 0))
+
+        actions       = ins.get("actions", []) or []
+        cpa_types     = ins.get("cost_per_action_type", []) or []
+        purchases     = int(float(next((a["value"] for a in actions   if a.get("action_type") == "purchase"), 0)))
+        cost_per_purch = round(float(next((a["value"] for a in cpa_types if a.get("action_type") == "purchase"), 0)), 2)
+
         campaigns.append({
             "id": c["id"],
             "name": c["name"],
@@ -263,6 +276,13 @@ def list_campaigns(db: Session = Depends(get_db), user: models.User = Depends(ge
             "start_time": c.get("start_time"),
             "stop_time": c.get("stop_time"),
             "spend_all_time_usd": round(spend, 2),
+            "clicks": clicks,
+            "impressions": impr,
+            "ctr": ctr,
+            "cpc": cpc,
+            "reach": reach,
+            "purchases": purchases,
+            "cost_per_purchase_usd": cost_per_purch,
         })
     return campaigns
 

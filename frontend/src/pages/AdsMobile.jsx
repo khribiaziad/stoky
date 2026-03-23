@@ -223,6 +223,14 @@ export default function AdsMobile() {
     ggStatus?.connected,
   ].filter(Boolean).length;
 
+  const allCampaigns = [
+    ...metaCampaigns, ...ttCampaigns, ...scCampaigns, ...ptCampaigns, ...ggCampaigns,
+  ];
+  const activeCnt        = allCampaigns.filter(c => ['ACTIVE','ENABLE','ENABLED'].includes(c.status)).length;
+  const totalPeriodSpend = Object.values(spendById).reduce((s, v) => s + v, 0) * usdRate;
+  const totalDelivered   = profRows.reduce((s, r) => s + r.delivered, 0);
+  const totalRealProfit  = profRows.reduce((s, r) => s + (r.totalProfit || 0), 0);
+
   // Profitability rows (only Meta for now since connections use meta_campaign_id)
   const profRows = connections.map(conn => {
     const campaign = metaCampaigns.find(c => c.id === conn.meta_campaign_id);
@@ -248,6 +256,25 @@ export default function AdsMobile() {
           {connectedPlatforms} platform{connectedPlatforms !== 1 ? 's' : ''} connected
         </div>
       </div>
+
+      {/* KPI Summary bar */}
+      {connectedPlatforms > 0 && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14 }}>
+          {[
+            { label: 'Active Campaigns', value: activeCnt,                                               color: '#00d48f' },
+            { label: 'Platforms',        value: connectedPlatforms,                                      color: '#60a5fa' },
+            { label: 'Period Spend',     value: `${fmt(totalPeriodSpend)} MAD`,                          color: '#a78bfa' },
+            { label: 'Delivered',        value: totalDelivered,                                          color: '#60a5fa' },
+            { label: 'Real Profit',      value: `${fmt(totalRealProfit)} MAD`,                           color: totalRealProfit >= 0 ? '#00d48f' : '#f87171' },
+            { label: 'Connected',        value: profRows.length,                                         color: '#fbbf24' },
+          ].map((k, i) => (
+            <div key={i} style={{ background: 'var(--card)', borderRadius: 10, border: '1px solid var(--border)', padding: '10px 12px' }}>
+              <div style={{ fontWeight: 700, fontSize: 15, color: k.color }}>{k.value}</div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{k.label}</div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* No platforms */}
       {connectedPlatforms === 0 && (

@@ -525,6 +525,34 @@ export default function Ads() {
     return null;
   };
 
+  const [expandedRows, setExpandedRows] = useState(new Set());
+  const toggleRow = id => setExpandedRows(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
+
+  // ── Page-level KPI computations ──
+  const allCampaigns = [
+    ...metaCampaigns.map(c => ({ ...c, _platform: 'meta' })),
+    ...ttCampaigns.map(c => ({ ...c, _platform: 'tiktok' })),
+    ...scCampaigns.map(c => ({ ...c, _platform: 'snapchat' })),
+    ...ptCampaigns.map(c => ({ ...c, _platform: 'pinterest' })),
+    ...ggCampaigns.map(c => ({ ...c, _platform: 'google' })),
+  ];
+  const activeCampaignsCount = allCampaigns.filter(c => ['ACTIVE','ENABLE','ENABLED'].includes(c.status)).length;
+  const platformsConnected   = [metaStatus, ttStatus, scStatus, ptStatus, ggStatus].filter(s => s?.connected).length;
+  const totalPeriodSpend     = Object.values(spendById).reduce((s, v) => s + v, 0) * usdRate;
+  const summaryRows = connections.map(conn => {
+    const stats = connStats[conn.id] || {};
+    const periodUsd = spendById[conn.meta_campaign_id] ?? null;
+    const spend = periodUsd != null ? periodUsd * usdRate : 0;
+    const delivered = stats.delivered_orders || 0;
+    const prices = getItemPrices(conn.item_type, conn.item_id);
+    const adCost = delivered > 0 ? spend / delivered : 0;
+    const profit = prices ? prices.selling_price - prices.buy_price - prices.packaging_cost - conn.delivery_cost - adCost : null;
+    return { delivered, returnRate: stats.return_rate || 0, profit, totalProfit: profit !== null ? profit * delivered : null };
+  });
+  const totalDelivered  = summaryRows.reduce((s, r) => s + r.delivered, 0);
+  const totalRealProfit = summaryRows.reduce((s, r) => s + (r.totalProfit || 0), 0);
+  const avgReturnRate   = summaryRows.length > 0 ? summaryRows.reduce((s, r) => s + r.returnRate, 0) / summaryRows.length : 0;
+
   const metaActive = metaCampaigns.filter(c => c.status === 'ACTIVE').length;
 
   if (loading) return <div className="loading">Loading ads...</div>;
@@ -604,6 +632,26 @@ export default function Ads() {
         </div>
       </div>
 
+      {/* ── Page KPI Summary Bar ── */}
+      {platformsConnected > 0 && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 10, marginBottom: 16 }}>
+          {[
+            { label: 'Active Campaigns', value: activeCampaignsCount, color: '#00d48f', icon: '▶' },
+            { label: 'Platforms Connected', value: platformsConnected, color: '#60a5fa', icon: '🔗' },
+            { label: 'Period Spend', value: `${fmt(totalPeriodSpend)} MAD`, color: '#a78bfa', icon: '💸' },
+            { label: 'Delivered Orders', value: totalDelivered, color: '#60a5fa', icon: '📦' },
+            { label: 'Real Profit', value: `${fmt(totalRealProfit)} MAD`, color: totalRealProfit >= 0 ? '#00d48f' : '#f87171', icon: '💰' },
+            { label: 'Avg Return Rate', value: `${avgReturnRate.toFixed(1)}%`, color: avgReturnRate > 30 ? '#f87171' : '#fbbf24', icon: '↩' },
+          ].map((k, i) => (
+            <div key={i} className="card" style={{ padding: '12px 14px', textAlign: 'center' }}>
+              <div style={{ fontSize: 18, marginBottom: 4 }}>{k.icon}</div>
+              <div style={{ fontWeight: 700, fontSize: 16, color: k.color }}>{k.value}</div>
+              <div style={{ fontSize: 11, color: '#8892b0', marginTop: 2 }}>{k.label}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {error && <div className="alert alert-error">{error}<button style={{ float: 'right', background: 'none', border: 'none', color: 'inherit', cursor: 'pointer' }} onClick={() => setError('')}>✕</button></div>}
       {success && <div className="alert alert-success">{success}<button style={{ float: 'right', background: 'none', border: 'none', color: 'inherit', cursor: 'pointer' }} onClick={() => setSuccess('')}>✕</button></div>}
 
@@ -636,51 +684,118 @@ export default function Ads() {
                 : (
                   <div className="table-wrapper">
                     <table>
-                      <thead><tr><th>Status</th><th>Campaign</th><th>Objective</th><th>Daily Budget</th><th>Total Spent</th><th>Connected</th><th></th></tr></thead>
+                      <thead><tr><th></th><th>Status</th><th>Campaign</th><th>Objective</th><th>Daily Budget</th><th>Total Spent</th><th>Connected</th><th></th></tr></thead>
                       <tbody>
                         {metaCampaigns.map(c => {
-                          const isActive = c.status === 'ACTIVE';
+                          const isActive  = c.status === 'ACTIVE';
+                          const isExpanded = expandedRows.has(c.id);
                           const conn = connections.find(cn => cn.meta_campaign_id === c.id && (cn.platform === 'meta' || !cn.platform));
+                          const stats = conn ? (connStats[conn.id] || {}) : null;
+                          const periodUsd = spendById[c.id] ?? null;
+                          const periodSpend = periodUsd != null ? periodUsd * usdRate : null;
+                          const delivered = stats?.delivered_orders || 0;
+                          const adCostPerOrder = (periodSpend != null && delivered > 0) ? periodSpend / delivered : null;
+                          const prices = conn ? getItemPrices(conn.item_type, conn.item_id) : null;
+                          const profit = (prices && adCostPerOrder != null)
+                            ? prices.selling_price - prices.buy_price - prices.packaging_cost - conn.delivery_cost - adCostPerOrder
+                            : null;
                           return (
-                            <tr key={c.id}>
-                              <td>
-                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600, background: isActive ? '#0d2a1e' : '#2d3248', color: isActive ? '#00d48f' : '#8892b0' }}>
-                                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: isActive ? '#00d48f' : '#8892b0', display: 'inline-block' }} />
-                                  {isActive ? 'Active' : c.status === 'PAUSED' ? 'Paused' : c.status}
-                                </span>
-                              </td>
-                              <td style={{ fontWeight: 500, maxWidth: 220 }}>
-                                <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
-                                {c.start_time && <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>{c.start_time.slice(0, 10)}</div>}
-                              </td>
-                              <td style={{ fontSize: 12, color: '#8892b0' }}>{c.objective?.replace('OUTCOME_', '') || '—'}</td>
-                              <td>{c.daily_budget_usd != null ? <><span style={{ color: '#60a5fa', fontWeight: 600 }}>${fmt(c.daily_budget_usd)}</span><span style={{ color: '#8892b0', fontSize: 11 }}>/day</span></> : <span style={{ color: '#8892b0' }}>—</span>}</td>
-                              <td>
-                                <div style={{ fontWeight: 700, color: '#f59e0b' }}>${fmt(c.spend_all_time_usd)}</div>
-                                <div style={{ fontSize: 11, color: '#8892b0' }}>{fmt(c.spend_all_time_usd * usdRate)} MAD</div>
-                              </td>
-                              <td>
-                                {conn ? (
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                    <span style={{ background: '#0d2a1e', color: '#00d48f', padding: '3px 8px', borderRadius: 12, fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap' }}>
-                                      ● {conn.item_name}
-                                    </span>
-                                    <span style={{ fontSize: 10, color: '#8892b0', textTransform: 'uppercase' }}>{conn.item_type}</span>
-                                    <button onClick={() => setConnectSidebar({ campaign: c, existingConn: conn, platform: 'meta' })} style={{ background: 'none', border: 'none', color: '#60a5fa', cursor: 'pointer', fontSize: 11, padding: 0 }}>Edit</button>
-                                  </div>
-                                ) : (
-                                  <button onClick={() => setConnectSidebar({ campaign: c, existingConn: null, platform: 'meta' })}
-                                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 6, border: '1px solid #2d3248', background: '#1d1d27', color: '#8892b0', cursor: 'pointer', fontSize: 11 }}>
-                                    <Link2 size={10} /> Connect
-                                  </button>
-                                )}
-                              </td>
-                              <td>
-                                {isActive ? <button className="btn btn-secondary btn-sm" onClick={() => handlePause(c.id)} style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Pause size={11} /> Pause</button>
-                                : c.status === 'PAUSED' ? <button className="btn btn-primary btn-sm" onClick={() => handleResume(c.id)} style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Play size={11} /> Resume</button>
-                                : null}
-                              </td>
-                            </tr>
+                            <>
+                              <tr key={c.id} style={{ cursor: 'pointer' }} onClick={() => toggleRow(c.id)}>
+                                <td style={{ width: 24, color: '#8892b0' }}>{isExpanded ? <ChevronUp size={13}/> : <ChevronDown size={13}/>}</td>
+                                <td>
+                                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600, background: isActive ? '#0d2a1e' : '#2d3248', color: isActive ? '#00d48f' : '#8892b0' }}>
+                                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: isActive ? '#00d48f' : '#8892b0', display: 'inline-block' }} />
+                                    {isActive ? 'Active' : c.status === 'PAUSED' ? 'Paused' : c.status}
+                                  </span>
+                                </td>
+                                <td style={{ fontWeight: 500, maxWidth: 220 }}>
+                                  <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
+                                  {c.start_time && <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>{c.start_time.slice(0, 10)}</div>}
+                                </td>
+                                <td style={{ fontSize: 12, color: '#8892b0' }}>{c.objective?.replace('OUTCOME_', '') || '—'}</td>
+                                <td onClick={e => e.stopPropagation()}>{c.daily_budget_usd != null ? <><span style={{ color: '#60a5fa', fontWeight: 600 }}>${fmt(c.daily_budget_usd)}</span><span style={{ color: '#8892b0', fontSize: 11 }}>/day</span></> : <span style={{ color: '#8892b0' }}>—</span>}</td>
+                                <td onClick={e => e.stopPropagation()}>
+                                  <div style={{ fontWeight: 700, color: '#f59e0b' }}>${fmt(c.spend_all_time_usd)}</div>
+                                  <div style={{ fontSize: 11, color: '#8892b0' }}>{fmt(c.spend_all_time_usd * usdRate)} MAD</div>
+                                </td>
+                                <td onClick={e => e.stopPropagation()}>
+                                  {conn ? (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                      <span style={{ background: '#0d2a1e', color: '#00d48f', padding: '3px 8px', borderRadius: 12, fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap' }}>● {conn.item_name}</span>
+                                      <span style={{ fontSize: 10, color: '#8892b0', textTransform: 'uppercase' }}>{conn.item_type}</span>
+                                      <button onClick={() => setConnectSidebar({ campaign: c, existingConn: conn, platform: 'meta' })} style={{ background: 'none', border: 'none', color: '#60a5fa', cursor: 'pointer', fontSize: 11, padding: 0 }}>Edit</button>
+                                    </div>
+                                  ) : (
+                                    <button onClick={() => setConnectSidebar({ campaign: c, existingConn: null, platform: 'meta' })}
+                                      style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 6, border: '1px solid #2d3248', background: '#1d1d27', color: '#8892b0', cursor: 'pointer', fontSize: 11 }}>
+                                      <Link2 size={10} /> Connect
+                                    </button>
+                                  )}
+                                </td>
+                                <td onClick={e => e.stopPropagation()}>
+                                  {isActive ? <button className="btn btn-secondary btn-sm" onClick={() => handlePause(c.id)} style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Pause size={11} /> Pause</button>
+                                  : c.status === 'PAUSED' ? <button className="btn btn-primary btn-sm" onClick={() => handleResume(c.id)} style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Play size={11} /> Resume</button>
+                                  : null}
+                                </td>
+                              </tr>
+                              {isExpanded && (
+                                <tr key={`${c.id}-exp`}>
+                                  <td colSpan={8} style={{ padding: 0, background: '#13151e' }}>
+                                    <div style={{ padding: '14px 16px', display: 'flex', gap: 16 }}>
+
+                                      {/* Left: Meta platform metrics */}
+                                      <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{ fontSize: 11, fontWeight: 700, color: '#8892b0', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10 }}>
+                                          Meta Insights (all-time)
+                                        </div>
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                                          {[
+                                            { label: 'Impressions', value: (c.impressions || 0).toLocaleString() },
+                                            { label: 'Reach',       value: (c.reach || 0).toLocaleString() },
+                                            { label: 'Clicks',      value: (c.clicks || 0).toLocaleString(), color: '#60a5fa' },
+                                            { label: 'CTR',         value: `${fmt(c.ctr)}%`,                 color: '#60a5fa' },
+                                            { label: 'CPC',         value: `$${fmt(c.cpc)}`,                 color: '#f59e0b' },
+                                            ...(c.purchases > 0 ? [
+                                              { label: 'Purchases',      value: c.purchases,                      color: '#00d48f' },
+                                              { label: 'Cost/Purchase',  value: `$${fmt(c.cost_per_purchase_usd)}`, color: '#00d48f' },
+                                            ] : []),
+                                          ].map((m, i) => (
+                                            <div key={i} style={{ background: '#1a1d27', borderRadius: 8, padding: '8px 12px', minWidth: 90 }}>
+                                              <div style={{ fontSize: 10, color: '#8892b0', marginBottom: 3 }}>{m.label}</div>
+                                              <div style={{ fontWeight: 700, fontSize: 14, color: m.color || '#fff' }}>{m.value}</div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+
+                                      {/* Right: Product profitability (only if connected) */}
+                                      {conn && (
+                                        <div style={{ flex: 1, minWidth: 0, borderLeft: '1px solid #222733', paddingLeft: 16 }}>
+                                          <div style={{ fontSize: 11, fontWeight: 700, color: '#8892b0', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10 }}>
+                                            Product Profitability ({calcStart} → {calcEnd})
+                                          </div>
+                                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                                            {[
+                                              { label: 'Delivered Orders', value: delivered,                                                              color: '#60a5fa' },
+                                              { label: 'Return Rate',       value: `${stats?.return_rate || 0}%`,                                          color: (stats?.return_rate || 0) > 30 ? '#f87171' : '#fbbf24' },
+                                              { label: 'Ad Cost/Order',    value: adCostPerOrder != null ? `${fmt(adCostPerOrder)} MAD` : '—',            color: '#f87171' },
+                                              { label: 'Profit/Order',     value: profit != null ? `${fmt(profit)} MAD` : '—',                            color: profit == null ? '#8892b0' : profit >= 0 ? '#00d48f' : '#f87171' },
+                                              { label: 'Total Profit',     value: profit != null ? `${fmt(profit * delivered)} MAD` : '—',                color: profit == null ? '#8892b0' : profit >= 0 ? '#00d48f' : '#f87171' },
+                                            ].map((m, i) => (
+                                              <div key={i} style={{ background: '#1a1d27', borderRadius: 8, padding: '8px 12px', minWidth: 100 }}>
+                                                <div style={{ fontSize: 10, color: '#8892b0', marginBottom: 3 }}>{m.label}</div>
+                                                <div style={{ fontWeight: 700, fontSize: 14, color: m.color }}>{m.value}</div>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                            </>
                           );
                         })}
                       </tbody>
