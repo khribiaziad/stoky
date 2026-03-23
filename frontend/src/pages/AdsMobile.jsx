@@ -204,9 +204,10 @@ export default function AdsMobile() {
   const handleSaveConnection = async (data) => {
     const r = await saveCampaignConnection(data);
     setConnections(prev => {
-      const without = prev.filter(c => c.meta_campaign_id !== data.meta_campaign_id);
+      const without = prev.filter(c => !(c.meta_campaign_id === data.meta_campaign_id && c.platform === data.platform));
       return [...without, r.data];
     });
+    getCampaignBulkStats(dateFrom, dateTo).then(res => setConnStats(res.data)).catch(() => {});
   };
 
   const getItemPrices = (itemType, itemId) => {
