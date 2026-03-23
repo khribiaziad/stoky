@@ -6,7 +6,7 @@ const fmt = n => Number(n || 0).toLocaleString('fr-MA', { minimumFractionDigits:
 const TYPE_LABELS = { product: 'Product', pack: 'Pack', offer: 'Offer' };
 
 export default function CampaignConnectModal({
-  campaign,        // { id: string, name: string, spend_all_time_usd: number, status, daily_budget_usd }
+  campaign,        // { id: string, name: string, spend_all_time_usd?: number, status, daily_budget_usd }
   existingConn,    // null | { id, meta_campaign_id, item_type, item_id, delivery_cost }
   products,
   packs,
@@ -14,7 +14,8 @@ export default function CampaignConnectModal({
   usdRate,
   dateFrom,
   dateTo,
-  periodSpendUsd,  // number | null — Meta spend for the selected date range (USD)
+  periodSpendUsd,  // number | null — spend for the selected date range (USD)
+  platform = 'meta', // 'meta' | 'tiktok' | 'snapchat' | 'pinterest' | 'google'
   onSave,          // async (payload) => void
   onClose,
 }) {
@@ -88,7 +89,7 @@ export default function CampaignConnectModal({
     setSaving(true);
     try {
       await onSave({
-        platform: 'meta',
+        platform,
         meta_campaign_id: campaign.id,
         campaign_name: campaign.name || '',
         item_type: itemType,
@@ -148,7 +149,9 @@ export default function CampaignConnectModal({
             <div style={{ fontSize: 12, color: '#a78bfa', marginTop: 4 }}>
               {periodSpendUsd != null
                 ? <>Period spend ({dateFrom} → {dateTo}): {fmt(campaignSpend)} MAD · ${fmt(periodSpendUsd)} USD</>
-                : <>All-time spend: {fmt(campaignSpend)} MAD · ${fmt(campaign?.spend_all_time_usd || 0)} USD</>
+                : platform === 'meta' && campaign?.spend_all_time_usd
+                  ? <>All-time spend: {fmt(campaignSpend)} MAD · ${fmt(campaign.spend_all_time_usd)} USD</>
+                  : <span style={{ color: '#8892b0' }}>No spend data for selected period</span>
               }
             </div>
           </div>

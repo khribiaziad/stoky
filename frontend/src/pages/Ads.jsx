@@ -7,11 +7,11 @@ import {
   getSetting, setSetting,
   getMetaStatus, connectMeta, disconnectMeta,
   getMetaCampaigns, pauseMetaCampaign, resumeMetaCampaign,
-  createMetaCampaign, getMetaSpend, getMetaAdAccounts, // getMetaSpend used for auto period-spend
-  getGoogleStatus, connectGoogle, disconnectGoogle, getGoogleCampaigns, pauseGoogleCampaign, resumeGoogleCampaign,
-  getTikTokStatus, connectTikTok, disconnectTikTok, getTikTokCampaigns, pauseTikTokCampaign, resumeTikTokCampaign,
-  getSnapchatStatus, connectSnapchat, disconnectSnapchat, getSnapchatCampaigns, pauseSnapchatCampaign, resumeSnapchatCampaign,
-  getPinterestStatus, connectPinterest, disconnectPinterest, getPinterestCampaigns, pausePinterestCampaign, resumePinterestCampaign,
+  createMetaCampaign, getMetaSpend, getMetaAdAccounts,
+  getGoogleStatus, connectGoogle, disconnectGoogle, getGoogleCampaigns, pauseGoogleCampaign, resumeGoogleCampaign, getGoogleSpend,
+  getTikTokStatus, connectTikTok, disconnectTikTok, getTikTokCampaigns, pauseTikTokCampaign, resumeTikTokCampaign, getTikTokSpend,
+  getSnapchatStatus, connectSnapchat, disconnectSnapchat, getSnapchatCampaigns, pauseSnapchatCampaign, resumeSnapchatCampaign, getSnapchatSpend,
+  getPinterestStatus, connectPinterest, disconnectPinterest, getPinterestCampaigns, pausePinterestCampaign, resumePinterestCampaign, getPinterestSpend,
   getProducts, getPacks, getOffers,
   getCampaignConnections, saveCampaignConnection, deleteCampaignConnection, getCampaignBulkStats,
 } from '../api';
@@ -450,8 +450,8 @@ export default function Ads() {
   const [products,       setProducts]       = useState([]);
   const [packs,          setPacks]          = useState([]);
   const [offers,         setOffers]         = useState([]);
-  const [connectSidebar, setConnectSidebar] = useState(null); // { campaign, existingConn }
-  const [metaSpendById,  setMetaSpendById]  = useState({}); // campaignId → spend_usd for selected period
+  const [connectSidebar, setConnectSidebar] = useState(null); // { campaign, existingConn, platform }
+  const [spendById,      setSpendById]      = useState({}); // campaignId → spend_usd for selected period (all platforms)
 
   useEffect(() => {
     getCampaignConnections().then(r => setConnections(r.data)).catch(() => {});
@@ -465,17 +465,26 @@ export default function Ads() {
     getCampaignBulkStats(calcStart, calcEnd).then(r => setConnStats(r.data)).catch(() => {});
   }, [connections.length, calcStart, calcEnd]);
 
-  // Auto-fetch Meta period spend whenever date range changes (if Meta is connected)
+  // Auto-fetch period spend from all connected platforms whenever date range changes
   useEffect(() => {
-    if (!metaStatus?.connected) return;
-    getMetaSpend(calcStart, calcEnd)
-      .then(r => {
-        const map = {};
-        (r.data.breakdown || []).forEach(b => { if (b.campaign_id) map[b.campaign_id] = b.spend_usd; });
-        setMetaSpendById(map);
-      })
-      .catch(() => setMetaSpendById({}));
-  }, [metaStatus?.connected, calcStart, calcEnd]);
+    const fetchers = [
+      metaStatus?.connected   && getMetaSpend(calcStart, calcEnd),
+      ttStatus?.connected     && getTikTokSpend(calcStart, calcEnd),
+      scStatus?.connected     && getSnapchatSpend(calcStart, calcEnd),
+      ptStatus?.connected     && getPinterestSpend(calcStart, calcEnd),
+      ggStatus?.connected     && getGoogleSpend(calcStart, calcEnd),
+    ].filter(Boolean);
+    if (fetchers.length === 0) return;
+    Promise.allSettled(fetchers).then(results => {
+      const map = {};
+      results.forEach(r => {
+        if (r.status === 'fulfilled') {
+          (r.value.data.breakdown || []).forEach(b => { if (b.campaign_id) map[b.campaign_id] = b.spend_usd; });
+        }
+      });
+      setSpendById(map);
+    });
+  }, [metaStatus?.connected, ttStatus?.connected, scStatus?.connected, ptStatus?.connected, ggStatus?.connected, calcStart, calcEnd]);
 
   const handleSaveConnection = async (data) => {
     const r = await saveCampaignConnection(data);
@@ -631,7 +640,7 @@ export default function Ads() {
                       <tbody>
                         {metaCampaigns.map(c => {
                           const isActive = c.status === 'ACTIVE';
-                          const conn = connections.find(cn => cn.meta_campaign_id === c.id);
+                          const conn = connections.find(cn => cn.meta_campaign_id === c.id && (cn.platform === 'meta' || !cn.platform));
                           return (
                             <tr key={c.id}>
                               <td>
@@ -657,10 +666,10 @@ export default function Ads() {
                                       ● {conn.item_name}
                                     </span>
                                     <span style={{ fontSize: 10, color: '#8892b0', textTransform: 'uppercase' }}>{conn.item_type}</span>
-                                    <button onClick={() => setConnectSidebar({ campaign: c, existingConn: conn })} style={{ background: 'none', border: 'none', color: '#60a5fa', cursor: 'pointer', fontSize: 11, padding: 0 }}>Edit</button>
+                                    <button onClick={() => setConnectSidebar({ campaign: c, existingConn: conn, platform: 'meta' })} style={{ background: 'none', border: 'none', color: '#60a5fa', cursor: 'pointer', fontSize: 11, padding: 0 }}>Edit</button>
                                   </div>
                                 ) : (
-                                  <button onClick={() => setConnectSidebar({ campaign: c, existingConn: null })}
+                                  <button onClick={() => setConnectSidebar({ campaign: c, existingConn: null, platform: 'meta' })}
                                     style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 6, border: '1px solid #2d3248', background: '#1d1d27', color: '#8892b0', cursor: 'pointer', fontSize: 11 }}>
                                     <Link2 size={10} /> Connect
                                   </button>
@@ -735,22 +744,38 @@ export default function Ads() {
                 : ttCampaigns.length === 0 ? <div style={{ color: '#8892b0', fontSize: 13 }}>No campaigns found.</div>
                 : (
                   <div className="table-wrapper">
-                    <table><thead><tr><th>Status</th><th>Campaign</th><th>Objective</th><th>Budget</th><th></th></tr></thead>
+                    <table><thead><tr><th>Status</th><th>Campaign</th><th>Objective</th><th>Budget</th><th>Connected</th><th></th></tr></thead>
                       <tbody>
-                        {ttCampaigns.map(c => (
-                          <tr key={c.id}>
-                            <td><span style={{ color: c.status === 'ENABLE' ? '#00d48f' : '#8892b0', fontWeight: 600, fontSize: 12 }}>{c.status === 'ENABLE' ? '● Active' : '● Paused'}</span></td>
-                            <td style={{ fontWeight: 500 }}>{c.name}</td>
-                            <td style={{ color: '#8892b0', fontSize: 13 }}>{c.objective_type}</td>
-                            <td style={{ fontSize: 13 }}>${fmt(c.budget)}/day</td>
-                            <td>
-                              {c.status === 'ENABLE'
-                                ? <button className="btn btn-secondary btn-sm" onClick={() => pauseTikTokCampaign(c.id).then(loadTtCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))}><Pause size={12} /></button>
-                                : <button className="btn btn-primary btn-sm" onClick={() => resumeTikTokCampaign(c.id).then(loadTtCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))}><Play size={12} /></button>
-                              }
-                            </td>
-                          </tr>
-                        ))}
+                        {ttCampaigns.map(c => {
+                          const conn = connections.find(cn => cn.meta_campaign_id === c.id && cn.platform === 'tiktok');
+                          return (
+                            <tr key={c.id}>
+                              <td><span style={{ color: c.status === 'ENABLE' ? '#00d48f' : '#8892b0', fontWeight: 600, fontSize: 12 }}>{c.status === 'ENABLE' ? '● Active' : '● Paused'}</span></td>
+                              <td style={{ fontWeight: 500 }}>{c.name}</td>
+                              <td style={{ color: '#8892b0', fontSize: 13 }}>{c.objective_type}</td>
+                              <td style={{ fontSize: 13 }}>${fmt(c.budget)}/day</td>
+                              <td>
+                                {conn ? (
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <span style={{ background: '#0d2a1e', color: '#00d48f', padding: '3px 8px', borderRadius: 12, fontSize: 11, fontWeight: 600 }}>● {conn.item_name}</span>
+                                    <button onClick={() => setConnectSidebar({ campaign: c, existingConn: conn, platform: 'tiktok' })} style={{ background: 'none', border: 'none', color: '#60a5fa', cursor: 'pointer', fontSize: 11, padding: 0 }}>Edit</button>
+                                  </div>
+                                ) : (
+                                  <button onClick={() => setConnectSidebar({ campaign: c, existingConn: null, platform: 'tiktok' })}
+                                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 6, border: '1px solid #2d3248', background: '#1d1d27', color: '#8892b0', cursor: 'pointer', fontSize: 11 }}>
+                                    <Link2 size={10} /> Connect
+                                  </button>
+                                )}
+                              </td>
+                              <td>
+                                {c.status === 'ENABLE'
+                                  ? <button className="btn btn-secondary btn-sm" onClick={() => pauseTikTokCampaign(c.id).then(loadTtCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))}><Pause size={12} /></button>
+                                  : <button className="btn btn-primary btn-sm" onClick={() => resumeTikTokCampaign(c.id).then(loadTtCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))}><Play size={12} /></button>
+                                }
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -784,21 +809,37 @@ export default function Ads() {
                 : scCampaigns.length === 0 ? <div style={{ color: '#8892b0', fontSize: 13 }}>No campaigns found.</div>
                 : (
                   <div className="table-wrapper">
-                    <table><thead><tr><th>Status</th><th>Campaign</th><th>Daily Budget</th><th></th></tr></thead>
+                    <table><thead><tr><th>Status</th><th>Campaign</th><th>Daily Budget</th><th>Connected</th><th></th></tr></thead>
                       <tbody>
-                        {scCampaigns.map(c => (
-                          <tr key={c.id}>
-                            <td><span style={{ color: c.status === 'ACTIVE' ? '#00d48f' : '#8892b0', fontWeight: 600, fontSize: 12 }}>{c.status === 'ACTIVE' ? '● Active' : '● Paused'}</span></td>
-                            <td style={{ fontWeight: 500 }}>{c.name}</td>
-                            <td style={{ fontSize: 13 }}>{c.daily_budget_usd ? `$${fmt(c.daily_budget_usd)}/day` : '—'}</td>
-                            <td>
-                              {c.status === 'ACTIVE'
-                                ? <button className="btn btn-secondary btn-sm" onClick={() => pauseSnapchatCampaign(c.id).then(loadScCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))}><Pause size={12} /></button>
-                                : <button className="btn btn-primary btn-sm" onClick={() => resumeSnapchatCampaign(c.id).then(loadScCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))}><Play size={12} /></button>
-                              }
-                            </td>
-                          </tr>
-                        ))}
+                        {scCampaigns.map(c => {
+                          const conn = connections.find(cn => cn.meta_campaign_id === c.id && cn.platform === 'snapchat');
+                          return (
+                            <tr key={c.id}>
+                              <td><span style={{ color: c.status === 'ACTIVE' ? '#00d48f' : '#8892b0', fontWeight: 600, fontSize: 12 }}>{c.status === 'ACTIVE' ? '● Active' : '● Paused'}</span></td>
+                              <td style={{ fontWeight: 500 }}>{c.name}</td>
+                              <td style={{ fontSize: 13 }}>{c.daily_budget_usd ? `$${fmt(c.daily_budget_usd)}/day` : '—'}</td>
+                              <td>
+                                {conn ? (
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <span style={{ background: '#0d2a1e', color: '#00d48f', padding: '3px 8px', borderRadius: 12, fontSize: 11, fontWeight: 600 }}>● {conn.item_name}</span>
+                                    <button onClick={() => setConnectSidebar({ campaign: c, existingConn: conn, platform: 'snapchat' })} style={{ background: 'none', border: 'none', color: '#60a5fa', cursor: 'pointer', fontSize: 11, padding: 0 }}>Edit</button>
+                                  </div>
+                                ) : (
+                                  <button onClick={() => setConnectSidebar({ campaign: c, existingConn: null, platform: 'snapchat' })}
+                                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 6, border: '1px solid #2d3248', background: '#1d1d27', color: '#8892b0', cursor: 'pointer', fontSize: 11 }}>
+                                    <Link2 size={10} /> Connect
+                                  </button>
+                                )}
+                              </td>
+                              <td>
+                                {c.status === 'ACTIVE'
+                                  ? <button className="btn btn-secondary btn-sm" onClick={() => pauseSnapchatCampaign(c.id).then(loadScCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))}><Pause size={12} /></button>
+                                  : <button className="btn btn-primary btn-sm" onClick={() => resumeSnapchatCampaign(c.id).then(loadScCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))}><Play size={12} /></button>
+                                }
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -832,21 +873,37 @@ export default function Ads() {
                 : ptCampaigns.length === 0 ? <div style={{ color: '#8892b0', fontSize: 13 }}>No campaigns found.</div>
                 : (
                   <div className="table-wrapper">
-                    <table><thead><tr><th>Status</th><th>Campaign</th><th>Daily Budget</th><th></th></tr></thead>
+                    <table><thead><tr><th>Status</th><th>Campaign</th><th>Daily Budget</th><th>Connected</th><th></th></tr></thead>
                       <tbody>
-                        {ptCampaigns.map(c => (
-                          <tr key={c.id}>
-                            <td><span style={{ color: c.status === 'ACTIVE' ? '#00d48f' : '#8892b0', fontWeight: 600, fontSize: 12 }}>{c.status === 'ACTIVE' ? '● Active' : '● Paused'}</span></td>
-                            <td style={{ fontWeight: 500 }}>{c.name}</td>
-                            <td style={{ fontSize: 13 }}>{c.daily_budget_usd ? `$${fmt(c.daily_budget_usd)}/day` : '—'}</td>
-                            <td>
-                              {c.status === 'ACTIVE'
-                                ? <button className="btn btn-secondary btn-sm" onClick={() => pausePinterestCampaign(c.id).then(loadPtCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))}><Pause size={12} /></button>
-                                : <button className="btn btn-primary btn-sm" onClick={() => resumePinterestCampaign(c.id).then(loadPtCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))}><Play size={12} /></button>
-                              }
-                            </td>
-                          </tr>
-                        ))}
+                        {ptCampaigns.map(c => {
+                          const conn = connections.find(cn => cn.meta_campaign_id === c.id && cn.platform === 'pinterest');
+                          return (
+                            <tr key={c.id}>
+                              <td><span style={{ color: c.status === 'ACTIVE' ? '#00d48f' : '#8892b0', fontWeight: 600, fontSize: 12 }}>{c.status === 'ACTIVE' ? '● Active' : '● Paused'}</span></td>
+                              <td style={{ fontWeight: 500 }}>{c.name}</td>
+                              <td style={{ fontSize: 13 }}>{c.daily_budget_usd ? `$${fmt(c.daily_budget_usd)}/day` : '—'}</td>
+                              <td>
+                                {conn ? (
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <span style={{ background: '#0d2a1e', color: '#00d48f', padding: '3px 8px', borderRadius: 12, fontSize: 11, fontWeight: 600 }}>● {conn.item_name}</span>
+                                    <button onClick={() => setConnectSidebar({ campaign: c, existingConn: conn, platform: 'pinterest' })} style={{ background: 'none', border: 'none', color: '#60a5fa', cursor: 'pointer', fontSize: 11, padding: 0 }}>Edit</button>
+                                  </div>
+                                ) : (
+                                  <button onClick={() => setConnectSidebar({ campaign: c, existingConn: null, platform: 'pinterest' })}
+                                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 6, border: '1px solid #2d3248', background: '#1d1d27', color: '#8892b0', cursor: 'pointer', fontSize: 11 }}>
+                                    <Link2 size={10} /> Connect
+                                  </button>
+                                )}
+                              </td>
+                              <td>
+                                {c.status === 'ACTIVE'
+                                  ? <button className="btn btn-secondary btn-sm" onClick={() => pausePinterestCampaign(c.id).then(loadPtCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))}><Pause size={12} /></button>
+                                  : <button className="btn btn-primary btn-sm" onClick={() => resumePinterestCampaign(c.id).then(loadPtCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))}><Play size={12} /></button>
+                                }
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -880,26 +937,42 @@ export default function Ads() {
                 : ggCampaigns.length === 0 ? <div style={{ color: '#8892b0', fontSize: 13 }}>No campaigns found.</div>
                 : (
                   <div className="table-wrapper">
-                    <table><thead><tr><th>Status</th><th>Campaign</th><th>Type</th><th>Daily Budget</th><th>All-Time Spend</th><th></th></tr></thead>
+                    <table><thead><tr><th>Status</th><th>Campaign</th><th>Type</th><th>Daily Budget</th><th>All-Time Spend</th><th>Connected</th><th></th></tr></thead>
                       <tbody>
-                        {ggCampaigns.map(c => (
-                          <tr key={c.id}>
-                            <td><span style={{ color: c.status === 'ENABLED' ? '#00d48f' : '#8892b0', fontWeight: 600, fontSize: 12 }}>{c.status === 'ENABLED' ? '● Active' : '● Paused'}</span></td>
-                            <td style={{ fontWeight: 500, maxWidth: 200 }}><div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div></td>
-                            <td style={{ color: '#8892b0', fontSize: 13 }}>{c.channel_type || '—'}</td>
-                            <td style={{ fontSize: 13 }}>{c.daily_budget_usd != null ? `$${fmt(c.daily_budget_usd)}/day` : '—'}</td>
-                            <td>
-                              <div style={{ fontWeight: 700, color: '#f59e0b' }}>${fmt(c.spend_all_time_usd)}</div>
-                              <div style={{ fontSize: 11, color: '#8892b0' }}>{fmt(c.spend_all_time_usd * usdRate)} MAD</div>
-                            </td>
-                            <td>
-                              {c.status === 'ENABLED'
-                                ? <button className="btn btn-secondary btn-sm" onClick={() => pauseGoogleCampaign(c.id).then(loadGgCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))}><Pause size={12} /></button>
-                                : <button className="btn btn-primary btn-sm" onClick={() => resumeGoogleCampaign(c.id).then(loadGgCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))}><Play size={12} /></button>
-                              }
-                            </td>
-                          </tr>
-                        ))}
+                        {ggCampaigns.map(c => {
+                          const conn = connections.find(cn => cn.meta_campaign_id === c.id && cn.platform === 'google');
+                          return (
+                            <tr key={c.id}>
+                              <td><span style={{ color: c.status === 'ENABLED' ? '#00d48f' : '#8892b0', fontWeight: 600, fontSize: 12 }}>{c.status === 'ENABLED' ? '● Active' : '● Paused'}</span></td>
+                              <td style={{ fontWeight: 500, maxWidth: 200 }}><div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div></td>
+                              <td style={{ color: '#8892b0', fontSize: 13 }}>{c.channel_type || '—'}</td>
+                              <td style={{ fontSize: 13 }}>{c.daily_budget_usd != null ? `$${fmt(c.daily_budget_usd)}/day` : '—'}</td>
+                              <td>
+                                <div style={{ fontWeight: 700, color: '#f59e0b' }}>${fmt(c.spend_all_time_usd)}</div>
+                                <div style={{ fontSize: 11, color: '#8892b0' }}>{fmt(c.spend_all_time_usd * usdRate)} MAD</div>
+                              </td>
+                              <td>
+                                {conn ? (
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <span style={{ background: '#0d2a1e', color: '#00d48f', padding: '3px 8px', borderRadius: 12, fontSize: 11, fontWeight: 600 }}>● {conn.item_name}</span>
+                                    <button onClick={() => setConnectSidebar({ campaign: c, existingConn: conn, platform: 'google' })} style={{ background: 'none', border: 'none', color: '#60a5fa', cursor: 'pointer', fontSize: 11, padding: 0 }}>Edit</button>
+                                  </div>
+                                ) : (
+                                  <button onClick={() => setConnectSidebar({ campaign: c, existingConn: null, platform: 'google' })}
+                                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 6, border: '1px solid #2d3248', background: '#1d1d27', color: '#8892b0', cursor: 'pointer', fontSize: 11 }}>
+                                    <Link2 size={10} /> Connect
+                                  </button>
+                                )}
+                              </td>
+                              <td>
+                                {c.status === 'ENABLED'
+                                  ? <button className="btn btn-secondary btn-sm" onClick={() => pauseGoogleCampaign(c.id).then(loadGgCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))}><Pause size={12} /></button>
+                                  : <button className="btn btn-primary btn-sm" onClick={() => resumeGoogleCampaign(c.id).then(loadGgCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))}><Play size={12} /></button>
+                                }
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -1050,7 +1123,7 @@ export default function Ads() {
         const rows = connections.map(conn => {
           const campaign = metaCampaigns.find(c => c.id === conn.meta_campaign_id);
           if (!campaign) return null;
-          const periodUsd   = metaSpendById[conn.meta_campaign_id] ?? null;
+          const periodUsd   = spendById[conn.meta_campaign_id] ?? null;
           const spend       = periodUsd != null ? periodUsd * usdRate : (campaign.spend_all_time_usd || 0) * usdRate;
           const stats       = connStats[conn.id] || {};
           const delivered   = stats.delivered_orders || 0;
@@ -1138,7 +1211,8 @@ export default function Ads() {
           usdRate={usdRate}
           dateFrom={calcStart}
           dateTo={calcEnd}
-          periodSpendUsd={metaSpendById[connectSidebar.campaign?.id] ?? null}
+          periodSpendUsd={spendById[connectSidebar.campaign?.id] ?? null}
+          platform={connectSidebar.platform || 'meta'}
           onSave={handleSaveConnection}
           onClose={() => setConnectSidebar(null)}
         />

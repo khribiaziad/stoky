@@ -173,31 +173,53 @@ def resume_campaign(campaign_id: str, db: Session = Depends(get_db), user: model
 
 @router.get("/spend")
 def get_spend(start: str, end: str, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
-    """Get ad spend from Pinterest for a date range (YYYY-MM-DD)."""
+    """Get ad spend from Pinterest for a date range, broken down by campaign."""
     token, ad_account_id = _get_credentials(user, db)
+
+    # Fetch campaigns to get IDs and names
+    camps_resp = httpx.get(
+        f"{PINTEREST_API_BASE}/ad_accounts/{ad_account_id}/campaigns",
+        headers={"Authorization": f"Bearer {token}"},
+        params={"page_size": 100},
+        timeout=15,
+    )
+    if camps_resp.status_code != 200:
+        raise HTTPException(status_code=400, detail="Failed to fetch campaigns for spend")
+    campaigns = {
+        c.get("id"): c.get("name", "")
+        for c in camps_resp.json().get("items", [])
+        if c.get("id")
+    }
+    if not campaigns:
+        return {"total_spend_usd": 0.0, "breakdown": [], "start": start, "end": end}
+
     resp = httpx.get(
-        f"{PINTEREST_API_BASE}/ad_accounts/{ad_account_id}/analytics",
+        f"{PINTEREST_API_BASE}/ad_accounts/{ad_account_id}/campaigns/analytics",
         headers={"Authorization": f"Bearer {token}"},
         params={
+            "campaign_ids": list(campaigns.keys()),
             "start_date": start,
             "end_date": end,
             "columns": "SPEND_IN_DOLLAR",
-            "granularity": "DAY",
+            "granularity": "TOTAL",
         },
         timeout=15,
     )
     if resp.status_code != 200:
         body = resp.json()
-        msg = body.get("message", "Failed to fetch spend data")
+        msg = body.get("message", "Failed to fetch campaign spend data")
         raise HTTPException(status_code=400, detail=msg)
     rows = resp.json()
     total = 0.0
     breakdown = []
     for row in rows if isinstance(rows, list) else []:
+        camp_id = str(row.get("CAMPAIGN_ID", "") or "")
         spend = float(row.get("SPEND_IN_DOLLAR", 0) or 0)
         total += spend
-        breakdown.append({
-            "date": row.get("DATE"),
-            "spend_usd": round(spend, 2),
-        })
+        if spend > 0:
+            breakdown.append({
+                "campaign_id": camp_id,
+                "campaign": campaigns.get(camp_id, ""),
+                "spend_usd": round(spend, 2),
+            })
     return {"total_spend_usd": round(total, 2), "breakdown": breakdown, "start": start, "end": end}

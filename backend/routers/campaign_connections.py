@@ -147,6 +147,7 @@ def upsert_connection(
     store_id = get_store_id(user)
     existing = db.query(models.CampaignConnection).filter(
         models.CampaignConnection.meta_campaign_id == data.meta_campaign_id,
+        models.CampaignConnection.platform == data.platform,
         models.CampaignConnection.user_id == store_id,
     ).first()
     if existing:

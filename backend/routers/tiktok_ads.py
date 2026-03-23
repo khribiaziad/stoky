@@ -205,7 +205,7 @@ def get_spend(start: str, end: str, db: Session = Depends(get_db), user: models.
         json={
             "advertiser_id": advertiser_id,
             "report_type": "BASIC",
-            "dimensions": ["stat_time_day"],
+            "dimensions": ["campaign_id", "campaign_name"],
             "metrics": ["spend"],
             "start_date": start,
             "end_date": end,
@@ -222,9 +222,11 @@ def get_spend(start: str, end: str, db: Session = Depends(get_db), user: models.
     total = sum(float(r.get("metrics", {}).get("spend", 0)) for r in rows)
     breakdown = [
         {
-            "date": r.get("dimensions", {}).get("stat_time_day"),
+            "campaign_id": r.get("dimensions", {}).get("campaign_id"),
+            "campaign": r.get("dimensions", {}).get("campaign_name"),
             "spend_usd": round(float(r.get("metrics", {}).get("spend", 0)), 2),
         }
         for r in rows
+        if float(r.get("metrics", {}).get("spend", 0)) > 0
     ]
     return {"total_spend_usd": round(total, 2), "breakdown": breakdown, "start": start, "end": end}

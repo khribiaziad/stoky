@@ -208,7 +208,7 @@ def resume_campaign(campaign_id: str, db: Session = Depends(get_db), user: model
 def get_spend(start: str, end: str, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
     token, customer_id, dev_token = _get_credentials(user, db)
     query = f"""
-        SELECT campaign.name, metrics.cost_micros
+        SELECT campaign.id, campaign.name, metrics.cost_micros
         FROM campaign
         WHERE segments.date BETWEEN '{start}' AND '{end}'
           AND campaign.status != 'REMOVED'
@@ -231,5 +231,5 @@ def get_spend(start: str, end: str, db: Session = Depends(get_db), user: models.
             name = row.get("campaign", {}).get("name", "Unknown")
             if spend > 0:
                 total += spend
-                breakdown.append({"campaign": name, "spend_usd": round(spend, 2)})
+                breakdown.append({"campaign_id": str(row.get("campaign", {}).get("id", "")), "campaign": name, "spend_usd": round(spend, 2)})
     return {"total_spend_usd": round(total, 2), "breakdown": breakdown, "start": start, "end": end}

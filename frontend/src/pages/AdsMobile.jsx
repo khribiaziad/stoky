@@ -4,10 +4,10 @@ import CampaignConnectModal from './CampaignConnectModal';
 import {
   getSetting,
   getMetaStatus, getMetaCampaigns, getMetaSpend,
-  getTikTokStatus, getTikTokCampaigns,
-  getSnapchatStatus, getSnapchatCampaigns,
-  getPinterestStatus, getPinterestCampaigns,
-  getGoogleStatus, getGoogleCampaigns,
+  getTikTokStatus, getTikTokCampaigns, getTikTokSpend,
+  getSnapchatStatus, getSnapchatCampaigns, getSnapchatSpend,
+  getPinterestStatus, getPinterestCampaigns, getPinterestSpend,
+  getGoogleStatus, getGoogleCampaigns, getGoogleSpend,
   getProducts, getPacks, getOffers,
   getCampaignConnections, saveCampaignConnection, deleteCampaignConnection, getCampaignBulkStats,
 } from '../api';
@@ -121,7 +121,7 @@ export default function AdsMobile() {
   const [products,      setProducts]      = useState([]);
   const [packs,         setPacks]         = useState([]);
   const [offers,        setOffers]        = useState([]);
-  const [metaSpendById, setMetaSpendById] = useState({}); // campaignId → spend_usd for period
+  const [spendById, setSpendById] = useState({}); // campaignId → spend_usd for period (all platforms)
 
   // Date range (for stats)
   const [dateFrom] = useState(() => { const d = new Date(); d.setDate(d.getDate() - 6); return d.toISOString().slice(0, 10); });
@@ -137,15 +137,6 @@ export default function AdsMobile() {
       if (r.data?.connected) {
         setMetaLoading(true);
         getMetaCampaigns().then(res => setMetaCampaigns(res.data)).catch(() => {}).finally(() => setMetaLoading(false));
-        // Fetch period spend for the default date range
-        getMetaSpend(
-          new Date(Date.now() - 6 * 86400000).toISOString().slice(0, 10),
-          new Date().toISOString().slice(0, 10)
-        ).then(res => {
-          const map = {};
-          (res.data.breakdown || []).forEach(b => { if (b.campaign_id) map[b.campaign_id] = b.spend_usd; });
-          setMetaSpendById(map);
-        }).catch(() => {});
       }
     });
     getTikTokStatus().catch(() => ({ data: { connected: false } })).then(r => {
@@ -175,6 +166,27 @@ export default function AdsMobile() {
     if (connections.length === 0) { setConnStats({}); return; }
     getCampaignBulkStats(dateFrom, dateTo).then(r => setConnStats(r.data)).catch(() => {});
   }, [connections.length, dateFrom, dateTo]);
+
+  // Fetch period spend from all connected platforms
+  useEffect(() => {
+    const fetchers = [
+      metaStatus?.connected     && getMetaSpend(dateFrom, dateTo),
+      ttStatus?.connected       && getTikTokSpend(dateFrom, dateTo),
+      scStatus?.connected       && getSnapchatSpend(dateFrom, dateTo),
+      ptStatus?.connected       && getPinterestSpend(dateFrom, dateTo),
+      ggStatus?.connected       && getGoogleSpend(dateFrom, dateTo),
+    ].filter(Boolean);
+    if (fetchers.length === 0) return;
+    Promise.allSettled(fetchers).then(results => {
+      const map = {};
+      results.forEach(r => {
+        if (r.status === 'fulfilled') {
+          (r.value.data.breakdown || []).forEach(b => { if (b.campaign_id) map[b.campaign_id] = b.spend_usd; });
+        }
+      });
+      setSpendById(map);
+    });
+  }, [metaStatus?.connected, ttStatus?.connected, scStatus?.connected, ptStatus?.connected, ggStatus?.connected]);
 
   const handleSaveConnection = async (data) => {
     const r = await saveCampaignConnection(data);
@@ -215,7 +227,7 @@ export default function AdsMobile() {
   const profRows = connections.map(conn => {
     const campaign = metaCampaigns.find(c => c.id === conn.meta_campaign_id);
     if (!campaign) return null;
-    const periodUsd   = metaSpendById[conn.meta_campaign_id] ?? null;
+    const periodUsd   = spendById[conn.meta_campaign_id] ?? null;
     const spend       = periodUsd != null ? periodUsd * usdRate : (campaign.spend_all_time_usd || 0) * usdRate;
     const stats       = connStats[conn.id] || {};
     const delivered   = stats.delivered_orders || 0;
@@ -350,7 +362,8 @@ export default function AdsMobile() {
           usdRate={usdRate}
           dateFrom={dateFrom}
           dateTo={dateTo}
-          periodSpendUsd={metaSpendById[selectedCamp.id] ?? null}
+          periodSpendUsd={spendById[selectedCamp.id] ?? null}
+          platform={connections.find(cn => cn.meta_campaign_id === selectedCamp.id)?.platform || 'meta'}
           onSave={handleSaveConnection}
           onClose={() => setSelectedCamp(null)}
         />

@@ -179,42 +179,55 @@ def resume_campaign(campaign_id: str, db: Session = Depends(get_db), user: model
 
 @router.get("/spend")
 def get_spend(start: str, end: str, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
-    """Get ad spend from Snapchat for a date range (YYYY-MM-DD)."""
+    """Get ad spend from Snapchat for a date range, broken down by campaign."""
     token, ad_account_id = _get_credentials(user, db)
-    # Snapchat expects ISO 8601 datetime strings
     start_time = f"{start}T00:00:00.000-0000"
     end_time = f"{end}T23:59:59.999-0000"
-    resp = httpx.get(
-        f"{SNAPCHAT_API_BASE}/adaccounts/{ad_account_id}/stats",
+
+    # Fetch all campaigns to get IDs and names
+    camps_resp = httpx.get(
+        f"{SNAPCHAT_API_BASE}/adaccounts/{ad_account_id}/campaigns",
         headers={"Authorization": f"Bearer {token}"},
-        params={
-            "granularity": "DAY",
-            "fields": "spend",
-            "start_time": start_time,
-            "end_time": end_time,
-        },
         timeout=15,
     )
-    if resp.status_code != 200:
-        body = resp.json()
-        msg = body.get("debug_message", "Failed to fetch spend data")
-        raise HTTPException(status_code=400, detail=msg)
-    body = resp.json()
-    timeseries = body.get("timeseries_stats", [])
-    rows = []
+    if camps_resp.status_code != 200:
+        raise HTTPException(status_code=400, detail="Failed to fetch campaigns for spend")
+    campaigns = {
+        item["campaign"]["id"]: item["campaign"].get("name", "")
+        for item in camps_resp.json().get("campaigns", [])
+        if item.get("campaign", {}).get("id")
+    }
+
     total_micro = 0
-    for item in timeseries:
-        ts = item.get("timeseries_stat", {})
-        for entry in ts.get("timeseries", []):
-            spend_micro = entry.get("stats", {}).get("spend", 0) or 0
-            total_micro += spend_micro
-            rows.append({
-                "date": entry.get("start_time", "")[:10],
-                "spend_usd": round(spend_micro / 1_000_000, 2),
-            })
+    breakdown = []
+    for camp_id, camp_name in campaigns.items():
+        stats_resp = httpx.get(
+            f"{SNAPCHAT_API_BASE}/campaigns/{camp_id}/stats",
+            headers={"Authorization": f"Bearer {token}"},
+            params={
+                "granularity": "TOTAL",
+                "fields": "spend",
+                "start_time": start_time,
+                "end_time": end_time,
+            },
+            timeout=15,
+        )
+        if stats_resp.status_code != 200:
+            continue
+        for item in stats_resp.json().get("timeseries_stats", []):
+            ts = item.get("timeseries_stat", {})
+            for entry in ts.get("timeseries", []):
+                spend_micro = entry.get("stats", {}).get("spend", 0) or 0
+                total_micro += spend_micro
+                if spend_micro > 0:
+                    breakdown.append({
+                        "campaign_id": camp_id,
+                        "campaign": camp_name,
+                        "spend_usd": round(spend_micro / 1_000_000, 2),
+                    })
     return {
         "total_spend_usd": round(total_micro / 1_000_000, 2),
-        "breakdown": rows,
+        "breakdown": breakdown,
         "start": start,
         "end": end,
     }
