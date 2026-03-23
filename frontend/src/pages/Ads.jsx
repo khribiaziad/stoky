@@ -709,9 +709,22 @@ export default function Ads() {
                                     {isActive ? 'Active' : c.status === 'PAUSED' ? 'Paused' : c.status}
                                   </span>
                                 </td>
-                                <td style={{ fontWeight: 500, maxWidth: 220 }}>
+                                <td style={{ fontWeight: 500, maxWidth: 240 }}>
                                   <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
                                   {c.start_time && <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>{c.start_time.slice(0, 10)}</div>}
+                                  {conn && (
+                                    <div style={{ display: 'flex', gap: 8, marginTop: 5, flexWrap: 'wrap' }}>
+                                      <span style={{ fontSize: 10, color: '#a78bfa', background: '#1e1a2e', padding: '2px 6px', borderRadius: 6 }}>
+                                        💸 {periodSpend != null ? `${fmt(periodSpend)} MAD` : `${fmt(c.spend_all_time_usd * usdRate)} MAD`}
+                                      </span>
+                                      <span style={{ fontSize: 10, color: '#60a5fa', background: '#131c2e', padding: '2px 6px', borderRadius: 6 }}>
+                                        📦 {delivered} delivered
+                                      </span>
+                                      <span style={{ fontSize: 10, color: adCostPerOrder != null && adCostPerOrder > 0 ? '#f59e0b' : '#8892b0', background: '#1e1a14', padding: '2px 6px', borderRadius: 6 }}>
+                                        🎯 {adCostPerOrder != null && delivered > 0 ? `${fmt(adCostPerOrder)} MAD/order` : 'No orders yet'}
+                                      </span>
+                                    </div>
+                                  )}
                                 </td>
                                 <td style={{ fontSize: 12, color: '#8892b0' }}>{c.objective?.replace('OUTCOME_', '') || '—'}</td>
                                 <td onClick={e => e.stopPropagation()}>{c.daily_budget_usd != null ? <><span style={{ color: '#60a5fa', fontWeight: 600 }}>${fmt(c.daily_budget_usd)}</span><span style={{ color: '#8892b0', fontSize: 11 }}>/day</span></> : <span style={{ color: '#8892b0' }}>—</span>}</td>

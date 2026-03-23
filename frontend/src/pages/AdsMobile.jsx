@@ -28,7 +28,7 @@ function statusStyle(status) {
 }
 
 // ── Platform Card ──────────────────────────────────────────────────────────
-function PlatformCard({ color, name, accountName, campaigns, connections, usdRate, open, onToggle, onCampaignTap, loading }) {
+function PlatformCard({ color, name, accountName, campaigns, connections, connStats, spendById, usdRate, open, onToggle, onCampaignTap, loading }) {
   const activeCnt = campaigns.filter(c => ['ACTIVE', 'ENABLE', 'ENABLED'].includes(c.status)).length;
 
   return (
@@ -58,32 +58,45 @@ function PlatformCard({ color, name, accountName, campaigns, connections, usdRat
           ) : campaigns.length === 0 ? (
             <div style={{ padding: '16px', color: 'var(--text-muted)', fontSize: 13 }}>No campaigns found.</div>
           ) : campaigns.map(c => {
-            const s    = statusStyle(c.status);
-            const conn = connections.find(cn => cn.meta_campaign_id === c.id);
+            const s         = statusStyle(c.status);
+            const conn      = connections.find(cn => cn.meta_campaign_id === c.id);
+            const stats     = conn ? (connStats[conn.id] || {}) : null;
+            const periodUsd = spendById[c.id] ?? null;
+            const spend     = periodUsd != null ? periodUsd * usdRate : null;
+            const delivered = stats?.delivered_orders || 0;
+            const cpo       = spend != null && delivered > 0 ? spend / delivered : null;
             return (
               <div key={c.id} onClick={() => onCampaignTap(c)}
                 style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', borderBottom: '1px solid var(--border)', cursor: 'pointer', background: 'transparent' }}
               >
-                {/* Status dot */}
                 <span style={{ width: 7, height: 7, borderRadius: '50%', background: s.color, flexShrink: 0, marginTop: 1 }} />
 
-                {/* Campaign info */}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 500, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
                   <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2, display: 'flex', gap: 8 }}>
                     <span style={{ background: s.bg, color: s.color, padding: '1px 6px', borderRadius: 8, fontWeight: 600 }}>{s.label}</span>
                     {c.daily_budget_usd != null && <span style={{ color: '#60a5fa' }}>${fmtUsd(c.daily_budget_usd)}/day</span>}
-                    {c.spend_all_time_usd > 0 && <span>Total: ${fmtUsd(c.spend_all_time_usd)}</span>}
                   </div>
+                  {conn && (
+                    <div style={{ display: 'flex', gap: 6, marginTop: 5, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 10, color: '#a78bfa', background: '#1e1a2e', padding: '2px 6px', borderRadius: 6 }}>
+                        💸 {spend != null ? `${fmt(spend)} MAD` : '—'}
+                      </span>
+                      <span style={{ fontSize: 10, color: '#60a5fa', background: '#131c2e', padding: '2px 6px', borderRadius: 6 }}>
+                        📦 {delivered} delivered
+                      </span>
+                      <span style={{ fontSize: 10, color: cpo != null ? '#f59e0b' : '#8892b0', background: '#1e1a14', padding: '2px 6px', borderRadius: 6 }}>
+                        🎯 {cpo != null ? `${fmt(cpo)} MAD/order` : 'No orders yet'}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
-                {/* Connection badge */}
                 {conn && (
                   <span style={{ background: '#0d2a1e', color: '#00d48f', padding: '3px 8px', borderRadius: 10, fontSize: 10, fontWeight: 700, flexShrink: 0 }}>
                     ● {conn.item_name}
                   </span>
                 )}
-
                 <ChevronDown size={14} color="var(--text-muted)" style={{ flexShrink: 0, transform: 'rotate(-90deg)' }} />
               </div>
             );
@@ -289,7 +302,7 @@ export default function AdsMobile() {
       {metaStatus?.connected && (
         <PlatformCard
           color="#0866FF" name="Meta Ads" accountName={metaStatus.account_name}
-          campaigns={metaCampaigns} connections={connections} usdRate={usdRate}
+          campaigns={metaCampaigns} connections={connections} connStats={connStats} spendById={spendById} usdRate={usdRate}
           loading={metaLoading}
           open={openPlatform === 'meta'}
           onToggle={() => setOpenPlatform(openPlatform === 'meta' ? null : 'meta')}
@@ -299,7 +312,7 @@ export default function AdsMobile() {
       {ttStatus?.connected && (
         <PlatformCard
           color="#010101" name="TikTok Ads" accountName={ttStatus.account_name}
-          campaigns={ttCampaigns} connections={connections} usdRate={usdRate}
+          campaigns={ttCampaigns} connections={connections} connStats={connStats} spendById={spendById} usdRate={usdRate}
           loading={false}
           open={openPlatform === 'tiktok'}
           onToggle={() => setOpenPlatform(openPlatform === 'tiktok' ? null : 'tiktok')}
@@ -309,7 +322,7 @@ export default function AdsMobile() {
       {scStatus?.connected && (
         <PlatformCard
           color="#FFFC00" name="Snapchat Ads" accountName={scStatus.account_name}
-          campaigns={scCampaigns} connections={connections} usdRate={usdRate}
+          campaigns={scCampaigns} connections={connections} connStats={connStats} spendById={spendById} usdRate={usdRate}
           loading={false}
           open={openPlatform === 'snapchat'}
           onToggle={() => setOpenPlatform(openPlatform === 'snapchat' ? null : 'snapchat')}
@@ -319,7 +332,7 @@ export default function AdsMobile() {
       {ptStatus?.connected && (
         <PlatformCard
           color="#E60023" name="Pinterest Ads" accountName={ptStatus.account_name}
-          campaigns={ptCampaigns} connections={connections} usdRate={usdRate}
+          campaigns={ptCampaigns} connections={connections} connStats={connStats} spendById={spendById} usdRate={usdRate}
           loading={false}
           open={openPlatform === 'pinterest'}
           onToggle={() => setOpenPlatform(openPlatform === 'pinterest' ? null : 'pinterest')}
@@ -329,7 +342,7 @@ export default function AdsMobile() {
       {ggStatus?.connected && (
         <PlatformCard
           color="#ea4335" name="Google Ads" accountName={ggStatus.account_name}
-          campaigns={ggCampaigns} connections={connections} usdRate={usdRate}
+          campaigns={ggCampaigns} connections={connections} connStats={connStats} spendById={spendById} usdRate={usdRate}
           loading={false}
           open={openPlatform === 'google'}
           onToggle={() => setOpenPlatform(openPlatform === 'google' ? null : 'google')}
