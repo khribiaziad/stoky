@@ -6,15 +6,16 @@ const fmt = n => Number(n || 0).toLocaleString('fr-MA', { minimumFractionDigits:
 const TYPE_LABELS = { product: 'Product', pack: 'Pack', offer: 'Offer' };
 
 export default function CampaignConnectModal({
-  campaign,     // { id: string, name: string, spend_all_time_usd: number, status, daily_budget_usd }
-  existingConn, // null | { id, meta_campaign_id, item_type, item_id, delivery_cost }
+  campaign,        // { id: string, name: string, spend_all_time_usd: number, status, daily_budget_usd }
+  existingConn,    // null | { id, meta_campaign_id, item_type, item_id, delivery_cost }
   products,
   packs,
   offers,
   usdRate,
   dateFrom,
   dateTo,
-  onSave,       // async (payload) => void
+  periodSpendUsd,  // number | null — Meta spend for the selected date range (USD)
+  onSave,          // async (payload) => void
   onClose,
 }) {
   const [itemType,     setItemType]     = useState(existingConn?.item_type || 'product');
@@ -25,7 +26,9 @@ export default function CampaignConnectModal({
   const [copied,       setCopied]       = useState(false);
   const [saving,       setSaving]       = useState(false);
 
-  const campaignSpend = (campaign?.spend_all_time_usd || 0) * usdRate;
+  const campaignSpend = periodSpendUsd != null
+    ? periodSpendUsd * usdRate
+    : (campaign?.spend_all_time_usd || 0) * usdRate;
 
   const prices = (() => {
     if (!itemId) return null;
@@ -143,7 +146,10 @@ export default function CampaignConnectModal({
               <span style={{ fontWeight: 600, fontSize: 14 }}>{campaign?.name}</span>
             </div>
             <div style={{ fontSize: 12, color: '#a78bfa', marginTop: 4 }}>
-              All-time spend: {fmt(campaignSpend)} MAD · ${fmt(campaign?.spend_all_time_usd || 0, 2)} USD
+              {periodSpendUsd != null
+                ? <>Period spend ({dateFrom} → {dateTo}): {fmt(campaignSpend)} MAD · ${fmt(periodSpendUsd)} USD</>
+                : <>All-time spend: {fmt(campaignSpend)} MAD · ${fmt(campaign?.spend_all_time_usd || 0)} USD</>
+              }
             </div>
           </div>
           <button className="btn-icon" onClick={onClose}><X size={16} /></button>

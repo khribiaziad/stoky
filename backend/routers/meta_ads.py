@@ -353,7 +353,7 @@ def get_spend(start: str, end: str, db: Session = Depends(get_db), user: models.
     data = resp.json().get("data", [])
     total = sum(float(d.get("spend", 0)) for d in data)
     breakdown = [
-        {"campaign": d.get("campaign_name"), "spend_usd": round(float(d.get("spend", 0)), 2)}
+        {"campaign_id": d.get("campaign_id"), "campaign": d.get("campaign_name"), "spend_usd": round(float(d.get("spend", 0)), 2)}
         for d in data if float(d.get("spend", 0)) > 0
     ]
     return {"total_spend_usd": round(total, 2), "breakdown": breakdown, "start": start, "end": end}

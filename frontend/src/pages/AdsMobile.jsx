@@ -3,7 +3,7 @@ import { ChevronDown, ChevronUp, RefreshCw, TrendingUp } from 'lucide-react';
 import CampaignConnectModal from './CampaignConnectModal';
 import {
   getSetting,
-  getMetaStatus, getMetaCampaigns,
+  getMetaStatus, getMetaCampaigns, getMetaSpend,
   getTikTokStatus, getTikTokCampaigns,
   getSnapchatStatus, getSnapchatCampaigns,
   getPinterestStatus, getPinterestCampaigns,
@@ -116,11 +116,12 @@ export default function AdsMobile() {
   const [metaLoading,   setMetaLoading]   = useState(false);
 
   // Catalog + connections
-  const [connections, setConnections] = useState([]);
-  const [connStats,   setConnStats]   = useState({});
-  const [products,    setProducts]    = useState([]);
-  const [packs,       setPacks]       = useState([]);
-  const [offers,      setOffers]      = useState([]);
+  const [connections,   setConnections]   = useState([]);
+  const [connStats,     setConnStats]     = useState({});
+  const [products,      setProducts]      = useState([]);
+  const [packs,         setPacks]         = useState([]);
+  const [offers,        setOffers]        = useState([]);
+  const [metaSpendById, setMetaSpendById] = useState({}); // campaignId → spend_usd for period
 
   // Date range (for stats)
   const [dateFrom] = useState(() => { const d = new Date(); d.setDate(d.getDate() - 6); return d.toISOString().slice(0, 10); });
@@ -136,6 +137,15 @@ export default function AdsMobile() {
       if (r.data?.connected) {
         setMetaLoading(true);
         getMetaCampaigns().then(res => setMetaCampaigns(res.data)).catch(() => {}).finally(() => setMetaLoading(false));
+        // Fetch period spend for the default date range
+        getMetaSpend(
+          new Date(Date.now() - 6 * 86400000).toISOString().slice(0, 10),
+          new Date().toISOString().slice(0, 10)
+        ).then(res => {
+          const map = {};
+          (res.data.breakdown || []).forEach(b => { if (b.campaign_id) map[b.campaign_id] = b.spend_usd; });
+          setMetaSpendById(map);
+        }).catch(() => {});
       }
     });
     getTikTokStatus().catch(() => ({ data: { connected: false } })).then(r => {
@@ -205,7 +215,8 @@ export default function AdsMobile() {
   const profRows = connections.map(conn => {
     const campaign = metaCampaigns.find(c => c.id === conn.meta_campaign_id);
     if (!campaign) return null;
-    const spend       = (campaign.spend_all_time_usd || 0) * usdRate;
+    const periodUsd   = metaSpendById[conn.meta_campaign_id] ?? null;
+    const spend       = periodUsd != null ? periodUsd * usdRate : (campaign.spend_all_time_usd || 0) * usdRate;
     const stats       = connStats[conn.id] || {};
     const delivered   = stats.delivered_orders || 0;
     const adCost      = delivered > 0 ? spend / delivered : 0;
@@ -339,6 +350,7 @@ export default function AdsMobile() {
           usdRate={usdRate}
           dateFrom={dateFrom}
           dateTo={dateTo}
+          periodSpendUsd={metaSpendById[selectedCamp.id] ?? null}
           onSave={handleSaveConnection}
           onClose={() => setSelectedCamp(null)}
         />

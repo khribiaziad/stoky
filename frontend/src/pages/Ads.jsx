@@ -7,7 +7,7 @@ import {
   getSetting, setSetting,
   getMetaStatus, connectMeta, disconnectMeta,
   getMetaCampaigns, pauseMetaCampaign, resumeMetaCampaign,
-  createMetaCampaign, getMetaSpend, getMetaAdAccounts,
+  createMetaCampaign, getMetaSpend, getMetaAdAccounts, // getMetaSpend used for auto period-spend
   getGoogleStatus, connectGoogle, disconnectGoogle, getGoogleCampaigns, pauseGoogleCampaign, resumeGoogleCampaign,
   getTikTokStatus, connectTikTok, disconnectTikTok, getTikTokCampaigns, pauseTikTokCampaign, resumeTikTokCampaign,
   getSnapchatStatus, connectSnapchat, disconnectSnapchat, getSnapchatCampaigns, pauseSnapchatCampaign, resumeSnapchatCampaign,
@@ -451,6 +451,7 @@ export default function Ads() {
   const [packs,          setPacks]          = useState([]);
   const [offers,         setOffers]         = useState([]);
   const [connectSidebar, setConnectSidebar] = useState(null); // { campaign, existingConn }
+  const [metaSpendById,  setMetaSpendById]  = useState({}); // campaignId → spend_usd for selected period
 
   useEffect(() => {
     getCampaignConnections().then(r => setConnections(r.data)).catch(() => {});
@@ -463,6 +464,18 @@ export default function Ads() {
     if (connections.length === 0) { setConnStats({}); return; }
     getCampaignBulkStats(calcStart, calcEnd).then(r => setConnStats(r.data)).catch(() => {});
   }, [connections.length, calcStart, calcEnd]);
+
+  // Auto-fetch Meta period spend whenever date range changes (if Meta is connected)
+  useEffect(() => {
+    if (!metaStatus?.connected) return;
+    getMetaSpend(calcStart, calcEnd)
+      .then(r => {
+        const map = {};
+        (r.data.breakdown || []).forEach(b => { if (b.campaign_id) map[b.campaign_id] = b.spend_usd; });
+        setMetaSpendById(map);
+      })
+      .catch(() => setMetaSpendById({}));
+  }, [metaStatus?.connected, calcStart, calcEnd]);
 
   const handleSaveConnection = async (data) => {
     const r = await saveCampaignConnection(data);
@@ -1037,7 +1050,8 @@ export default function Ads() {
         const rows = connections.map(conn => {
           const campaign = metaCampaigns.find(c => c.id === conn.meta_campaign_id);
           if (!campaign) return null;
-          const spend       = (campaign.spend_all_time_usd || 0) * usdRate;
+          const periodUsd   = metaSpendById[conn.meta_campaign_id] ?? null;
+          const spend       = periodUsd != null ? periodUsd * usdRate : (campaign.spend_all_time_usd || 0) * usdRate;
           const stats       = connStats[conn.id] || {};
           const delivered   = stats.delivered_orders || 0;
           const adCost      = delivered > 0 ? spend / delivered : 0;
@@ -1124,6 +1138,7 @@ export default function Ads() {
           usdRate={usdRate}
           dateFrom={calcStart}
           dateTo={calcEnd}
+          periodSpendUsd={metaSpendById[connectSidebar.campaign?.id] ?? null}
           onSave={handleSaveConnection}
           onClose={() => setConnectSidebar(null)}
         />
