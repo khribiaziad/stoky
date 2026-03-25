@@ -691,6 +691,90 @@ export default function Ads() {
         </div>
       )}
 
+      {/* ── Real Profitability Dashboard ── */}
+      {connections.length > 0 && (() => {
+        const PLATFORM_COLORS = { meta: '#0866FF', tiktok: '#010101', snapchat: '#FFFC00', pinterest: '#E60023', google: '#ea4335' };
+        const rows = connections.map(conn => {
+          const campaign = allCampaigns.find(c => c.id === conn.meta_campaign_id);
+          if (!campaign) return null;
+          const periodUsd   = spendById[conn.meta_campaign_id] ?? null;
+          const spend       = periodUsd != null ? periodUsd * usdRate : (campaign.spend_all_time_usd || 0) * usdRate;
+          const stats       = connStats[conn.id] || {};
+          const delivered   = stats.delivered_orders || 0;
+          const adCost      = delivered > 0 ? spend / delivered : 0;
+          const prices      = getItemPrices(conn.item_type, conn.item_id);
+          const profit      = prices ? prices.selling_price - prices.buy_price - prices.packaging_cost - conn.delivery_cost - adCost : null;
+          const totalProfit = profit !== null ? profit * delivered : null;
+          const platformColor = PLATFORM_COLORS[conn.platform] || '#8892b0';
+          return { conn, campaign, spend, delivered, stats, profit, totalProfit, platformColor };
+        }).filter(Boolean);
+
+        if (rows.length === 0) return null;
+
+        const totalSpend     = rows.reduce((s, r) => s + r.spend, 0);
+        const totalDelivered = rows.reduce((s, r) => s + r.delivered, 0);
+        const totalProfit    = rows.reduce((s, r) => s + (r.totalProfit || 0), 0);
+        const avgReturn      = rows.length > 0 ? rows.reduce((s, r) => s + (r.stats.return_rate || 0), 0) / rows.length : 0;
+
+        return (
+          <div className="card" style={{ marginBottom: 16, borderTop: '3px solid #a78bfa' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+              <TrendingUp size={16} style={{ color: '#a78bfa' }} />
+              <span style={{ fontWeight: 700, fontSize: 16 }}>Real Profitability</span>
+              <span style={{ fontSize: 11, background: '#2d3248', borderRadius: 10, padding: '1px 7px', marginLeft: 4 }}>{rows.length} connected</span>
+            </div>
+
+            {/* Summary */}
+            <div style={{ display: 'flex', background: '#13151e', borderRadius: 10, marginBottom: 14, overflow: 'hidden' }}>
+              {[
+                { label: 'Total Spend', value: `${fmt(totalSpend)} MAD`, color: '#a78bfa' },
+                { label: 'Delivered Orders', value: totalDelivered, color: '#60a5fa' },
+                { label: 'Total Real Profit', value: `${fmt(totalProfit)} MAD`, color: totalProfit >= 0 ? '#00d48f' : '#f87171' },
+                { label: 'Avg Return Rate', value: `${avgReturn.toFixed(1)}%`, color: '#fbbf24' },
+              ].map((s, i) => (
+                <div key={i} style={{ flex: 1, padding: '12px 16px', borderRight: i < 3 ? '1px solid #222733' : 'none' }}>
+                  <div style={{ fontSize: 10, color: '#8892b0', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>{s.label}</div>
+                  <div style={{ fontWeight: 700, fontSize: 15, color: s.color }}>{s.value}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Campaign rows */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {rows.map(({ conn, campaign, spend, delivered, stats, profit, totalProfit, platformColor }) => (
+                <div key={conn.id} style={{ background: '#13151e', borderRadius: 10, padding: '12px 14px', border: `1px solid ${(totalProfit || 0) >= 0 ? '#0d2a1e' : '#2d1b1b'}`, borderLeft: `4px solid ${platformColor}` }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                    <span style={{ fontSize: 10, color: platformColor, fontWeight: 700, textTransform: 'uppercase', flexShrink: 0 }}>{conn.platform || 'meta'}</span>
+                    <div style={{ flex: 1 }}>
+                      <span style={{ fontWeight: 600, fontSize: 13 }}>{campaign.name}</span>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <span style={{ fontSize: 11, color: '#8892b0', textTransform: 'uppercase' }}>{conn.item_type}</span>
+                      <div style={{ fontWeight: 600, fontSize: 13 }}>{conn.item_name}</div>
+                    </div>
+                    <button onClick={() => handleDeleteConnection(conn.id)} style={{ background: 'none', border: 'none', color: '#8892b0', cursor: 'pointer', fontSize: 10, padding: 4 }}>✕</button>
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap' }}>
+                    {[
+                      { label: 'Spend', value: `${fmt(spend)} MAD`, color: '#a78bfa' },
+                      { label: 'Delivered', value: delivered, color: '#60a5fa' },
+                      { label: 'Return rate', value: `${stats.return_rate || 0}%`, color: (stats.return_rate || 0) > 30 ? '#f87171' : '#fbbf24' },
+                      { label: 'Profit/order', value: profit !== null ? `${fmt(profit)} MAD` : '—', color: profit === null ? '#8892b0' : profit >= 0 ? '#00d48f' : '#f87171' },
+                      { label: 'Total profit', value: totalProfit !== null ? `${fmt(totalProfit)} MAD` : '—', color: totalProfit === null ? '#8892b0' : totalProfit >= 0 ? '#00d48f' : '#f87171' },
+                    ].map((s, i) => (
+                      <div key={i} style={{ flex: '1 0 80px', padding: '6px 10px', borderRight: '1px solid #222733' }}>
+                        <div style={{ fontSize: 10, color: '#8892b0', marginBottom: 2 }}>{s.label}</div>
+                        <div style={{ fontWeight: 700, fontSize: 13, color: s.color }}>{s.value}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
       {error && <div className="alert alert-error">{error}<button style={{ float: 'right', background: 'none', border: 'none', color: 'inherit', cursor: 'pointer' }} onClick={() => setError('')}>✕</button></div>}
       {success && <div className="alert alert-success">{success}<button style={{ float: 'right', background: 'none', border: 'none', color: 'inherit', cursor: 'pointer' }} onClick={() => setSuccess('')}>✕</button></div>}
 
@@ -1168,90 +1252,6 @@ export default function Ads() {
           </div>
         </div>
       )}
-
-      {/* ── Real Profitability Dashboard ── */}
-      {connections.length > 0 && (() => {
-        const PLATFORM_COLORS = { meta: '#0866FF', tiktok: '#010101', snapchat: '#FFFC00', pinterest: '#E60023', google: '#ea4335' };
-        const rows = connections.map(conn => {
-          const campaign = allCampaigns.find(c => c.id === conn.meta_campaign_id);
-          if (!campaign) return null;
-          const periodUsd   = spendById[conn.meta_campaign_id] ?? null;
-          const spend       = periodUsd != null ? periodUsd * usdRate : (campaign.spend_all_time_usd || 0) * usdRate;
-          const stats       = connStats[conn.id] || {};
-          const delivered   = stats.delivered_orders || 0;
-          const adCost      = delivered > 0 ? spend / delivered : 0;
-          const prices      = getItemPrices(conn.item_type, conn.item_id);
-          const profit      = prices ? prices.selling_price - prices.buy_price - prices.packaging_cost - conn.delivery_cost - adCost : null;
-          const totalProfit = profit !== null ? profit * delivered : null;
-          const platformColor = PLATFORM_COLORS[conn.platform] || '#8892b0';
-          return { conn, campaign, spend, delivered, stats, profit, totalProfit, platformColor };
-        }).filter(Boolean);
-
-        if (rows.length === 0) return null;
-
-        const totalSpend     = rows.reduce((s, r) => s + r.spend, 0);
-        const totalDelivered = rows.reduce((s, r) => s + r.delivered, 0);
-        const totalProfit    = rows.reduce((s, r) => s + (r.totalProfit || 0), 0);
-        const avgReturn      = rows.length > 0 ? rows.reduce((s, r) => s + (r.stats.return_rate || 0), 0) / rows.length : 0;
-
-        return (
-          <div className="card" style={{ marginBottom: 20, borderTop: '3px solid #a78bfa' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-              <TrendingUp size={16} style={{ color: '#a78bfa' }} />
-              <span style={{ fontWeight: 700, fontSize: 16 }}>Real Profitability</span>
-              <span style={{ fontSize: 11, background: '#2d3248', borderRadius: 10, padding: '1px 7px', marginLeft: 4 }}>{rows.length} connected</span>
-            </div>
-
-            {/* Summary */}
-            <div style={{ display: 'flex', background: '#13151e', borderRadius: 10, marginBottom: 14, overflow: 'hidden' }}>
-              {[
-                { label: 'Total Spend', value: `${fmt(totalSpend)} MAD`, color: '#a78bfa' },
-                { label: 'Delivered Orders', value: totalDelivered, color: '#60a5fa' },
-                { label: 'Total Real Profit', value: `${fmt(totalProfit)} MAD`, color: totalProfit >= 0 ? '#00d48f' : '#f87171' },
-                { label: 'Avg Return Rate', value: `${avgReturn.toFixed(1)}%`, color: '#fbbf24' },
-              ].map((s, i) => (
-                <div key={i} style={{ flex: 1, padding: '12px 16px', borderRight: i < 3 ? '1px solid #222733' : 'none' }}>
-                  <div style={{ fontSize: 10, color: '#8892b0', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>{s.label}</div>
-                  <div style={{ fontWeight: 700, fontSize: 15, color: s.color }}>{s.value}</div>
-                </div>
-              ))}
-            </div>
-
-            {/* Campaign cards */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {rows.map(({ conn, campaign, spend, delivered, stats, profit, totalProfit, platformColor }) => (
-                <div key={conn.id} style={{ background: '#13151e', borderRadius: 10, padding: '12px 14px', border: `1px solid ${(totalProfit || 0) >= 0 ? '#0d2a1e' : '#2d1b1b'}`, borderLeft: `4px solid ${platformColor}` }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-                    <span style={{ fontSize: 10, color: platformColor, fontWeight: 700, textTransform: 'uppercase', flexShrink: 0 }}>{conn.platform || 'meta'}</span>
-                    <div style={{ flex: 1 }}>
-                      <span style={{ fontWeight: 600, fontSize: 13 }}>{campaign.name}</span>
-                    </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <span style={{ fontSize: 11, color: '#8892b0', textTransform: 'uppercase' }}>{conn.item_type}</span>
-                      <div style={{ fontWeight: 600, fontSize: 13 }}>{conn.item_name}</div>
-                    </div>
-                    <button onClick={() => handleDeleteConnection(conn.id)} style={{ background: 'none', border: 'none', color: '#8892b0', cursor: 'pointer', fontSize: 10, padding: 4 }}>✕</button>
-                  </div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap' }}>
-                    {[
-                      { label: 'Spend', value: `${fmt(spend)} MAD`, color: '#a78bfa' },
-                      { label: 'Delivered', value: delivered, color: '#60a5fa' },
-                      { label: 'Return rate', value: `${stats.return_rate || 0}%`, color: (stats.return_rate || 0) > 30 ? '#f87171' : '#fbbf24' },
-                      { label: 'Profit/order', value: profit !== null ? `${fmt(profit)} MAD` : '—', color: profit === null ? '#8892b0' : profit >= 0 ? '#00d48f' : '#f87171' },
-                      { label: 'Total profit', value: totalProfit !== null ? `${fmt(totalProfit)} MAD` : '—', color: totalProfit === null ? '#8892b0' : totalProfit >= 0 ? '#00d48f' : '#f87171' },
-                    ].map((s, i) => (
-                      <div key={i} style={{ flex: '1 0 80px', padding: '6px 10px', borderRight: '1px solid #222733' }}>
-                        <div style={{ fontSize: 10, color: '#8892b0', marginBottom: 2 }}>{s.label}</div>
-                        <div style={{ fontWeight: 700, fontSize: 13, color: s.color }}>{s.value}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        );
-      })()}
 
       {/* ── Campaign Connect Modal ── */}
       {connectSidebar && (
