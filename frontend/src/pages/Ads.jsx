@@ -1171,8 +1171,9 @@ export default function Ads() {
 
       {/* ── Real Profitability Dashboard ── */}
       {connections.length > 0 && (() => {
+        const PLATFORM_COLORS = { meta: '#0866FF', tiktok: '#010101', snapchat: '#FFFC00', pinterest: '#E60023', google: '#ea4335' };
         const rows = connections.map(conn => {
-          const campaign = metaCampaigns.find(c => c.id === conn.meta_campaign_id);
+          const campaign = allCampaigns.find(c => c.id === conn.meta_campaign_id);
           if (!campaign) return null;
           const periodUsd   = spendById[conn.meta_campaign_id] ?? null;
           const spend       = periodUsd != null ? periodUsd * usdRate : (campaign.spend_all_time_usd || 0) * usdRate;
@@ -1182,7 +1183,8 @@ export default function Ads() {
           const prices      = getItemPrices(conn.item_type, conn.item_id);
           const profit      = prices ? prices.selling_price - prices.buy_price - prices.packaging_cost - conn.delivery_cost - adCost : null;
           const totalProfit = profit !== null ? profit * delivered : null;
-          return { conn, campaign, spend, delivered, stats, profit, totalProfit };
+          const platformColor = PLATFORM_COLORS[conn.platform] || '#8892b0';
+          return { conn, campaign, spend, delivered, stats, profit, totalProfit, platformColor };
         }).filter(Boolean);
 
         if (rows.length === 0) return null;
@@ -1217,10 +1219,10 @@ export default function Ads() {
 
             {/* Campaign cards */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {rows.map(({ conn, campaign, spend, delivered, stats, profit, totalProfit }) => (
-                <div key={conn.id} style={{ background: '#13151e', borderRadius: 10, padding: '12px 14px', border: `1px solid ${(totalProfit || 0) >= 0 ? '#0d2a1e' : '#2d1b1b'}` }}>
+              {rows.map(({ conn, campaign, spend, delivered, stats, profit, totalProfit, platformColor }) => (
+                <div key={conn.id} style={{ background: '#13151e', borderRadius: 10, padding: '12px 14px', border: `1px solid ${(totalProfit || 0) >= 0 ? '#0d2a1e' : '#2d1b1b'}`, borderLeft: `4px solid ${platformColor}` }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#0866FF', flexShrink: 0 }} />
+                    <span style={{ fontSize: 10, color: platformColor, fontWeight: 700, textTransform: 'uppercase', flexShrink: 0 }}>{conn.platform || 'meta'}</span>
                     <div style={{ flex: 1 }}>
                       <span style={{ fontWeight: 600, fontSize: 13 }}>{campaign.name}</span>
                     </div>
