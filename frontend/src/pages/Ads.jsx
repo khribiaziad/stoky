@@ -715,15 +715,19 @@ export default function Ads() {
         const totalDelivered = rows.reduce((s, r) => s + r.delivered, 0);
         const totalProfit    = rows.reduce((s, r) => s + (r.totalProfit || 0), 0);
         const avgReturn      = rows.length > 0 ? rows.reduce((s, r) => s + (r.stats.return_rate || 0), 0) / rows.length : 0;
+        const isOpen         = expanded['profitability'] !== false;
 
         return (
           <div className="card" style={{ marginBottom: 16, borderTop: '3px solid #a78bfa' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginBottom: isOpen ? 16 : 0 }} onClick={() => setExpanded(e => ({ ...e, profitability: !isOpen }))}>
               <TrendingUp size={16} style={{ color: '#a78bfa' }} />
               <span style={{ fontWeight: 700, fontSize: 16 }}>Real Profitability</span>
               <span style={{ fontSize: 11, background: '#2d3248', borderRadius: 10, padding: '1px 7px', marginLeft: 4 }}>{rows.length} connected</span>
+              <div style={{ flex: 1 }} />
+              <div style={{ color: '#8892b0' }}>{isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</div>
             </div>
 
+            {isOpen && <>
             {/* Summary */}
             <div style={{ display: 'flex', background: '#13151e', borderRadius: 10, marginBottom: 14, overflow: 'hidden' }}>
               {[
@@ -771,6 +775,7 @@ export default function Ads() {
                 </div>
               ))}
             </div>
+            </>}
           </div>
         );
       })()}
