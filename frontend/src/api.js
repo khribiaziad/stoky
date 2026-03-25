@@ -26,12 +26,11 @@ api.interceptors.response.use(
 export const register = (data) => api.post('/auth/register', data);
 export const login = (data) => api.post('/auth/login', data);
 export const googleLogin = (data) => api.post('/auth/google', data);
-export const changePassword   = (data) => api.post('/auth/change-password', data);
-export const updateStoreName  = (data) => api.patch('/auth/update-store', data);
-export const updateUsername   = (data) => api.patch('/auth/update-username', data);
-export const updateProfile    = (data) => api.patch('/auth/update-profile', data);
-export const forgotPassword   = (data) => api.post('/auth/forgot-password', data);
-export const resetPassword    = (data) => api.post('/auth/reset-password', data);
+export const changePassword = (data) => api.post('/auth/change-password', data);
+export const updateStoreName = (data) => api.patch('/auth/update-store', data);
+export const updateUsername = (data) => api.patch('/auth/update-username', data);
+export const forgotPassword = (data) => api.post('/auth/forgot-password', data);
+export const resetPassword = (data) => api.post('/auth/reset-password', data);
 
 // Products
 export const getProducts = () => api.get('/products');
@@ -51,9 +50,24 @@ export const deleteVariant = (variantId) => api.delete(`/products/variants/${var
 export const getPacks = () => api.get('/packs');
 export const createPack = (data) => api.post('/packs', data);
 export const updatePack = (id, data) => api.put(`/packs/${id}`, data);
+export const togglePack = (id) => api.patch(`/packs/${id}/toggle`);
 export const deletePack = (id) => api.delete(`/packs/${id}`);
 export const addPackPreset = (packId, data) => api.post(`/packs/${packId}/presets`, data);
 export const deletePackPreset = (presetId) => api.delete(`/packs/presets/${presetId}`);
+
+// Offers
+export const getOffers = () => api.get('/offers');
+export const createOffer = (data) => api.post('/offers', data);
+export const updateOffer = (id, data) => api.put(`/offers/${id}`, data);
+export const toggleOffer = (id) => api.patch(`/offers/${id}/toggle`);
+export const deleteOffer = (id) => api.delete(`/offers/${id}`);
+
+// Promo Codes
+export const getPromoCodes = () => api.get('/promo-codes');
+export const createPromoCode = (data) => api.post('/promo-codes', data);
+export const updatePromoCode = (id, data) => api.put(`/promo-codes/${id}`, data);
+export const togglePromoCode = (id) => api.patch(`/promo-codes/${id}/toggle`);
+export const deletePromoCode = (id) => api.delete(`/promo-codes/${id}`);
 
 // Stock
 export const getStockArrivals = () => api.get('/stock/arrivals');
@@ -83,17 +97,9 @@ export const processReturns = (returns) => api.post('/orders/process-returns', {
 export const updateOrder = (id, data) => api.put(`/orders/${id}`, data);
 export const updateOrderStatus = (id, status) => api.put(`/orders/${id}/status`, null, { params: { status } });
 export const bulkUpdateOrderStatus = (order_ids, status) => api.post('/orders/bulk-status', { order_ids, status });
-export const confirmPickup = () => api.post('/orders/confirm-pickup');
 export const updateOrderNotes = (id, notes) => api.patch(`/orders/${id}/notes`, { notes });
-export const reportOrder = (id, reported_date) => api.patch(`/orders/${id}/report`, null, { params: { reported_date } });
 export const deleteOrder = (id) => api.delete(`/orders/${id}`);
-export const sendToOlivraison    = (id) => api.post(`/olivraison/send/${id}`);
-export const sendToForcelog      = (id) => api.post(`/forcelog/send/${id}`);
-export const getForcelogStatus   = (id) => api.get(`/forcelog/status/${id}`);
-export const syncAllForcelog       = () => api.post('/forcelog/sync-all');
-export const syncAllOlivraison     = () => api.post('/olivraison/sync-all');
-export const requestOlivRamassage  = () => api.post('/olivraison/ramassage');
-export const requestForcelogRamassage = () => api.post('/forcelog/ramassage');
+export const sendToOlivraison = (id) => api.post(`/olivraison/send/${id}`);
 
 // Team
 export const getTeam = () => api.get('/team');
@@ -118,38 +124,80 @@ export const deleteWithdrawal = (id) => api.delete(`/expenses/withdrawals/${id}`
 export const getFacebookAds = () => api.get('/expenses/facebook-ads');
 export const createFacebookAd = (data) => api.post('/expenses/facebook-ads', data);
 
-// Ad Platforms
+// Ad Platforms (read-only, used by Expenses page)
 export const getAdPlatforms = () => api.get('/expenses/platforms');
-export const createAdPlatform = (data) => api.post('/expenses/platforms', data);
-export const deleteAdPlatform = (id) => api.delete(`/expenses/platforms/${id}`);
-
-// Ad Campaigns
-export const createAdCampaign = (data) => api.post('/expenses/campaigns', data);
-export const updateAdCampaign = (id, data) => api.put(`/expenses/campaigns/${id}`, data);
-export const deleteAdCampaign = (id) => api.delete(`/expenses/campaigns/${id}`);
 
 // Cost per order
 export const getAdCostPerOrder = (start, end) => api.get('/expenses/cost-per-order', { params: { start, end } });
 
-// Meta Ads API
-export const getMetaStatus  = ()                     => api.get('/meta/status');
-export const connectMeta    = (data)                 => api.post('/meta/connect', data);
-export const disconnectMeta = ()                     => api.delete('/meta/disconnect');
-export const syncMeta       = (start, end)           => api.get('/meta/sync', { params: { start, end } });
+// Meta Ads
+export const getMetaStatus = () => api.get('/meta/status');
+export const getMetaAdAccounts = (token) => api.get('/meta/adaccounts', { params: { token } });
+export const connectMeta = (data) => api.post('/meta/connect', data);
+export const disconnectMeta = () => api.delete('/meta/disconnect');
+export const getMetaCampaigns = () => api.get('/meta/campaigns');
+export const pauseMetaCampaign = (id) => api.post(`/meta/campaigns/${id}/pause`);
+export const resumeMetaCampaign = (id) => api.post(`/meta/campaigns/${id}/resume`);
+export const createMetaCampaign = (data) => api.post('/meta/campaigns', data);
+export const getMetaSpend = (start, end) => api.get('/meta/spend', { params: { start, end } });
+export const getMetaPages = () => api.get('/meta/pages');
+export const searchMetaInterests = (q) => api.get('/meta/interests', { params: { q } });
+export const uploadMetaImage = (file) => { const form = new FormData(); form.append('file', file); return api.post('/meta/upload-image', form, { headers: { 'Content-Type': 'multipart/form-data' } }); };
+export const uploadMetaVideo = (file) => { const form = new FormData(); form.append('file', file); return api.post('/meta/upload-video', form, { headers: { 'Content-Type': 'multipart/form-data' } }); };
+export const createFullCampaign = (data) => api.post('/meta/full-campaign', data);
+
+// Google Ads
+export const getGoogleStatus = () => api.get('/google/status');
+export const connectGoogle = (data) => api.post('/google/connect', data);
+export const disconnectGoogle = () => api.delete('/google/disconnect');
+export const getGoogleCampaigns = () => api.get('/google/campaigns');
+export const pauseGoogleCampaign = (id) => api.post(`/google/campaigns/${id}/pause`);
+export const resumeGoogleCampaign = (id) => api.post(`/google/campaigns/${id}/resume`);
+export const getGoogleSpend = (start, end) => api.get('/google/spend', { params: { start, end } });
+
+// TikTok Ads
+export const getTikTokStatus = () => api.get('/tiktok/status');
+export const connectTikTok = (data) => api.post('/tiktok/connect', data);
+export const disconnectTikTok = () => api.delete('/tiktok/disconnect');
+export const getTikTokCampaigns = () => api.get('/tiktok/campaigns');
+export const pauseTikTokCampaign = (id) => api.post(`/tiktok/campaigns/${id}/pause`);
+export const resumeTikTokCampaign = (id) => api.post(`/tiktok/campaigns/${id}/resume`);
+export const getTikTokSpend = (start, end) => api.get('/tiktok/spend', { params: { start, end } });
+
+// Snapchat Ads
+export const getSnapchatStatus = () => api.get('/snapchat/status');
+export const connectSnapchat = (data) => api.post('/snapchat/connect', data);
+export const disconnectSnapchat = () => api.delete('/snapchat/disconnect');
+export const getSnapchatCampaigns = () => api.get('/snapchat/campaigns');
+export const pauseSnapchatCampaign = (id) => api.post(`/snapchat/campaigns/${id}/pause`);
+export const resumeSnapchatCampaign = (id) => api.post(`/snapchat/campaigns/${id}/resume`);
+export const getSnapchatSpend = (start, end) => api.get('/snapchat/spend', { params: { start, end } });
+
+// Pinterest Ads
+export const getPinterestStatus = () => api.get('/pinterest/status');
+export const connectPinterest = (data) => api.post('/pinterest/connect', data);
+export const disconnectPinterest = () => api.delete('/pinterest/disconnect');
+export const getPinterestCampaigns = () => api.get('/pinterest/campaigns');
+export const pausePinterestCampaign = (id) => api.post(`/pinterest/campaigns/${id}/pause`);
+export const resumePinterestCampaign = (id) => api.post(`/pinterest/campaigns/${id}/resume`);
+export const getPinterestSpend = (start, end) => api.get('/pinterest/spend', { params: { start, end } });
 
 // Reports
 export const getReportSummary = (params) => api.get('/reports/summary', { params });
-export const getDashboardStats       = (params) => api.get('/reports/dashboard', { params });
-export const getDashboardAttention   = ()       => api.get('/reports/attention');
-export const getDashboardWeekSummary = ()       => api.get('/reports/week-summary');
 export const getMyStats = (params) => api.get('/reports/my-stats', { params });
 export const getTopProducts = (params) => api.get('/reports/top-products', { params });
 export const getTopCities = (params) => api.get('/reports/top-cities', { params });
 export const getCities = () => api.get('/reports/cities');
+export const getDashboardStats = (params) => api.get('/reports/dashboard', { params });
+export const getDashboardAttention = () => api.get('/reports/attention');
+export const getDashboardWeekSummary = () => api.get('/reports/week-summary');
 
 // Settings
 export const getSetting = (key) => api.get(`/settings/${key}`);
 export const setSetting = (key, value) => api.post(`/settings/${key}`, null, { params: { value } });
+
+// AI
+export const explainError = (data) => api.post('/ai/explain-error', data);
 
 // City management (CRUD)
 export const getCityList = () => api.get('/cities');
@@ -173,19 +221,15 @@ export const addSupplierPayment = (id, data) => api.post(`/suppliers/${id}/payme
 export const deleteSupplierPayment = (id) => api.delete(`/suppliers/payments/${id}`);
 
 // Leads
-export const getLeads         = ()              => api.get('/leads');
-export const deleteLead       = (id)             => api.delete(`/leads/${id}`);
-export const confirmLead      = (id)             => api.post(`/leads/${id}/confirm`);
-export const cancelLead       = (id)             => api.post(`/leads/${id}/cancel`);
-export const notAnsweringLead = (id)             => api.post(`/leads/${id}/not-answering`);
-export const reportLead       = (id, date)       => api.post(`/leads/${id}/report`, null, { params: { reported_date: date } });
-export const getApiKey   = ()    => api.get('/leads/api-key');
-export const rotateApiKey = ()   => api.post('/leads/api-key/rotate');
-
-// Notifications
-export const getNotifications    = ()   => api.get('/notifications');
-export const markNotificationRead = (id) => api.patch(`/notifications/${id}/read`);
-export const markAllNotificationsRead = () => api.patch('/notifications/read-all');
+export const getLeads          = ()    => api.get('/leads');
+export const deleteLead        = (id)  => api.delete(`/leads/${id}`);
+export const confirmLead       = (id)  => api.post(`/leads/${id}/confirm`);
+export const confirmPickup     = (id)  => api.post(`/leads/${id}/confirm`);
+export const cancelLead        = (id)  => api.post(`/leads/${id}/cancel`);
+export const notAnsweringLead  = (id)  => api.post(`/leads/${id}/not-answering`);
+export const reportLead        = (id, reported_date)  => api.post(`/leads/${id}/report`, null, { params: { reported_date } });
+export const getApiKey         = ()    => api.get('/leads/api-key');
+export const rotateApiKey      = ()    => api.post('/leads/api-key/rotate');
 
 // Platform (super admin)
 export const getPlatformStats        = () => api.get('/platform/stats');
@@ -196,12 +240,6 @@ export const updateStoreStatus       = (storeId, isApproved) => api.patch(`/plat
 export const updateStoreSubscription = (storeId, data) => api.patch(`/platform/stores/${storeId}/subscription`, data);
 export const updateStoreNotes        = (storeId, data) => api.patch(`/platform/stores/${storeId}/notes`, data);
 export const resetStorePassword      = (storeId, newPassword) => api.post(`/platform/stores/${storeId}/reset-password`, { new_password: newPassword });
-export const deleteStore             = (storeId) => api.delete(`/platform/stores/${storeId}`);
-export const importStoreExcel        = (storeId, file) => {
-  const form = new FormData();
-  form.append('file', file);
-  return api.post(`/platform/stores/${storeId}/import-excel`, form, { headers: { 'Content-Type': 'multipart/form-data' } });
-};
 export const getStorePayments        = (storeId) => api.get(`/platform/stores/${storeId}/payments`);
 export const addStorePayment         = (storeId, data) => api.post(`/platform/stores/${storeId}/payments`, data);
 export const deletePayment           = (paymentId) => api.delete(`/platform/payments/${paymentId}`);
@@ -212,18 +250,39 @@ export const getPlatformExpenses     = (month) => api.get('/platform/expenses', 
 export const createPlatformExpense   = (data) => api.post('/platform/expenses', data);
 export const updatePlatformExpense   = (id, data) => api.patch(`/platform/expenses/${id}`, data);
 export const deletePlatformExpense   = (id) => api.delete(`/platform/expenses/${id}`);
+export const deleteStore             = (id) => api.delete(`/platform/stores/${id}`);
+export const importStoreExcel        = (storeId, file) => { const form = new FormData(); form.append('file', file); return api.post(`/platform/stores/${storeId}/import-excel`, form, { headers: { 'Content-Type': 'multipart/form-data' } }); };
 
-// AI
-export const explainError = (data) => api.post('/ai/explain-error', data);
+// Notifications
+export const getNotifications        = () => api.get('/notifications');
+export const markNotificationRead    = (id) => api.patch(`/notifications/${id}/read`);
+export const markAllNotificationsRead = () => api.patch('/notifications/read-all');
 
-// Shared error message helper
-export function errorMessage(e) {
-  if (!e.response) return "Cannot reach server — check your connection";
-  const detail = e.response?.data?.detail;
-  if (detail) return typeof detail === 'string' ? detail : JSON.stringify(detail);
-  if (e.response.status === 500) return "Server error — try again or contact support";
-  if (e.response.status === 422) return "Invalid data — check your inputs";
-  if (e.response.status === 403) return "You don't have permission to do this";
-  if (e.response.status === 404) return "Not found";
-  return `Something went wrong (${e.response.status})`;
-}
+// Auth extras
+export const updateProfile = (data) => api.patch('/auth/update-profile', data);
+
+// Olivraison extras
+export const requestOlivRamassage    = () => api.post('/olivraison/ramassage');
+export const syncAllOlivraison       = () => api.post('/olivraison/sync-all');
+
+// Forcelog
+export const sendToForcelog          = (orderId) => api.post(`/forcelog/send/${orderId}`);
+export const getForcelogStatus       = (orderId) => api.get(`/forcelog/status/${orderId}`);
+export const requestForcelogRamassage = () => api.post('/forcelog/ramassage');
+export const syncAllForcelog         = () => api.post('/forcelog/sync-all');
+
+// WhatsApp Bot
+export const getBotStatus  = ()  => api.get('/bot/status');
+export const getBotQR      = ()  => api.get('/bot/qr');
+export const connectBot    = ()  => api.post('/bot/connect');
+export const disconnectBot = ()  => api.delete('/bot/disconnect');
+
+// Campaign Connections
+export const getCampaignConnections    = ()                          => api.get('/campaign-connections');
+export const saveCampaignConnection    = (data)                      => api.post('/campaign-connections', data);
+export const deleteCampaignConnection  = (id)                        => api.delete(`/campaign-connections/${id}`);
+export const getCampaignItemStats      = (item_type, item_id, start, end) => api.get('/campaign-connections/item-stats', { params: { item_type, item_id, start, end } });
+export const getCampaignBulkStats      = (start, end)                => api.get('/campaign-connections/bulk-stats', { params: { start, end } });
+
+// Utility
+export const errorMessage = (e) => e?.response?.data?.detail || e?.message || 'An error occurred';
