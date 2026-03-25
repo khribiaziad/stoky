@@ -26,6 +26,7 @@ export default function CampaignConnectModal({
   const [statsLoading, setStatsLoading] = useState(false);
   const [copied,       setCopied]       = useState(false);
   const [saving,       setSaving]       = useState(false);
+  const [saveError,    setSaveError]    = useState('');
 
   const campaignSpend = periodSpendUsd != null
     ? periodSpendUsd * usdRate
@@ -87,6 +88,7 @@ export default function CampaignConnectModal({
   const handleSave = async () => {
     if (!itemId) return;
     setSaving(true);
+    setSaveError('');
     try {
       await onSave({
         platform,
@@ -97,6 +99,8 @@ export default function CampaignConnectModal({
         delivery_cost: delivery,
       });
       onClose();
+    } catch (e) {
+      setSaveError(e?.response?.data?.detail || e?.message || 'Failed to save. Try again.');
     } finally {
       setSaving(false);
     }
@@ -275,7 +279,9 @@ export default function CampaignConnectModal({
         </div>
 
         {/* Footer */}
-        <div className="modal-footer" style={{ borderTop: '1px solid #222733' }}>
+        <div className="modal-footer" style={{ borderTop: '1px solid #222733', flexDirection: 'column', gap: 8 }}>
+          {saveError && <div style={{ color: '#f87171', fontSize: 12, width: '100%' }}>{saveError}</div>}
+          <div style={{ display: 'flex', gap: 8, width: '100%', justifyContent: 'flex-end' }}>
           <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
           <button
             className="btn btn-primary"
@@ -285,6 +291,7 @@ export default function CampaignConnectModal({
           >
             {saving ? 'Saving…' : existingConn ? 'Update Connection' : 'Save Connection'}
           </button>
+          </div>
         </div>
       </div>
     </div>

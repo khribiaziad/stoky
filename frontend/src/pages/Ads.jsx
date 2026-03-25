@@ -697,9 +697,11 @@ export default function Ads() {
       {/* ── PLATFORM CARDS (only shown when connected) ── */}
 
       {/* META */}
-      {metaStatus?.connected && (
+      {metaStatus?.connected && (() => {
+        const isOpen = expanded['meta'] !== false;
+        return (
         <div className="card" style={{ marginBottom: 20, borderTop: '3px solid #0866FF' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', marginBottom: isOpen ? 14 : 0 }} onClick={() => setExpanded(e => ({ ...e, meta: !isOpen }))}>
             <MetaLogo size={36} />
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 700, fontSize: 16 }}>Meta Ads</div>
@@ -707,13 +709,14 @@ export default function Ads() {
                 <span style={{ color: '#00d48f' }}>● Connected</span> · {metaStatus.account_name} · {metaActive} active campaign{metaActive !== 1 ? 's' : ''}
               </div>
             </div>
-            <div style={{ display: 'flex', gap: 6 }}>
+            <div style={{ display: 'flex', gap: 6 }} onClick={e => e.stopPropagation()}>
               <button className="btn btn-primary btn-sm" onClick={() => setShowWizard(true)} style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Plus size={13} /> New Campaign</button>
               <button className="btn btn-secondary btn-sm" onClick={loadMetaCampaigns} disabled={metaLoading}><RefreshCw size={12} style={{ animation: metaLoading ? 'spin 1s linear infinite' : 'none' }} /></button>
               <button className="btn btn-danger btn-sm" onClick={handleMetaDisconnect}><Unlink size={12} /> Disconnect</button>
             </div>
+            <div style={{ color: '#8892b0', marginLeft: 4 }}>{isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</div>
           </div>
-          {metaLoading ? <div style={{ color: '#8892b0', fontSize: 13 }}>Loading campaigns…</div>
+          {isOpen && (metaLoading ? <div style={{ color: '#8892b0', fontSize: 13 }}>Loading campaigns…</div>
           : metaCampaigns.length === 0 ? <div style={{ color: '#8892b0', fontSize: 13 }}>No campaigns found in this account.</div>
           : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -731,11 +734,12 @@ export default function Ads() {
                   : null;
                 const dot = getDotInfo(conn, delivered, periodSpendMAD, profit);
                 const displaySpend = periodSpendMAD ?? (c.spend_all_time_usd || 0) * usdRate;
+                const rowBg = dot.color === '#22c55e' ? '#0d2a1e22' : dot.color === '#f59e0b' ? '#1e1a0022' : dot.color === '#ef4444' ? '#2a0d0d22' : 'var(--bg)';
+                const rowBorder = dot.color === '#6b7280' ? 'var(--border)' : dot.color + '55';
                 return (
-                  <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: 'var(--bg)', borderRadius: 8, border: '1px solid var(--border)', flexWrap: 'wrap' }}>
+                  <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: rowBg, borderRadius: 8, border: `1px solid ${rowBorder}`, borderLeft: `4px solid ${dot.color}`, flexWrap: 'wrap' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 7, width: 240, flexShrink: 0, minWidth: 0 }}>
-                      <span title={dot.title} style={{ width: 10, height: 10, borderRadius: '50%', background: dot.color, flexShrink: 0, cursor: 'help' }} />
-                      <span style={{ fontSize: 13, fontWeight: 600, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
+                      <span style={{ fontSize: 13, fontWeight: 600, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={dot.title}>{c.name}</span>
                       <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20, fontWeight: 700, background: isActive ? '#0d2a1e' : '#1a1a2e', color: isActive ? '#00d48f' : '#8892b0', flexShrink: 0 }}>
                         {isActive ? 'Active' : c.status === 'PAUSED' ? 'Paused' : c.status}
                       </span>
@@ -755,32 +759,36 @@ export default function Ads() {
                         : c.status === 'PAUSED' ? <button className="btn btn-primary btn-sm" onClick={() => handleResume(c.id)} style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Play size={11} /> Resume</button>
                         : null}
                       {conn
-                        ? <button onClick={() => setConnectSidebar({ campaign: c, existingConn: conn, platform: 'meta' })} style={{ fontSize: 11, color: '#00d48f', background: 'none', border: 'none', cursor: 'pointer', padding: 0, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>● {conn.item_name}</button>
-                        : <button onClick={() => setConnectSidebar({ campaign: c, existingConn: null, platform: 'meta' })} style={{ fontSize: 11, color: '#8892b0', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>⚪ Link product</button>}
+                        ? <button className="btn btn-sm" onClick={() => setConnectSidebar({ campaign: c, existingConn: conn, platform: 'meta' })} style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#00d48f', border: '1px solid #00d48f44', background: '#0d2a1e', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}><Link2 size={10} /> {conn.item_name}</button>
+                        : <button className="btn btn-secondary btn-sm" onClick={() => setConnectSidebar({ campaign: c, existingConn: null, platform: 'meta' })} style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Link2 size={10} /> Link product</button>}
                     </div>
                   </div>
                 );
               })}
             </div>
-          )}
+          ))}
         </div>
-      )}
+        );
+      })()}
 
       {/* TIKTOK */}
-      {ttStatus?.connected && (
+      {ttStatus?.connected && (() => {
+        const isOpen = expanded['tiktok'] !== false;
+        return (
         <div className="card" style={{ marginBottom: 20, borderTop: '3px solid #010101' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', marginBottom: isOpen ? 14 : 0 }} onClick={() => setExpanded(e => ({ ...e, tiktok: !isOpen }))}>
             <PlatformIcon name="tiktok" size={36} />
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 700, fontSize: 16 }}>TikTok Ads</div>
               <div style={{ fontSize: 12, color: '#8892b0', marginTop: 2 }}><span style={{ color: '#00d48f' }}>● Connected</span> · {ttStatus.account_name}</div>
             </div>
-            <div style={{ display: 'flex', gap: 6 }}>
+            <div style={{ display: 'flex', gap: 6 }} onClick={e => e.stopPropagation()}>
               <button className="btn btn-secondary btn-sm" onClick={loadTtCampaigns} disabled={ttLoading}><RefreshCw size={12} /></button>
               <button className="btn btn-danger btn-sm" onClick={handleTtDisconnect}><Unlink size={12} /> Disconnect</button>
             </div>
+            <div style={{ color: '#8892b0', marginLeft: 4 }}>{isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</div>
           </div>
-          {ttLoading ? <div style={{ color: '#8892b0', fontSize: 13 }}>Loading campaigns…</div>
+          {isOpen && (ttLoading ? <div style={{ color: '#8892b0', fontSize: 13 }}>Loading campaigns…</div>
           : ttCampaigns.length === 0 ? <div style={{ color: '#8892b0', fontSize: 13 }}>No campaigns found.</div>
           : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -797,11 +805,12 @@ export default function Ads() {
                   ? prices.selling_price - prices.buy_price - prices.packaging_cost - conn.delivery_cost - adCostPerOrder
                   : null;
                 const dot = getDotInfo(conn, delivered, periodSpendMAD, profit);
+                const rowBg = dot.color === '#22c55e' ? '#0d2a1e22' : dot.color === '#f59e0b' ? '#1e1a0022' : dot.color === '#ef4444' ? '#2a0d0d22' : 'var(--bg)';
+                const rowBorder = dot.color === '#6b7280' ? 'var(--border)' : dot.color + '55';
                 return (
-                  <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: 'var(--bg)', borderRadius: 8, border: '1px solid var(--border)', flexWrap: 'wrap' }}>
+                  <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: rowBg, borderRadius: 8, border: `1px solid ${rowBorder}`, borderLeft: `4px solid ${dot.color}`, flexWrap: 'wrap' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 7, width: 240, flexShrink: 0, minWidth: 0 }}>
-                      <span title={dot.title} style={{ width: 10, height: 10, borderRadius: '50%', background: dot.color, flexShrink: 0, cursor: 'help' }} />
-                      <span style={{ fontSize: 13, fontWeight: 600, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
+                      <span style={{ fontSize: 13, fontWeight: 600, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={dot.title}>{c.name}</span>
                       <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20, fontWeight: 700, background: isActive ? '#0d2a1e' : '#1a1a2e', color: isActive ? '#00d48f' : '#8892b0', flexShrink: 0 }}>
                         {isActive ? 'Active' : 'Paused'}
                       </span>
@@ -816,32 +825,36 @@ export default function Ads() {
                         ? <button className="btn btn-secondary btn-sm" onClick={() => pauseTikTokCampaign(c.id).then(loadTtCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))} style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Pause size={11} /> Pause</button>
                         : <button className="btn btn-primary btn-sm" onClick={() => resumeTikTokCampaign(c.id).then(loadTtCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))} style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Play size={11} /> Resume</button>}
                       {conn
-                        ? <button onClick={() => setConnectSidebar({ campaign: c, existingConn: conn, platform: 'tiktok' })} style={{ fontSize: 11, color: '#00d48f', background: 'none', border: 'none', cursor: 'pointer', padding: 0, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>● {conn.item_name}</button>
-                        : <button onClick={() => setConnectSidebar({ campaign: c, existingConn: null, platform: 'tiktok' })} style={{ fontSize: 11, color: '#8892b0', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>⚪ Link product</button>}
+                        ? <button className="btn btn-sm" onClick={() => setConnectSidebar({ campaign: c, existingConn: conn, platform: 'tiktok' })} style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#00d48f', border: '1px solid #00d48f44', background: '#0d2a1e', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}><Link2 size={10} /> {conn.item_name}</button>
+                        : <button className="btn btn-secondary btn-sm" onClick={() => setConnectSidebar({ campaign: c, existingConn: null, platform: 'tiktok' })} style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Link2 size={10} /> Link product</button>}
                     </div>
                   </div>
                 );
               })}
             </div>
-          )}
+          ))}
         </div>
-      )}
+        );
+      })()}
 
       {/* SNAPCHAT */}
-      {scStatus?.connected && (
+      {scStatus?.connected && (() => {
+        const isOpen = expanded['snapchat'] !== false;
+        return (
         <div className="card" style={{ marginBottom: 20, borderTop: '3px solid #FFFC00' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', marginBottom: isOpen ? 14 : 0 }} onClick={() => setExpanded(e => ({ ...e, snapchat: !isOpen }))}>
             <PlatformIcon name="snapchat" size={36} />
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 700, fontSize: 16 }}>Snapchat Ads</div>
               <div style={{ fontSize: 12, color: '#8892b0', marginTop: 2 }}><span style={{ color: '#00d48f' }}>● Connected</span> · {scStatus.account_name}</div>
             </div>
-            <div style={{ display: 'flex', gap: 6 }}>
+            <div style={{ display: 'flex', gap: 6 }} onClick={e => e.stopPropagation()}>
               <button className="btn btn-secondary btn-sm" onClick={loadScCampaigns} disabled={scLoading}><RefreshCw size={12} /></button>
               <button className="btn btn-danger btn-sm" onClick={handleScDisconnect}><Unlink size={12} /> Disconnect</button>
             </div>
+            <div style={{ color: '#8892b0', marginLeft: 4 }}>{isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</div>
           </div>
-          {scLoading ? <div style={{ color: '#8892b0', fontSize: 13 }}>Loading campaigns…</div>
+          {isOpen && (scLoading ? <div style={{ color: '#8892b0', fontSize: 13 }}>Loading campaigns…</div>
           : scCampaigns.length === 0 ? <div style={{ color: '#8892b0', fontSize: 13 }}>No campaigns found.</div>
           : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -858,11 +871,12 @@ export default function Ads() {
                   ? prices.selling_price - prices.buy_price - prices.packaging_cost - conn.delivery_cost - adCostPerOrder
                   : null;
                 const dot = getDotInfo(conn, delivered, periodSpendMAD, profit);
+                const rowBg = dot.color === '#22c55e' ? '#0d2a1e22' : dot.color === '#f59e0b' ? '#1e1a0022' : dot.color === '#ef4444' ? '#2a0d0d22' : 'var(--bg)';
+                const rowBorder = dot.color === '#6b7280' ? 'var(--border)' : dot.color + '55';
                 return (
-                  <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: 'var(--bg)', borderRadius: 8, border: '1px solid var(--border)', flexWrap: 'wrap' }}>
+                  <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: rowBg, borderRadius: 8, border: `1px solid ${rowBorder}`, borderLeft: `4px solid ${dot.color}`, flexWrap: 'wrap' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 7, width: 240, flexShrink: 0, minWidth: 0 }}>
-                      <span title={dot.title} style={{ width: 10, height: 10, borderRadius: '50%', background: dot.color, flexShrink: 0, cursor: 'help' }} />
-                      <span style={{ fontSize: 13, fontWeight: 600, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
+                      <span style={{ fontSize: 13, fontWeight: 600, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={dot.title}>{c.name}</span>
                       <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20, fontWeight: 700, background: isActive ? '#0d2a1e' : '#1a1a2e', color: isActive ? '#00d48f' : '#8892b0', flexShrink: 0 }}>
                         {isActive ? 'Active' : 'Paused'}
                       </span>
@@ -876,32 +890,36 @@ export default function Ads() {
                         ? <button className="btn btn-secondary btn-sm" onClick={() => pauseSnapchatCampaign(c.id).then(loadScCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))} style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Pause size={11} /> Pause</button>
                         : <button className="btn btn-primary btn-sm" onClick={() => resumeSnapchatCampaign(c.id).then(loadScCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))} style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Play size={11} /> Resume</button>}
                       {conn
-                        ? <button onClick={() => setConnectSidebar({ campaign: c, existingConn: conn, platform: 'snapchat' })} style={{ fontSize: 11, color: '#00d48f', background: 'none', border: 'none', cursor: 'pointer', padding: 0, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>● {conn.item_name}</button>
-                        : <button onClick={() => setConnectSidebar({ campaign: c, existingConn: null, platform: 'snapchat' })} style={{ fontSize: 11, color: '#8892b0', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>⚪ Link product</button>}
+                        ? <button className="btn btn-sm" onClick={() => setConnectSidebar({ campaign: c, existingConn: conn, platform: 'snapchat' })} style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#00d48f', border: '1px solid #00d48f44', background: '#0d2a1e', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}><Link2 size={10} /> {conn.item_name}</button>
+                        : <button className="btn btn-secondary btn-sm" onClick={() => setConnectSidebar({ campaign: c, existingConn: null, platform: 'snapchat' })} style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Link2 size={10} /> Link product</button>}
                     </div>
                   </div>
                 );
               })}
             </div>
-          )}
+          ))}
         </div>
-      )}
+        );
+      })()}
 
       {/* PINTEREST */}
-      {ptStatus?.connected && (
+      {ptStatus?.connected && (() => {
+        const isOpen = expanded['pinterest'] !== false;
+        return (
         <div className="card" style={{ marginBottom: 20, borderTop: '3px solid #E60023' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', marginBottom: isOpen ? 14 : 0 }} onClick={() => setExpanded(e => ({ ...e, pinterest: !isOpen }))}>
             <PlatformIcon name="pinterest" size={36} />
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 700, fontSize: 16 }}>Pinterest Ads</div>
               <div style={{ fontSize: 12, color: '#8892b0', marginTop: 2 }}><span style={{ color: '#00d48f' }}>● Connected</span> · {ptStatus.account_name}</div>
             </div>
-            <div style={{ display: 'flex', gap: 6 }}>
+            <div style={{ display: 'flex', gap: 6 }} onClick={e => e.stopPropagation()}>
               <button className="btn btn-secondary btn-sm" onClick={loadPtCampaigns} disabled={ptLoading}><RefreshCw size={12} /></button>
               <button className="btn btn-danger btn-sm" onClick={handlePtDisconnect}><Unlink size={12} /> Disconnect</button>
             </div>
+            <div style={{ color: '#8892b0', marginLeft: 4 }}>{isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</div>
           </div>
-          {ptLoading ? <div style={{ color: '#8892b0', fontSize: 13 }}>Loading campaigns…</div>
+          {isOpen && (ptLoading ? <div style={{ color: '#8892b0', fontSize: 13 }}>Loading campaigns…</div>
           : ptCampaigns.length === 0 ? <div style={{ color: '#8892b0', fontSize: 13 }}>No campaigns found.</div>
           : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -918,11 +936,12 @@ export default function Ads() {
                   ? prices.selling_price - prices.buy_price - prices.packaging_cost - conn.delivery_cost - adCostPerOrder
                   : null;
                 const dot = getDotInfo(conn, delivered, periodSpendMAD, profit);
+                const rowBg = dot.color === '#22c55e' ? '#0d2a1e22' : dot.color === '#f59e0b' ? '#1e1a0022' : dot.color === '#ef4444' ? '#2a0d0d22' : 'var(--bg)';
+                const rowBorder = dot.color === '#6b7280' ? 'var(--border)' : dot.color + '55';
                 return (
-                  <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: 'var(--bg)', borderRadius: 8, border: '1px solid var(--border)', flexWrap: 'wrap' }}>
+                  <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: rowBg, borderRadius: 8, border: `1px solid ${rowBorder}`, borderLeft: `4px solid ${dot.color}`, flexWrap: 'wrap' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 7, width: 240, flexShrink: 0, minWidth: 0 }}>
-                      <span title={dot.title} style={{ width: 10, height: 10, borderRadius: '50%', background: dot.color, flexShrink: 0, cursor: 'help' }} />
-                      <span style={{ fontSize: 13, fontWeight: 600, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
+                      <span style={{ fontSize: 13, fontWeight: 600, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={dot.title}>{c.name}</span>
                       <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20, fontWeight: 700, background: isActive ? '#0d2a1e' : '#1a1a2e', color: isActive ? '#00d48f' : '#8892b0', flexShrink: 0 }}>
                         {isActive ? 'Active' : 'Paused'}
                       </span>
@@ -936,32 +955,36 @@ export default function Ads() {
                         ? <button className="btn btn-secondary btn-sm" onClick={() => pausePinterestCampaign(c.id).then(loadPtCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))} style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Pause size={11} /> Pause</button>
                         : <button className="btn btn-primary btn-sm" onClick={() => resumePinterestCampaign(c.id).then(loadPtCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))} style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Play size={11} /> Resume</button>}
                       {conn
-                        ? <button onClick={() => setConnectSidebar({ campaign: c, existingConn: conn, platform: 'pinterest' })} style={{ fontSize: 11, color: '#00d48f', background: 'none', border: 'none', cursor: 'pointer', padding: 0, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>● {conn.item_name}</button>
-                        : <button onClick={() => setConnectSidebar({ campaign: c, existingConn: null, platform: 'pinterest' })} style={{ fontSize: 11, color: '#8892b0', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>⚪ Link product</button>}
+                        ? <button className="btn btn-sm" onClick={() => setConnectSidebar({ campaign: c, existingConn: conn, platform: 'pinterest' })} style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#00d48f', border: '1px solid #00d48f44', background: '#0d2a1e', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}><Link2 size={10} /> {conn.item_name}</button>
+                        : <button className="btn btn-secondary btn-sm" onClick={() => setConnectSidebar({ campaign: c, existingConn: null, platform: 'pinterest' })} style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Link2 size={10} /> Link product</button>}
                     </div>
                   </div>
                 );
               })}
             </div>
-          )}
+          ))}
         </div>
-      )}
+        );
+      })()}
 
       {/* GOOGLE */}
-      {ggStatus?.connected && (
+      {ggStatus?.connected && (() => {
+        const isOpen = expanded['google'] !== false;
+        return (
         <div className="card" style={{ marginBottom: 20, borderTop: '3px solid #ea4335' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', marginBottom: isOpen ? 14 : 0 }} onClick={() => setExpanded(e => ({ ...e, google: !isOpen }))}>
             <PlatformIcon name="google" size={36} />
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 700, fontSize: 16 }}>Google Ads</div>
               <div style={{ fontSize: 12, color: '#8892b0', marginTop: 2 }}><span style={{ color: '#00d48f' }}>● Connected</span> · {ggStatus.account_name} · {ggStatus.customer_id}</div>
             </div>
-            <div style={{ display: 'flex', gap: 6 }}>
+            <div style={{ display: 'flex', gap: 6 }} onClick={e => e.stopPropagation()}>
               <button className="btn btn-secondary btn-sm" onClick={loadGgCampaigns} disabled={ggLoading}><RefreshCw size={12} /></button>
               <button className="btn btn-danger btn-sm" onClick={handleGgDisconnect}><Unlink size={12} /> Disconnect</button>
             </div>
+            <div style={{ color: '#8892b0', marginLeft: 4 }}>{isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</div>
           </div>
-          {ggLoading ? <div style={{ color: '#8892b0', fontSize: 13 }}>Loading campaigns…</div>
+          {isOpen && (ggLoading ? <div style={{ color: '#8892b0', fontSize: 13 }}>Loading campaigns…</div>
           : ggCampaigns.length === 0 ? <div style={{ color: '#8892b0', fontSize: 13 }}>No campaigns found.</div>
           : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -979,11 +1002,12 @@ export default function Ads() {
                   : null;
                 const dot = getDotInfo(conn, delivered, periodSpendMAD, profit);
                 const displaySpend = periodSpendMAD ?? (c.spend_all_time_usd || 0) * usdRate;
+                const rowBg = dot.color === '#22c55e' ? '#0d2a1e22' : dot.color === '#f59e0b' ? '#1e1a0022' : dot.color === '#ef4444' ? '#2a0d0d22' : 'var(--bg)';
+                const rowBorder = dot.color === '#6b7280' ? 'var(--border)' : dot.color + '55';
                 return (
-                  <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: 'var(--bg)', borderRadius: 8, border: '1px solid var(--border)', flexWrap: 'wrap' }}>
+                  <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: rowBg, borderRadius: 8, border: `1px solid ${rowBorder}`, borderLeft: `4px solid ${dot.color}`, flexWrap: 'wrap' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 7, width: 240, flexShrink: 0, minWidth: 0 }}>
-                      <span title={dot.title} style={{ width: 10, height: 10, borderRadius: '50%', background: dot.color, flexShrink: 0, cursor: 'help' }} />
-                      <span style={{ fontSize: 13, fontWeight: 600, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
+                      <span style={{ fontSize: 13, fontWeight: 600, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={dot.title}>{c.name}</span>
                       <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20, fontWeight: 700, background: isActive ? '#0d2a1e' : '#1a1a2e', color: isActive ? '#00d48f' : '#8892b0', flexShrink: 0 }}>
                         {isActive ? 'Active' : 'Paused'}
                       </span>
@@ -998,16 +1022,17 @@ export default function Ads() {
                         ? <button className="btn btn-secondary btn-sm" onClick={() => pauseGoogleCampaign(c.id).then(loadGgCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))} style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Pause size={11} /> Pause</button>
                         : <button className="btn btn-primary btn-sm" onClick={() => resumeGoogleCampaign(c.id).then(loadGgCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))} style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Play size={11} /> Resume</button>}
                       {conn
-                        ? <button onClick={() => setConnectSidebar({ campaign: c, existingConn: conn, platform: 'google' })} style={{ fontSize: 11, color: '#00d48f', background: 'none', border: 'none', cursor: 'pointer', padding: 0, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>● {conn.item_name}</button>
-                        : <button onClick={() => setConnectSidebar({ campaign: c, existingConn: null, platform: 'google' })} style={{ fontSize: 11, color: '#8892b0', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>⚪ Link product</button>}
+                        ? <button className="btn btn-sm" onClick={() => setConnectSidebar({ campaign: c, existingConn: conn, platform: 'google' })} style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#00d48f', border: '1px solid #00d48f44', background: '#0d2a1e', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}><Link2 size={10} /> {conn.item_name}</button>
+                        : <button className="btn btn-secondary btn-sm" onClick={() => setConnectSidebar({ campaign: c, existingConn: null, platform: 'google' })} style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Link2 size={10} /> Link product</button>}
                     </div>
                   </div>
                 );
               })}
             </div>
-          )}
+          ))}
         </div>
-      )}
+        );
+      })()}
 
       {/* No platforms connected yet */}
       {!metaStatus?.connected && !ttStatus?.connected && !scStatus?.connected && !ptStatus?.connected && !ggStatus?.connected && (
