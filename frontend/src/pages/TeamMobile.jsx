@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { BarChart2, TrendingUp, TrendingDown, Clock, Package, X } from 'lucide-react';
 import { getTeam, createTeamMember, deleteTeamMember, createConfirmerAccount, getMemberStats, toggleMemberAccount } from '../api';
-import TeamMobile from './TeamMobile';
 
 const PERIODS = [
   { value: 'this_month', label: 'This Month' },
@@ -11,8 +10,113 @@ const PERIODS = [
   { value: '',            label: 'All Time' },
 ];
 
-export default function Team() {
-  if (window.innerWidth < 768) return <TeamMobile />;
+// ── Shared inline style helpers ─────────────────────────────────────────────
+const S = {
+  card: {
+    background: 'var(--card)',
+    border: '1px solid var(--border)',
+    borderRadius: 12,
+    marginBottom: 10,
+    overflow: 'hidden',
+  },
+  cardHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 12,
+    padding: '14px 16px',
+    cursor: 'pointer',
+    userSelect: 'none',
+  },
+  chevron: {
+    fontSize: 11,
+    color: 'var(--text-muted)',
+    flexShrink: 0,
+    transition: 'transform 0.2s',
+  },
+  avatar: (letter) => ({
+    width: 40,
+    height: 40,
+    borderRadius: '50%',
+    background: 'var(--accent)22',
+    color: 'var(--accent)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontWeight: 700,
+    fontSize: 16,
+    flexShrink: 0,
+  }),
+  meta: {
+    flex: 1,
+    minWidth: 0,
+  },
+  memberName: {
+    fontWeight: 700,
+    fontSize: 15,
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  },
+  badges: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 4,
+    flexWrap: 'wrap',
+  },
+  pill: (color) => ({
+    fontSize: 11,
+    fontWeight: 600,
+    padding: '2px 8px',
+    borderRadius: 20,
+    background: color + '22',
+    color: color,
+    border: `1px solid ${color}44`,
+  }),
+  expandedBody: {
+    borderTop: '1px solid var(--border)',
+    padding: '0 12px 12px',
+  },
+  actionRow: {
+    display: 'flex',
+    gap: 8,
+    paddingTop: 12,
+    paddingBottom: 12,
+  },
+  actionBtn: (color) => ({
+    flex: 1,
+    minHeight: 40,
+    fontSize: 13,
+    fontWeight: 600,
+    borderRadius: 8,
+    border: `1px solid ${color || 'var(--border)'}`,
+    background: 'transparent',
+    color: color || 'var(--text)',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+  }),
+  detailRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '6px 0',
+    fontSize: 13,
+    borderBottom: '1px solid var(--border)',
+  },
+  detailLabel: {
+    color: 'var(--t2, #8892b0)',
+    fontSize: 12,
+  },
+  detailValue: {
+    fontWeight: 600,
+    fontSize: 13,
+  },
+};
+
+export default function TeamMobile() {
   const [team, setTeam] = useState([]);
   const [error, setError] = useState('');
 
@@ -30,6 +134,8 @@ export default function Team() {
     fixed_monthly: 0, per_order_rate: 0, is_confirmer: false,
     start_date: new Date().toISOString().split('T')[0],
   });
+
+  const [expandedMember, setExpandedMember] = useState(null);
 
   const load = () => getTeam().then(r => setTeam(r.data));
 
@@ -73,8 +179,19 @@ export default function Team() {
     } catch (e) { setError(e.response?.data?.detail || 'Error'); }
   };
 
+  const toggleExpand = (memberId) => {
+    setExpandedMember(expandedMember === memberId ? null : memberId);
+  };
+
+  const paymentColor = (type) => {
+    if (type === 'monthly') return '#818cf8';
+    if (type === 'per_order') return '#a78bfa';
+    return '#c084fc';
+  };
+
   return (
     <div>
+      {/* Header */}
       <div className="page-header">
         <h1 className="page-title">Team</h1>
         <button className="btn btn-primary" onClick={() => setShowAddMember(true)}>+ Add Member</button>
@@ -82,67 +199,138 @@ export default function Team() {
 
       {error && <div className="alert alert-error">{error}</div>}
 
-      <div className="card">
-        {team.length === 0 ? <div className="empty-state"><h3>No team members yet</h3></div> : (
-          <div className="table-wrapper">
-            <table>
-              <thead>
-                <tr><th>Name</th><th>Role</th><th>Payment Type</th><th>Monthly</th><th>Per Order</th><th>Status</th><th>Account</th><th></th></tr>
-              </thead>
-              <tbody>
-                {team.map(m => (
-                  <tr key={m.id}>
-                    <td style={{ fontWeight: 600 }}>{m.name}</td>
-                    <td style={{ color: '#8892b0' }}>{m.role || '—'}</td>
-                    <td><span className="badge badge-purple">{m.payment_type}</span></td>
-                    <td>{m.fixed_monthly ? `${m.fixed_monthly} MAD` : '—'}</td>
-                    <td>{m.per_order_rate ? `${m.per_order_rate} MAD/order` : '—'}</td>
-                    <td>{m.is_active ? <span className="badge badge-green">Active</span> : <span className="badge badge-gray">Inactive</span>}</td>
-                    <td>
-                      {m.confirmer_username ? (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                          <span className={`badge ${!m.account_is_active ? 'badge-gray' : m.account_role === 'admin' ? 'badge-purple' : 'badge-blue'}`}>
-                            @{m.confirmer_username} · {m.account_is_active ? m.account_role : 'suspended'}
-                          </span>
-                          <button
-                            className={`btn btn-sm ${m.account_is_active ? 'btn-danger' : 'btn-success'}`}
-                            onClick={() => toggleMemberAccount(m.id).then(load)}
-                          >
-                            {m.account_is_active ? 'Suspend' : 'Reactivate'}
-                          </button>
-                        </div>
-                      ) : (
-                        <button className="btn btn-secondary btn-sm" onClick={() => {
+      {/* Member cards */}
+      {team.length === 0 ? (
+        <div className="empty-state"><h3>No team members yet</h3></div>
+      ) : (
+        team.map(m => {
+          const isOpen = expandedMember === m.id;
+          const initial = (m.name || '?')[0].toUpperCase();
+
+          return (
+            <div key={m.id} style={S.card}>
+              {/* Collapsed header */}
+              <div style={S.cardHeader} onClick={() => toggleExpand(m.id)}>
+                <span style={{ ...S.chevron, transform: isOpen ? 'rotate(90deg)' : 'none' }}>▶</span>
+
+                <div style={S.avatar(initial)}>
+                  {initial}
+                </div>
+
+                <div style={S.meta}>
+                  <div style={S.memberName}>{m.name}</div>
+                  <div style={S.badges}>
+                    {m.role && (
+                      <span style={S.pill('#8892b0')}>{m.role}</span>
+                    )}
+                    <span style={S.pill(paymentColor(m.payment_type))}>{m.payment_type}</span>
+                    {m.confirmer_username && (
+                      <span style={S.pill(m.account_is_active ? 'var(--accent)' : '#8892b0')}>
+                        @{m.confirmer_username}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Expanded body */}
+              {isOpen && (
+                <div style={S.expandedBody} onClick={e => e.stopPropagation()}>
+                  {/* Action button row */}
+                  <div style={S.actionRow}>
+                    <button
+                      style={S.actionBtn('var(--accent)')}
+                      onClick={() => openMemberStats(m)}
+                    >
+                      <BarChart2 size={14} strokeWidth={1.75} /> Stats
+                    </button>
+
+                    {m.confirmer_username ? (
+                      <button
+                        style={S.actionBtn(m.account_is_active ? '#f87171' : '#4ade80')}
+                        onClick={() => toggleMemberAccount(m.id).then(load)}
+                      >
+                        {m.account_is_active ? 'Suspend' : 'Reactivate'}
+                      </button>
+                    ) : (
+                      <button
+                        style={S.actionBtn()}
+                        onClick={() => {
                           setShowCreateAccount(m);
-                          setAccountForm({ username: m.name.toLowerCase().replace(/\s+/g, ''), password: '', role: m.is_confirmer ? 'confirmer' : 'admin' });
-                        }}>+ Login</button>
-                      )}
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        <button className="btn btn-secondary btn-sm" onClick={() => openMemberStats(m)} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                          <BarChart2 size={12} strokeWidth={1.75} /> Stats
-                        </button>
-                        <button className="btn btn-danger btn-sm" onClick={() => { if (confirm('Remove team member?')) deleteTeamMember(m.id).then(load); }}>✕</button>
+                          setAccountForm({
+                            username: m.name.toLowerCase().replace(/\s+/g, ''),
+                            password: '',
+                            role: m.is_confirmer ? 'confirmer' : 'admin',
+                          });
+                        }}
+                      >
+                        + Login
+                      </button>
+                    )}
+
+                    <button
+                      style={S.actionBtn('#f87171')}
+                      onClick={() => {
+                        if (confirm('Remove team member?')) deleteTeamMember(m.id).then(load);
+                      }}
+                    >
+                      Delete
+                    </button>
+                  </div>
+
+                  {/* Detail rows */}
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    {(m.payment_type === 'monthly' || m.payment_type === 'both') && m.fixed_monthly ? (
+                      <div style={S.detailRow}>
+                        <span style={S.detailLabel}>Monthly</span>
+                        <span style={S.detailValue}>{m.fixed_monthly} MAD</span>
                       </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+                    ) : null}
+
+                    {(m.payment_type === 'per_order' || m.payment_type === 'both') && m.per_order_rate ? (
+                      <div style={S.detailRow}>
+                        <span style={S.detailLabel}>Per order</span>
+                        <span style={S.detailValue}>{m.per_order_rate} MAD</span>
+                      </div>
+                    ) : null}
+
+                    {m.confirmer_username && (
+                      <div style={{ ...S.detailRow, borderBottom: 'none' }}>
+                        <span style={S.detailLabel}>Account</span>
+                        <span style={S.detailValue}>
+                          @{m.confirmer_username} · {m.account_role} ·{' '}
+                          <span style={{ color: m.account_is_active ? '#4ade80' : '#f87171' }}>
+                            {m.account_is_active ? 'Active' : 'Suspended'}
+                          </span>
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })
+      )}
 
       {/* Add Member Modal */}
       {showAddMember && (
         <div className="modal-overlay" onClick={() => setShowAddMember(false)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header"><h2>Add Team Member</h2><button className="btn-icon" onClick={() => setShowAddMember(false)}>✕</button></div>
+            <div className="modal-header">
+              <h2>Add Team Member</h2>
+              <button className="btn-icon" onClick={() => setShowAddMember(false)}>✕</button>
+            </div>
             <div className="modal-body">
               <div className="form-grid-2">
-                <div className="form-group"><label className="form-label">Name *</label><input className="form-input" value={memberForm.name} onChange={e => setMemberForm({ ...memberForm, name: e.target.value })} /></div>
-                <div className="form-group"><label className="form-label">Role / Job Title</label><input className="form-input" placeholder="e.g. Packer" value={memberForm.role} onChange={e => setMemberForm({ ...memberForm, role: e.target.value })} /></div>
+                <div className="form-group">
+                  <label className="form-label">Name *</label>
+                  <input className="form-input" value={memberForm.name} onChange={e => setMemberForm({ ...memberForm, name: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Role / Job Title</label>
+                  <input className="form-input" placeholder="e.g. Packer" value={memberForm.role} onChange={e => setMemberForm({ ...memberForm, role: e.target.value })} />
+                </div>
               </div>
               <div className="form-group">
                 <label className="form-label">Profile</label>
@@ -161,13 +349,22 @@ export default function Team() {
               </div>
               <div className="form-grid-2">
                 {(memberForm.payment_type === 'monthly' || memberForm.payment_type === 'both') && (
-                  <div className="form-group"><label className="form-label">Monthly Salary (MAD)</label><input className="form-input" type="number" value={memberForm.fixed_monthly} onChange={e => setMemberForm({ ...memberForm, fixed_monthly: parseFloat(e.target.value) || 0 })} /></div>
+                  <div className="form-group">
+                    <label className="form-label">Monthly Salary (MAD)</label>
+                    <input className="form-input" type="number" value={memberForm.fixed_monthly} onChange={e => setMemberForm({ ...memberForm, fixed_monthly: parseFloat(e.target.value) || 0 })} />
+                  </div>
                 )}
                 {(memberForm.payment_type === 'per_order' || memberForm.payment_type === 'both') && (
-                  <div className="form-group"><label className="form-label">Rate Per Order (MAD)</label><input className="form-input" type="number" value={memberForm.per_order_rate} onChange={e => setMemberForm({ ...memberForm, per_order_rate: parseFloat(e.target.value) || 0 })} /></div>
+                  <div className="form-group">
+                    <label className="form-label">Rate Per Order (MAD)</label>
+                    <input className="form-input" type="number" value={memberForm.per_order_rate} onChange={e => setMemberForm({ ...memberForm, per_order_rate: parseFloat(e.target.value) || 0 })} />
+                  </div>
                 )}
               </div>
-              <div className="form-group"><label className="form-label">Start Date</label><input className="form-input" type="date" value={memberForm.start_date} onChange={e => setMemberForm({ ...memberForm, start_date: e.target.value })} /></div>
+              <div className="form-group">
+                <label className="form-label">Start Date</label>
+                <input className="form-input" type="date" value={memberForm.start_date} onChange={e => setMemberForm({ ...memberForm, start_date: e.target.value })} />
+              </div>
             </div>
             <div className="modal-footer">
               <button className="btn btn-secondary" onClick={() => setShowAddMember(false)}>Cancel</button>

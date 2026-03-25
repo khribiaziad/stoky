@@ -37,6 +37,10 @@ class OrderCreateInput(BaseModel):
     confirmed_by: Optional[int] = None
     items: List[OrderItemInput]
     expenses: OrderExpenseInput
+    pack_id: Optional[int] = None
+    offer_id: Optional[int] = None
+    promo_code: Optional[str] = None
+    discount_amount: Optional[float] = 0
 
 
 class BulkOrderCreate(BaseModel):
@@ -109,7 +113,7 @@ def serialize_order(order: models.Order, user_map: dict = None, member_map: dict
             "product_broken": order.expenses.product_broken,
         }
 
-    uploaded_by_name = (user_map or {}).get(order.uploaded_by)
+    uploaded_by_name  = (user_map   or {}).get(order.uploaded_by)
     confirmed_by_name = (member_map or {}).get(order.confirmed_by)
 
     return {
@@ -138,7 +142,7 @@ def serialize_order(order: models.Order, user_map: dict = None, member_map: dict
 @router.get("")
 def list_orders(
     status: Optional[str] = None,
-    tab: Optional[str] = "orders",   # "orders" (non-cancelled) | "returns" (cancelled)
+    tab: Optional[str] = "orders",
     page: int = 1,
     limit: int = 100,
     date_from: Optional[str] = None,
@@ -148,6 +152,7 @@ def list_orders(
     db: Session = Depends(get_db),
     user: models.User = Depends(get_current_user),
 ):
+    from sqlalchemy import func as _func
     sid = get_store_id(user)
     base = db.query(models.Order).filter(models.Order.user_id == sid)
     if user.role == "confirmer":
@@ -158,7 +163,6 @@ def list_orders(
     return_count = base.filter(models.Order.status == "cancelled").count()
 
     # Per-status counts for filter buttons
-    from sqlalchemy import func as _func
     status_counts = {
         row.status: row.cnt
         for row in db.query(models.Order.status, _func.count(models.Order.id).label("cnt"))
@@ -199,20 +203,15 @@ def list_orders(
             pass
 
     total = query.count()
-
     orders = (
         query
-        .options(
-            joinedload(models.Order.items),
-            joinedload(models.Order.expenses),
-        )
+        .options(joinedload(models.Order.items), joinedload(models.Order.expenses))
         .order_by(models.Order.order_date.desc())
         .offset((page - 1) * limit)
         .limit(limit)
         .all()
     )
 
-    # Bulk-fetch uploaders and confirmers in 2 queries
     uploader_ids = {o.uploaded_by for o in orders if o.uploaded_by}
     member_ids   = {o.confirmed_by for o in orders if o.confirmed_by}
     user_map   = {u.id: u.username for u in db.query(models.User).filter(models.User.id.in_(uploader_ids)).all()} if uploader_ids else {}
@@ -242,20 +241,6 @@ def bulk_update_status(data: BulkStatusInput, db: Session = Depends(get_db), use
         order.status = data.status
     db.commit()
     return {"success": True, "count": len(orders)}
-
-
-@router.post("/confirm-pickup")
-def confirm_pickup(db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
-    """Move all awaiting_pickup orders to in_delivery (courier has collected them)."""
-    sid = get_store_id(user)
-    orders = db.query(models.Order).filter(
-        models.Order.user_id == sid,
-        models.Order.status == "awaiting_pickup",
-    ).all()
-    for o in orders:
-        o.status = "in_delivery"
-    db.commit()
-    return {"confirmed": len(orders)}
 
 
 @router.patch("/{order_id}/notes")
@@ -369,6 +354,10 @@ def bulk_create_orders(data: BulkOrderCreate, db: Session = Depends(get_db), use
             total_amount=order_data.total_amount,
             status="pending",
             order_date=order_date or datetime.now(),
+            pack_id=order_data.pack_id,
+            offer_id=order_data.offer_id,
+            promo_code_used=order_data.promo_code,
+            discount_amount=order_data.discount_amount or 0,
         )
         db.add(order)
         db.flush()
@@ -386,7 +375,7 @@ def bulk_create_orders(data: BulkOrderCreate, db: Session = Depends(get_db), use
                 db.rollback()
                 raise HTTPException(
                     status_code=400,
-                    detail=f"[{order_data.caleo_id}] Insufficient stock for {variant.product.name} {variant.size or ''} {variant.color or ''}. "
+                    detail=f"Insufficient stock for {variant.product.name} {variant.size or ''} {variant.color or ''}. "
                            f"Available: {variant.stock}, requested: {item_data.quantity}"
                 )
             variant.stock -= item_data.quantity
@@ -413,6 +402,16 @@ def bulk_create_orders(data: BulkOrderCreate, db: Session = Depends(get_db), use
             return_fee=return_fee,
         )
         db.add(expense)
+
+        # Increment promo code usage
+        if order_data.promo_code:
+            promo = db.query(models.PromoCode).filter(
+                models.PromoCode.user_id == sid,
+                models.PromoCode.code == order_data.promo_code.upper().strip(),
+            ).first()
+            if promo:
+                promo.used_count = (promo.used_count or 0) + 1
+
         created.append(order.caleo_id)
 
     db.commit()
@@ -441,7 +440,6 @@ def process_returns(data: ProcessReturnsInput, db: Session = Depends(get_db), us
                     models.Variant.id == item.variant_id
                 ).first()
                 broken = models.BrokenStock(
-                    user_id=order.user_id,
                     variant_id=item.variant_id,
                     quantity=item.quantity,
                     source="return",
@@ -469,27 +467,9 @@ def update_order_status(order_id: int, status: str, db: Session = Depends(get_db
     order = db.query(models.Order).filter(models.Order.id == order_id, models.Order.user_id == sid).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
-    if status not in ("pending", "delivered", "cancelled", "reported"):
+    if status not in ("pending", "delivered", "cancelled"):
         raise HTTPException(status_code=400, detail="Invalid status")
     order.status = status
-    db.commit()
-    return {"success": True}
-
-
-@router.patch("/{order_id}/report")
-def report_order(
-    order_id: int,
-    reported_date: str,
-    db: Session = Depends(get_db),
-    user: models.User = Depends(get_current_user),
-):
-    from datetime import datetime
-    sid = get_store_id(user)
-    order = db.query(models.Order).filter(models.Order.id == order_id, models.Order.user_id == sid).first()
-    if not order:
-        raise HTTPException(status_code=404, detail="Order not found")
-    order.status = "reported"
-    order.reported_date = datetime.fromisoformat(reported_date)
     db.commit()
     return {"success": True}
 
@@ -555,7 +535,7 @@ def update_order(order_id: int, data: OrderUpdateInput, db: Session = Depends(ge
                     db.rollback()
                     raise HTTPException(
                         status_code=400,
-                        detail=f"[{order.caleo_id}] Insufficient stock for {variant.product.name} {variant.size or ''} {variant.color or ''}. "
+                        detail=f"Insufficient stock for {variant.product.name} {variant.size or ''} {variant.color or ''}. "
                                f"Available: {variant.stock}, requested: {item_data.quantity}"
                     )
                 variant.stock -= item_data.quantity
@@ -589,9 +569,6 @@ def delete_order(order_id: int, db: Session = Depends(get_db), user: models.User
             ).first()
             if variant:
                 variant.stock += item.quantity
-    # Null out FK references that have no cascade (prevents FK constraint errors)
-    db.query(models.BrokenStock).filter(models.BrokenStock.source_order_id == order_id).update({"source_order_id": None})
-    db.query(models.Lead).filter(models.Lead.order_id == order_id).update({"order_id": None})
     db.delete(order)
     db.commit()
     return {"success": True}

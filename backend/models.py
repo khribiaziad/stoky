@@ -41,10 +41,6 @@ class User(Base):
     team_member_id = Column(Integer, nullable=True)  # links confirmer to their TeamMember record
     google_id = Column(String, nullable=True, unique=True)
     google_email = Column(String, nullable=True)
-    email = Column(String, nullable=True)
-    whatsapp = Column(String, nullable=True)
-    reset_token = Column(String, nullable=True)
-    reset_token_expires = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
 
 
@@ -54,6 +50,7 @@ class Product(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     name = Column(String, nullable=False)
+    short_name = Column(String, nullable=True)
     category = Column(String, default="caps")
     has_sizes = Column(Boolean, default=True)
     has_colors = Column(Boolean, default=True)
@@ -92,9 +89,12 @@ class Pack(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=True)
     name = Column(String, nullable=False)
     selling_price = Column(Float, nullable=False)
+    packaging_cost = Column(Float, default=0)
     item_count = Column(Integer, nullable=False, default=1)
+    is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, server_default=func.now())
 
     presets = relationship("PackPreset", back_populates="pack", cascade="all, delete-orphan")
@@ -123,6 +123,52 @@ class PackPresetItem(Base):
     variant = relationship("Variant")
 
 
+class Offer(Base):
+    __tablename__ = "offers"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    name = Column(String, nullable=False)
+    selling_price = Column(Float, nullable=False)
+    packaging_cost = Column(Float, default=0)
+    start_date = Column(DateTime, nullable=True)
+    end_date = Column(DateTime, nullable=True)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+    items = relationship("OfferItem", back_populates="offer", cascade="all, delete-orphan")
+
+
+class OfferItem(Base):
+    __tablename__ = "offer_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    offer_id = Column(Integer, ForeignKey("offers.id"), nullable=False)
+    variant_id = Column(Integer, ForeignKey("variants.id"), nullable=False)
+    quantity = Column(Integer, default=1)
+
+    offer = relationship("Offer", back_populates="items")
+    variant = relationship("Variant")
+
+
+class PromoCode(Base):
+    __tablename__ = "promo_codes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    code = Column(String, nullable=False)
+    discount_type = Column(String, nullable=False)  # "percentage" or "fixed"
+    discount_value = Column(Float, nullable=False)
+    min_order_value = Column(Float, nullable=True)
+    usage_limit = Column(Integer, nullable=True)   # null = unlimited
+    used_count = Column(Integer, default=0)
+    expiry_date = Column(DateTime, nullable=True)
+    applies_to = Column(String, default="all")     # "all", "products", "packs"
+    target_ids = Column(JSON, nullable=True)        # list of product/pack IDs
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+
 class City(Base):
     __tablename__ = "cities"
 
@@ -148,11 +194,14 @@ class Order(Base):
     total_amount = Column(Float, nullable=False)
     status = Column(String, default="pending", index=True)
     order_date = Column(DateTime, nullable=True)
+    reported_date = Column(DateTime, nullable=True)
     notes = Column(Text, nullable=True)
     tracking_id = Column(String, nullable=True, index=True)
     delivery_status = Column(String, nullable=True)
-    delivery_provider = Column(String, nullable=True)  # "olivraison" | "forcelog"
-    reported_date = Column(DateTime, nullable=True)
+    pack_id = Column(Integer, ForeignKey("packs.id"), nullable=True)
+    offer_id = Column(Integer, ForeignKey("offers.id"), nullable=True)
+    promo_code_used = Column(String, nullable=True)
+    discount_amount = Column(Float, default=0)
     created_at = Column(DateTime, server_default=func.now())
 
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
@@ -408,15 +457,15 @@ class Lead(Base):
     created_at       = Column(DateTime, server_default=func.now())
 
 
-class Notification(Base):
-    __tablename__ = "notifications"
+class CampaignConnection(Base):
+    __tablename__ = "campaign_connections"
 
-    id            = Column(Integer, primary_key=True)
-    store_id      = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    order_id      = Column(Integer, ForeignKey("orders.id"), nullable=True)
-    caleo_id      = Column(String, nullable=True)
-    customer_name = Column(String, nullable=True)
-    message       = Column(String, nullable=False)
-    type          = Column(String, nullable=False)  # "delivered" | "returned" | "failed"
-    is_read       = Column(Boolean, default=False)
-    created_at    = Column(DateTime, server_default=func.now())
+    id               = Column(Integer, primary_key=True, index=True)
+    user_id          = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    platform         = Column(String, nullable=True, default="meta")   # "meta", "tiktok", etc.
+    meta_campaign_id = Column(String, nullable=True)                   # Meta / platform campaign ID string
+    campaign_name    = Column(String, nullable=True)
+    item_type        = Column(String, nullable=False)                  # "product", "pack", "offer"
+    item_id          = Column(Integer, nullable=False)
+    delivery_cost    = Column(Float, default=25)
+    created_at       = Column(DateTime, server_default=func.now())

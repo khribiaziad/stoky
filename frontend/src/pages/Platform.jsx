@@ -6,7 +6,7 @@ import {
 import {
   getPlatformStats, getPlatformGrowth, getPlatformStores, createPlatformStore,
   updateStoreStatus, updateStoreSubscription, updateStoreNotes, resetStorePassword,
-  getStorePayments, addStorePayment, deletePayment, deleteStore, importStoreExcel,
+  getStorePayments, addStorePayment, deletePayment,
   getPlatformSettings, savePlatformSetting,
 } from '../api';
 
@@ -199,7 +199,7 @@ function CreateStoreModal({ onClose, onCreated }) {
 
 // ── Store Drawer ──────────────────────────────────────────────────────────────
 
-function StoreDrawer({ store, onClose, onUpdate, onDelete }) {
+function StoreDrawer({ store, onClose, onUpdate }) {
   const [tab, setTab] = useState('overview');
   const [sub, setSub] = useState(store.subscription);
   const [notes, setNotes] = useState(store.subscription.notes || '');
@@ -264,32 +264,6 @@ function StoreDrawer({ store, onClose, onUpdate, onDelete }) {
       setNewPwd('');
       alert('Password reset successfully');
     } finally { setResetting(false); }
-  };
-
-  const handleDelete = async () => {
-    if (!window.confirm(`Delete "${store.store_name}" and ALL its data? This cannot be undone.`)) return;
-    await deleteStore(store.id);
-    onDelete(store.id);
-  };
-
-  const [importing, setImporting] = useState(false);
-  const [importResult, setImportResult] = useState(null);
-  const importRef = useRef(null);
-
-  const handleImportExcel = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    setImporting(true);
-    setImportResult(null);
-    try {
-      const res = await importStoreExcel(store.id, file);
-      setImportResult(res.data);
-    } catch (err) {
-      setImportResult({ error: err.response?.data?.detail || 'Import failed' });
-    } finally {
-      setImporting(false);
-      e.target.value = '';
-    }
   };
 
   const handleAddPayment = async () => {
@@ -455,32 +429,6 @@ function StoreDrawer({ store, onClose, onUpdate, onDelete }) {
                     {resetting ? '…' : 'Reset'}
                   </button>
                 </div>
-                <button className="btn btn-danger btn-sm" style={{ width: '100%', marginTop: 4 }} onClick={handleDelete}>
-                  <Trash2 size={13} strokeWidth={1.75} /> Delete Store & All Data
-                </button>
-
-                {/* Excel import */}
-                <input ref={importRef} type="file" accept=".xlsx" style={{ display: 'none' }} onChange={handleImportExcel} />
-                <button className="btn btn-secondary btn-sm" style={{ width: '100%' }}
-                  onClick={() => importRef.current.click()} disabled={importing}>
-                  {importing ? '⏳ Importing…' : '📥 Import Excel (Orders)'}
-                </button>
-                {importResult && (
-                  <div style={{ fontSize: 12, padding: '8px 10px', borderRadius: 8, background: 'var(--card-2)', border: `1px solid ${importResult.error ? '#f87171' : '#4ade8044'}` }}>
-                    {importResult.error ? (
-                      <span style={{ color: '#f87171' }}>{importResult.error}</span>
-                    ) : (
-                      <>
-                        <div style={{ color: '#4ade80' }}>✓ {importResult.created_orders} orders imported</div>
-                        <div style={{ color: 'var(--t2)' }}>{importResult.skipped_orders} skipped (already exist)</div>
-                        <div style={{ color: 'var(--t2)' }}>{importResult.products_created} products created</div>
-                        {importResult.unmatched_product_names > 0 && (
-                          <div style={{ color: '#fbbf24' }}>⚠ {importResult.unmatched_product_names} unrecognized product names</div>
-                        )}
-                      </>
-                    )}
-                  </div>
-                )}
               </div>
             </>
           )}
@@ -609,12 +557,6 @@ export default function Platform({ onLogout }) {
   };
 
   const handleStoreCreated = () => { load(); };
-
-  const handleStoreDelete = (storeId) => {
-    setStores(prev => prev.filter(s => s.id !== storeId));
-    setSelectedStore(null);
-    getPlatformStats().then(r => setStats(r.data));
-  };
 
   const now = new Date();
   const filtered = stores.filter(s => {
@@ -750,7 +692,6 @@ export default function Platform({ onLogout }) {
           store={selectedStore}
           onClose={() => setSelectedStore(null)}
           onUpdate={handleStoreUpdate}
-          onDelete={handleStoreDelete}
         />
       )}
 

@@ -1,9 +1,8 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   LayoutDashboard, Package, Tag, Gift, Warehouse,
-  Users, BarChart2, Megaphone, Receipt, LogOut, Menu, X, Settings as SettingsIcon, UserCheck, Truck, Bell,
+  Users, BarChart2, Megaphone, Receipt, LogOut, Menu, X, Settings as SettingsIcon, UserCheck, Truck,
 } from 'lucide-react';
-import { getSetting, getNotifications, markNotificationRead, markAllNotificationsRead } from './api';
 import Dashboard from './pages/Dashboard';
 import Products from './pages/Products';
 import Packs from './pages/Packs';
@@ -17,7 +16,6 @@ import Settings from './pages/Settings';
 import Leads from './pages/Leads';
 import Suppliers from './pages/Suppliers';
 import Login from './pages/Login';
-import Setup from './pages/Setup';
 import PlatformLayout from './pages/platform/PlatformLayout';
 
 // ── Nav label translations ───────────────────────────────────
@@ -66,64 +64,12 @@ const CONFIRMER_NAV = [
   { id: 'settings',  Icon: SettingsIcon },
 ];
 
-const TYPE_COLOR = { delivered: '#4ade80', returned: '#f87171', failed: '#facc15' };
-const TYPE_LABEL = { delivered: '✓ Livré', returned: '↩ Retour', failed: '⚠ Tentative' };
-
-function NotifDropdown({ notifications, onNotifClick, onMarkAll }) {
-  return (
-    <div style={{
-      position: 'fixed', top: 56, right: 8, width: 300, maxWidth: 'calc(100vw - 16px)',
-      background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 10,
-      boxShadow: '0 8px 24px rgba(0,0,0,0.3)', zIndex: 9999, overflow: 'hidden',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '10px 14px', borderBottom: '1px solid var(--border)' }}>
-        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--t1)' }}>Notifications</span>
-        <button onClick={onMarkAll} style={{ fontSize: 11, color: 'var(--accent)', background: 'none',
-          border: 'none', cursor: 'pointer', padding: 0 }}>
-          Mark all read
-        </button>
-      </div>
-      <div style={{ maxHeight: 360, overflowY: 'auto' }}>
-        {notifications.length === 0 ? (
-          <div style={{ padding: '20px 14px', textAlign: 'center', fontSize: 13, color: 'var(--t2)' }}>
-            No notifications yet
-          </div>
-        ) : notifications.map(n => (
-          <div key={n.id} onClick={() => onNotifClick(n)}
-            style={{
-              padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid var(--border)',
-              background: n.is_read ? 'transparent' : 'var(--card-2)',
-              display: 'flex', gap: 10, alignItems: 'flex-start',
-            }}>
-            <span style={{
-              marginTop: 2, fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4, flexShrink: 0,
-              background: (TYPE_COLOR[n.type] || 'var(--t2)') + '22',
-              color: TYPE_COLOR[n.type] || 'var(--t2)',
-            }}>{TYPE_LABEL[n.type] || n.type}</span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--t1)',
-                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {n.customer_name} {n.caleo_id ? `· ${n.caleo_id}` : ''}
-              </div>
-              <div style={{ fontSize: 11, color: 'var(--t2)', marginTop: 2 }}>{n.message}</div>
-            </div>
-            {!n.is_read && <span style={{ width: 7, height: 7, borderRadius: '50%',
-              background: 'var(--accent)', flexShrink: 0, marginTop: 4 }} />}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 export default function App() {
   const [page, setPage] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [user, setUser] = useState(() => {
     try { return JSON.parse(localStorage.getItem('user')); } catch { return null; }
   });
-  const [setupDone, setSetupDone] = useState(null); // null=loading, true=done, false=needs setup
 
   // ── Appearance state ────────────────────────────────────────
   const [theme,  setTheme]  = useState(() => localStorage.getItem('app_theme')  || 'dark');
@@ -133,19 +79,6 @@ export default function App() {
   const [storeName, setStoreName] = useState(() => {
     try { return JSON.parse(localStorage.getItem('user'))?.store_name || ''; } catch { return ''; }
   });
-
-  const [notifications, setNotifications] = useState([]);
-  const [unread, setUnread] = useState(0);
-  const [bellOpen, setBellOpen] = useState(false);
-  const bellRef = useRef(null);
-  const bellRefSidebar = useRef(null);
-
-  const loadNotifications = useCallback(() => {
-    getNotifications().then(r => {
-      setNotifications(r.data.notifications);
-      setUnread(r.data.unread);
-    }).catch(() => {});
-  }, []);
 
   const handleStoreName = useCallback((name) => {
     setStoreName(name);
@@ -172,54 +105,6 @@ export default function App() {
     document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
   }, [lang]);
 
-  // Check onboarding status whenever user changes
-  useEffect(() => {
-    if (!user || user.role === 'super_admin' || user.role === 'confirmer') {
-      setSetupDone(true);
-      return;
-    }
-    setSetupDone(null);
-    getSetting('onboarding_done')
-      .then(r => setSetupDone(r.data?.value === 'true'))
-      .catch(() => setSetupDone(true));
-  }, [user?.id]);
-
-  // Poll notifications every 60 seconds
-  useEffect(() => {
-    if (!user || user.role === 'super_admin') return;
-    loadNotifications();
-    const id = setInterval(loadNotifications, 60_000);
-    return () => clearInterval(id);
-  }, [user?.id, loadNotifications]);
-
-  // Close bell dropdown on outside click
-  useEffect(() => {
-    if (!bellOpen) return;
-    const handler = (e) => {
-      const inTopbar  = bellRef.current && bellRef.current.contains(e.target);
-      const inSidebar = bellRefSidebar.current && bellRefSidebar.current.contains(e.target);
-      if (!inTopbar && !inSidebar) setBellOpen(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [bellOpen]);
-
-  const handleBellClick = () => {
-    setBellOpen(o => !o);
-  };
-
-  const handleNotifClick = (n) => {
-    if (!n.is_read) {
-      markNotificationRead(n.id).then(loadNotifications).catch(() => {});
-    }
-    setBellOpen(false);
-    setPage('orders');
-  };
-
-  const handleMarkAllRead = () => {
-    markAllNotificationsRead().then(loadNotifications).catch(() => {});
-  };
-
   const handleAuth = (userData) => setUser(userData);
 
   const handleLogout = () => {
@@ -234,14 +119,6 @@ export default function App() {
   if (user.role === 'super_admin') {
     return <PlatformLayout user={user} onLogout={handleLogout} />;
   }
-
-  // Onboarding — show spinner while checking, then setup wizard if not done
-  if (setupDone === null) return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)', color: 'var(--t2)', fontSize: 14 }}>
-      Loading…
-    </div>
-  );
-  if (!setupDone) return <Setup user={user} onComplete={() => window.location.reload()} />;
 
   const isConfirmer = user.role === 'confirmer';
   const nav = isConfirmer ? CONFIRMER_NAV : ADMIN_NAV;
@@ -261,7 +138,7 @@ export default function App() {
   const settingsProps = { user, theme, setTheme, lang, setLang, accent, setAccent, logo, setLogo, onStoreName: handleStoreName, onLogout: handleLogout };
 
   const pages = {
-    dashboard: <Dashboard onNavigate={navigate} user={user} lang={lang} />,
+    dashboard: <Dashboard onNavigate={navigate} user={user} />,
     orders:    <Orders user={user} />,
     leads:     <Leads />,
     suppliers: <Suppliers />,
@@ -284,24 +161,7 @@ export default function App() {
           <Menu size={20} strokeWidth={1.75} />
         </button>
         <span className="topbar-logo">STOCKY</span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }}>
-          <span className="topbar-store">{storeName || user.store_name}</span>
-          <div ref={bellRef} style={{ position: 'relative' }}>
-            <button className="btn-icon" onClick={handleBellClick} aria-label="Notifications"
-              style={{ position: 'relative' }}>
-              <Bell size={18} strokeWidth={1.75} />
-              {unread > 0 && (
-                <span style={{
-                  position: 'absolute', top: 1, right: 1, background: '#f87171',
-                  color: '#fff', borderRadius: '50%', fontSize: 9, fontWeight: 700,
-                  width: 14, height: 14, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  lineHeight: 1, pointerEvents: 'none',
-                }}>{unread > 9 ? '9+' : unread}</span>
-              )}
-            </button>
-            {bellOpen && <NotifDropdown notifications={notifications} onNotifClick={handleNotifClick} onMarkAll={handleMarkAllRead} />}
-          </div>
-        </div>
+        <span className="topbar-store">{storeName || user.store_name}</span>
       </div>
 
       {/* ── Backdrop ── */}
@@ -335,27 +195,12 @@ export default function App() {
 
         <div className="sidebar-user">
           <div className="sidebar-avatar">{initial}</div>
-          <div style={{ flex: 1 }}>
+          <div>
             <div className="sidebar-username">@{user.username}</div>
             <div className="sidebar-role">
               <span className="sidebar-role-dot" />
               {isConfirmer ? (labels.confirmer || 'Confirmer') : 'Admin'}
             </div>
-          </div>
-          <div ref={bellRefSidebar} style={{ position: 'relative', flexShrink: 0 }}>
-            <button className="btn-icon" onClick={handleBellClick} aria-label="Notifications"
-              style={{ position: 'relative' }}>
-              <Bell size={16} strokeWidth={1.75} />
-              {unread > 0 && (
-                <span style={{
-                  position: 'absolute', top: 1, right: 1, background: '#f87171',
-                  color: '#fff', borderRadius: '50%', fontSize: 9, fontWeight: 700,
-                  width: 14, height: 14, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  lineHeight: 1, pointerEvents: 'none',
-                }}>{unread > 9 ? '9+' : unread}</span>
-              )}
-            </button>
-            {bellOpen && <NotifDropdown notifications={notifications} onNotifClick={handleNotifClick} onMarkAll={handleMarkAllRead} />}
           </div>
         </div>
 
@@ -400,28 +245,6 @@ export default function App() {
           </div>
         ))}
       </nav>
-
-      {/* ── WhatsApp Support Button ── */}
-      <a
-        href={`https://wa.me/212674234434?text=${encodeURIComponent(`Hi, I need help with Stocky.\nStore: ${storeName || user.store_name} (@${user.username})`)}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label="Contact support on WhatsApp"
-        style={{
-          position: 'fixed', bottom: 80, right: 16, zIndex: 1000,
-          width: 48, height: 48, borderRadius: '50%',
-          background: '#25D366', color: '#fff',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: '0 4px 16px rgba(37,211,102,0.45)',
-          textDecoration: 'none', transition: 'transform .15s',
-        }}
-        onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.1)'}
-        onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
-      >
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-        </svg>
-      </a>
 
     </div>
   );

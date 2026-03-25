@@ -4,6 +4,7 @@ import MetaCampaignWizard from '../components/MetaCampaignWizard';
 import CampaignConnectModal from './CampaignConnectModal';
 import AdsMobile from './AdsMobile';
 import {
+<<<<<<< HEAD
   getSetting, setSetting,
   getMetaStatus, connectMeta, disconnectMeta,
   getMetaCampaigns, pauseMetaCampaign, resumeMetaCampaign,
@@ -14,6 +15,13 @@ import {
   getPinterestStatus, connectPinterest, disconnectPinterest, getPinterestCampaigns, pausePinterestCampaign, resumePinterestCampaign, getPinterestSpend,
   getProducts, getPacks, getOffers,
   getCampaignConnections, saveCampaignConnection, deleteCampaignConnection, getCampaignBulkStats,
+=======
+  getAdPlatforms, createAdPlatform, deleteAdPlatform,
+  createAdCampaign, updateAdCampaign, deleteAdCampaign,
+  getAdCostPerOrder, getSetting, setSetting,
+  getMetaStatus, connectMeta, disconnectMeta, syncMeta,
+  getProducts,
+>>>>>>> 47a5f8c (Ads: full UI redesign — global date picker, flat campaign rows, product link)
 } from '../api';
 
 const META_OBJECTIVES = [
@@ -39,7 +47,15 @@ const PLATFORM_ICON_DATA = {
     d: 'M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z',
     fill: '#fff',
   },
+<<<<<<< HEAD
   google: { bg: '#fff', viewBox: '0 0 24 24', d: null },
+=======
+  google: {
+    bg: '#fff',
+    viewBox: '0 0 24 24',
+    d: null,
+  },
+>>>>>>> 47a5f8c (Ads: full UI redesign — global date picker, flat campaign rows, product link)
   snapchat: {
     bg: '#FFFC00',
     viewBox: '0 0 24 24',
@@ -69,6 +85,10 @@ const PLATFORM_ICON_DATA = {
 function PlatformIcon({ name, size = 32 }) {
   const r = Math.round(size * 0.25);
   const data = PLATFORM_ICON_DATA[name];
+<<<<<<< HEAD
+=======
+
+>>>>>>> 47a5f8c (Ads: full UI redesign — global date picker, flat campaign rows, product link)
   if (name === 'google') {
     return (
       <svg width={size} height={size} viewBox="0 0 32 32" fill="none" style={{ borderRadius: r, flexShrink: 0 }}>
@@ -99,6 +119,7 @@ function PlatformIcon({ name, size = 32 }) {
   );
 }
 
+<<<<<<< HEAD
 // Meta logo
 function MetaLogo({ size = 32 }) {
   return (
@@ -106,14 +127,7 @@ function MetaLogo({ size = 32 }) {
       <rect width="32" height="32" rx="8" fill="#0866FF"/>
       <path d="M8 18.5c0 1.933.434 3.416 1.007 4.3.418.644.924.95 1.434.95.736 0 1.415-.42 2.162-1.65.588-.966 1.196-2.413 1.637-4.151l.47-1.82c.33-1.276.773-2.25 1.27-2.894.426-.558.894-.837 1.37-.837.843 0 1.647.782 2.275 2.2.557 1.27.913 2.99.913 4.687 0 1.45-.286 2.57-.84 3.39-.452.665-1.066 1.075-1.748 1.075v-2.25c.357 0 .641-.218.875-.67.27-.52.413-1.28.413-2.18 0-1.395-.294-2.82-.763-3.782-.35-.712-.733-1.084-1.066-1.084-.38 0-.744.34-1.066.983-.24.478-.474 1.23-.664 1.97l-.475 1.84c-.48 1.86-1.15 3.43-1.872 4.572C13.38 24.463 12.28 25 11.1 25c-.872 0-1.718-.397-2.384-1.152C7.49 22.67 7 20.82 7 18.5c0-2.5.58-4.655 1.69-6.24C9.8 10.654 11.13 10 12.532 10c.896 0 1.76.358 2.536 1.06.632.572 1.178 1.39 1.644 2.38.467-.99 1.013-1.808 1.645-2.38C19.133 10.358 20 10 20.893 10c1.407 0 2.74.656 3.845 2.263C25.845 13.847 26.4 16 26.4 18.5c0 2.335-.486 4.177-1.707 5.35-.666.653-1.5 1.15-2.393 1.15v-2.25c.596 0 1.096-.33 1.508-.99.533-.845.842-2.095.842-3.76 0-2.067-.4-3.8-1.082-4.92-.518-.845-1.136-1.23-1.775-1.23-.525 0-1.022.337-1.46.983-.526.778-.968 2.035-1.218 3.447l-.227 1.3-.456-1.445c-.384-1.217-.86-2.12-1.395-2.64-.486-.472-1.01-.735-1.538-.735-.87 0-1.644.498-2.275 1.5C8.39 15.36 8 16.8 8 18.5z" fill="white"/>
     </svg>
-  );
-}
-
-// ── Helpers ────────────────────────────────────────────────
-const today = () => new Date().toISOString().slice(0, 10);
-
-const fmt = (n, d = 2) => Number(n || 0).toFixed(d);
-
+=======
 // ── Metric cell ────────────────────────────────────────────
 function MetricCell({ label, value, color }) {
   return (
@@ -125,21 +139,74 @@ function MetricCell({ label, value, color }) {
         {value}
       </span>
     </div>
+>>>>>>> 47a5f8c (Ads: full UI redesign — global date picker, flat campaign rows, product link)
   );
 }
 
-// ── Profitability dot ──────────────────────────────────────
-function getDotInfo(conn, delivered, periodSpendMAD, profit) {
-  if (!conn)                                       return { color: '#6b7280', title: 'No product linked' };
-  if (delivered === 0 || periodSpendMAD === null)  return { color: '#6b7280', title: 'No delivered orders yet' };
-  if (profit === null)                             return { color: '#6b7280', title: 'No profitability data' };
-  if (profit > 0)                                  return { color: '#22c55e', title: `Profitable · ${fmt(profit)} MAD/order` };
-  if (profit >= -10)                               return { color: '#f59e0b', title: `Breaking even · ${fmt(profit)} MAD/order` };
-  return                                                  { color: '#ef4444', title: `Losing · ${fmt(profit)} MAD/order` };
+// ── Helpers ────────────────────────────────────────────────
+const today = () => new Date().toISOString().slice(0, 10);
+
+const fmt = (n, d = 2) => Number(n || 0).toFixed(d);
+
+<<<<<<< HEAD
+// ── Component ───────────────────────────────────────────────
+export default function Ads() {
+=======
+const platformTotal = (campaigns, usdRate) =>
+  campaigns.reduce((sum, c) => {
+    const days = daysBetween(c.start_date, c.end_date);
+    return sum + days * c.daily_rate_usd * usdRate;
+  }, 0);
+
+// ── Normalize campaigns for display ───────────────────────
+function normalizeCampaigns(platform, metaData, usdRate) {
+  // Facebook: prefer synced data when available
+  if (platform.name === 'facebook' && metaData?.campaigns?.length > 0) {
+    return metaData.campaigns.map(c => {
+      const spendMAD = metaData.currency === 'USD' ? c.spend * usdRate : c.spend;
+      const ctr = c.impressions > 0 ? (c.clicks / c.impressions) * 100 : null;
+      const cpc = c.clicks > 0 ? spendMAD / c.clicks : null;
+      return {
+        displayName: c.name,
+        status: 'active',
+        spendMAD,
+        impressions: c.impressions,
+        clicks: c.clicks,
+        ctr,
+        cpc,
+        localId: null,
+        dailyRateUsd: null,
+        startDate: null,
+        endDate: null,
+        linkKey: `fb__${c.name}`,
+      };
+    });
+  }
+  // All other platforms (or Facebook before first sync): local campaigns
+  return platform.campaigns.map((c, i) => {
+    const days = daysBetween(c.start_date, c.end_date);
+    return {
+      displayName: `Entry ${i + 1}`,
+      status: !c.end_date ? 'active' : 'paused',
+      spendMAD: days * c.daily_rate_usd * usdRate,
+      impressions: null,
+      clicks: null,
+      ctr: null,
+      cpc: null,
+      localId: c.id,
+      dailyRateUsd: c.daily_rate_usd,
+      startDate: c.start_date.slice(0, 10),
+      endDate: c.end_date ? c.end_date.slice(0, 10) : null,
+      linkKey: `${platform.name}__${c.id}`,
+    };
+  });
 }
 
 // ── Component ───────────────────────────────────────────────
 export default function Ads() {
+  // ── Existing state (unchanged) ──
+  const [platforms, setPlatforms] = useState([]);
+>>>>>>> 47a5f8c (Ads: full UI redesign — global date picker, flat campaign rows, product link)
   const [usdRate, setUsdRate] = useState(10);
   const [rateInput, setRateInput] = useState('10');
   const [rateMode, setRateMode] = useState('manual');
@@ -149,21 +216,36 @@ export default function Ads() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+<<<<<<< HEAD
   const [showAddPlatform, setShowAddPlatform] = useState(false);
   const [connectingPlatform, setConnectingPlatform] = useState(null); // 'meta'|'google'|'tiktok'|'snapchat'|'pinterest'
   const [expanded, setExpanded] = useState({});
 
   // Date range (shared by spend sections)
+=======
+  const [campaignFieldErrors, setCampaignFieldErrors] = useState({});
+  const [expanded, setExpanded] = useState({});
+  const [showAddPlatform, setShowAddPlatform] = useState(false);
+  const [campaignModal, setCampaignModal] = useState(null);
+  const [campaignForm, setCampaignForm] = useState({ daily_rate_usd: '', start_date: today(), end_date: '' });
+>>>>>>> 47a5f8c (Ads: full UI redesign — global date picker, flat campaign rows, product link)
   const [calcStart, setCalcStart] = useState(() => {
     const d = new Date(); d.setDate(d.getDate() - 6);
     return d.toISOString().slice(0, 10);
   });
   const [calcEnd, setCalcEnd] = useState(today());
+<<<<<<< HEAD
 
   // ── Meta state ──
   const [metaStatus, setMetaStatus] = useState(null); // null = loading, { connected, account_name, ... }
   const [metaCampaigns, setMetaCampaigns] = useState([]);
   const [metaLoading, setMetaLoading] = useState(false);
+=======
+  const [calcResult, setCalcResult] = useState(null);
+  const [calcLoading, setCalcLoading] = useState(false);
+  const [metaStatus, setMetaStatus] = useState(null);
+  const [metaForm, setMetaForm] = useState({ token: '', accountId: '' });
+>>>>>>> 47a5f8c (Ads: full UI redesign — global date picker, flat campaign rows, product link)
   const [metaConnecting, setMetaConnecting] = useState(false);
   const [metaForm, setMetaForm] = useState({ access_token: '', ad_account_id: '' });
   const [metaAdAccounts, setMetaAdAccounts] = useState([]);
@@ -204,6 +286,18 @@ export default function Ads() {
   const [ptConnecting, setPtConnecting] = useState(false);
   const [ptForm, setPtForm] = useState({ access_token: '', ad_account_id: '' });
 
+  // ── New state ──
+  const [budgetEdit, setBudgetEdit] = useState(null); // { id, value, platformId, startDate, endDate }
+  const [budgetSaving, setBudgetSaving] = useState(false);
+  const [linkModal, setLinkModal] = useState(null);   // { key }
+  const [linkProductSel, setLinkProductSel] = useState('');
+  const [products, setProducts] = useState([]);
+  const [campaignLinks, setCampaignLinks] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('stoky_campaign_links') || '{}'); }
+    catch { return {}; }
+  });
+
+  // ── Existing handlers (unchanged) ──
   const fetchMarketRate = async () => {
     setFetchingRate(true);
     try {
@@ -257,6 +351,7 @@ export default function Ads() {
       setRateMode(mode);
       if (mode === 'market') fetchMarketRate();
       setMetaStatus(metaRes.data);
+<<<<<<< HEAD
       if (metaRes.data?.connected) loadMetaCampaigns();
       setGgStatus(ggRes.data);
       if (ggRes.data?.connected) loadGgCampaigns();
@@ -266,6 +361,9 @@ export default function Ads() {
       if (scRes.data?.connected) loadScCampaigns();
       setPtStatus(ptRes.data);
       if (ptRes.data?.connected) loadPtCampaigns();
+=======
+      if (mode === 'market') fetchMarketRate();
+>>>>>>> 47a5f8c (Ads: full UI redesign — global date picker, flat campaign rows, product link)
     } finally {
       setLoading(false);
     }
@@ -285,10 +383,14 @@ export default function Ads() {
     if (mode === 'market') fetchMarketRate();
   };
 
+<<<<<<< HEAD
   // ── Meta actions ──
   const handleFetchAccounts = async () => {
     if (!metaForm.access_token) { setError('Enter your Access Token first'); return; }
     setFetchingAccounts(true); setError('');
+=======
+  const addPlatform = async (p) => {
+>>>>>>> 47a5f8c (Ads: full UI redesign — global date picker, flat campaign rows, product link)
     try {
       const res = await getMetaAdAccounts(metaForm.access_token);
       setMetaAdAccounts(res.data);
@@ -297,6 +399,88 @@ export default function Ads() {
     finally { setFetchingAccounts(false); }
   };
 
+<<<<<<< HEAD
+=======
+  const removePlatform = async (id) => {
+    if (!confirm('Remove this platform and all its campaigns?')) return;
+    try {
+      await deleteAdPlatform(id);
+      load();
+    } catch (e) { setError(e.response?.data?.detail || 'Error removing platform'); }
+  };
+
+  const openNewCampaign = (platformId) => {
+    setCampaignModal({ platformId });
+    setCampaignForm({ daily_rate_usd: '', start_date: today(), end_date: '' });
+    setCampaignFieldErrors({});
+    setError('');
+  };
+
+  const openEditCampaign = (platformId, campaign) => {
+    setCampaignModal({ platformId, campaign });
+    setCampaignForm({
+      daily_rate_usd: String(campaign.daily_rate_usd),
+      start_date: campaign.start_date.slice(0, 10),
+      end_date: campaign.end_date ? campaign.end_date.slice(0, 10) : '',
+    });
+    setCampaignFieldErrors({});
+    setError('');
+  };
+
+  const saveCampaign = async () => {
+    setError('');
+    const rateErr = validateAmount(campaignForm.daily_rate_usd);
+    if (rateErr) { setCampaignFieldErrors({ daily_rate_usd: rateErr }); return; }
+    setCampaignFieldErrors({});
+    try {
+      const payload = {
+        platform_id: campaignModal.platformId,
+        daily_rate_usd: parseFloat(campaignForm.daily_rate_usd),
+        start_date: campaignForm.start_date,
+        end_date: campaignForm.end_date || null,
+      };
+      if (campaignModal.campaign) {
+        await updateAdCampaign(campaignModal.campaign.id, payload);
+      } else {
+        await createAdCampaign(payload);
+      }
+      setCampaignModal(null);
+      load();
+    } catch (e) { setError(e.response?.data?.detail || 'Error saving campaign'); }
+  };
+
+  const removeCampaign = async (id) => {
+    if (!confirm('Delete this campaign?')) return;
+    try {
+      await deleteAdCampaign(id);
+      load();
+    } catch (e) { setError(e.response?.data?.detail || 'Error deleting campaign'); }
+  };
+
+  const toggleCampaign = async (platform, campaign) => {
+    const isRunning = !campaign.end_date;
+    try {
+      await updateAdCampaign(campaign.id, {
+        platform_id: platform.id,
+        daily_rate_usd: campaign.daily_rate_usd,
+        start_date: campaign.start_date.slice(0, 10),
+        end_date: isRunning ? today() : null,
+      });
+      load();
+    } catch (e) { setError(e.response?.data?.detail || 'Error updating campaign'); }
+  };
+
+  const runCalc = async () => {
+    setCalcLoading(true);
+    setCalcResult(null);
+    try {
+      const res = await getAdCostPerOrder(calcStart, calcEnd);
+      setCalcResult(res.data);
+    } catch (e) { setError(e.response?.data?.detail || 'Error calculating'); }
+    finally { setCalcLoading(false); }
+  };
+
+>>>>>>> 47a5f8c (Ads: full UI redesign — global date picker, flat campaign rows, product link)
   const handleMetaConnect = async () => {
     if (!metaForm.access_token || !metaForm.ad_account_id) {
       setError('Enter both Access Token and Ad Account ID'); return;
@@ -329,6 +513,7 @@ export default function Ads() {
     }
   };
 
+<<<<<<< HEAD
   const handlePause = async (id) => {
     try { await pauseMetaCampaign(id); loadMetaCampaigns(); }
     catch (e) { setError(e.response?.data?.detail || 'Failed to pause'); }
@@ -580,37 +765,111 @@ export default function Ads() {
   const avgReturnRate   = summaryRows.length > 0 ? summaryRows.reduce((s, r) => s + r.returnRate, 0) / summaryRows.length : 0;
 
   const metaActive = metaCampaigns.filter(c => c.status === 'ACTIVE').length;
+=======
+  // ── New: load products for link modal ──
+  useEffect(() => {
+    getProducts().then(r => setProducts(r.data || [])).catch(() => {});
+  }, []);
+
+  // ── New: auto-sync Meta when date range changes ──
+  useEffect(() => {
+    if (!metaStatus?.connected) return;
+    if (metaSyncStart > metaSyncEnd) return;
+    handleMetaSync();
+  }, [metaSyncStart, metaSyncEnd, metaStatus?.connected]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── New: inline budget save ──
+  const saveBudget = async () => {
+    if (!budgetEdit) return;
+    setBudgetSaving(true);
+    try {
+      await updateAdCampaign(budgetEdit.id, {
+        platform_id: budgetEdit.platformId,
+        daily_rate_usd: parseFloat(budgetEdit.value) || 0,
+        start_date: budgetEdit.startDate,
+        end_date: budgetEdit.endDate || null,
+      });
+      setBudgetEdit(null);
+      load();
+    } catch (e) { setError(e.response?.data?.detail || 'Error saving budget'); }
+    finally { setBudgetSaving(false); }
+  };
+
+  // ── New: campaign-product link (localStorage) ──
+  const saveCampaignLink = () => {
+    if (!linkModal || !linkProductSel) return;
+    const product = products.find(p => String(p.id) === linkProductSel);
+    if (!product) return;
+    const updated = { ...campaignLinks, [linkModal.key]: { productId: product.id, productName: product.name } };
+    setCampaignLinks(updated);
+    localStorage.setItem('stoky_campaign_links', JSON.stringify(updated));
+    setLinkModal(null);
+  };
+
+  const removeCampaignLink = (key) => {
+    const updated = { ...campaignLinks };
+    delete updated[key];
+    setCampaignLinks(updated);
+    localStorage.setItem('stoky_campaign_links', JSON.stringify(updated));
+  };
+
+  // ── Summary totals ──
+  const grandTotalMAD = platforms.reduce((sum, p) => sum + platformTotal(p.campaigns, usdRate), 0);
+  const activeCount = platforms.reduce((sum, p) => sum + p.campaigns.filter(c => !c.end_date).length, 0);
+  const addedNames = new Set(platforms.map(p => p.name));
+>>>>>>> 47a5f8c (Ads: full UI redesign — global date picker, flat campaign rows, product link)
 
   if (loading) return <div className="loading">Loading ads...</div>;
   if (window.innerWidth < 768) return <AdsMobile />;
 
   return (
     <div>
-      {/* Header */}
+      {/* ── Header ── */}
       <div className="page-header">
         <h1 className="page-title">Ads</h1>
+<<<<<<< HEAD
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           <button className="btn btn-primary" onClick={() => setShowAddPlatform(true)}>
             <Plus size={14} strokeWidth={2} style={{ marginRight: 4 }} />
             Connect Platform
           </button>
-        </div>
+=======
+        <button className="btn btn-primary" onClick={() => setShowAddPlatform(true)}>
+          <Plus size={14} strokeWidth={2} style={{ marginRight: 4 }} />
+          Add Platform
+        </button>
       </div>
 
       {/* ── Global Date Range Picker ── */}
       <div className="card" style={{ marginBottom: 16, padding: '12px 20px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
           <span style={{ fontWeight: 600, fontSize: 13 }}>Period</span>
-          <input className="form-input" type="date" value={calcStart} onChange={e => setCalcStart(e.target.value)} style={{ width: 148 }} />
+          <input
+            className="form-input" type="date"
+            value={metaSyncStart}
+            onChange={e => setMetaSyncStart(e.target.value)}
+            style={{ width: 148 }}
+          />
           <span style={{ color: 'var(--t2)' }}>→</span>
-          <input className="form-input" type="date" value={calcEnd} onChange={e => setCalcEnd(e.target.value)} style={{ width: 148 }} />
-          {[metaStatus, ttStatus, scStatus, ptStatus, ggStatus].some(s => s?.connected) && (
-            <span style={{ fontSize: 12, color: 'var(--t2)' }}>Auto-fetches spend across all connected platforms</span>
-          )}
+          <input
+            className="form-input" type="date"
+            value={metaSyncEnd}
+            onChange={e => setMetaSyncEnd(e.target.value)}
+            style={{ width: 148 }}
+          />
+          {metaSyncing ? (
+            <span style={{ fontSize: 12, color: 'var(--t2)', display: 'flex', alignItems: 'center', gap: 5 }}>
+              <RefreshCw size={12} strokeWidth={2} style={{ animation: 'spin 1s linear infinite' }} />
+              Syncing Meta…
+            </span>
+          ) : metaData ? (
+            <span style={{ fontSize: 12, color: '#00d48f' }}>✓ Meta synced</span>
+          ) : null}
+>>>>>>> 47a5f8c (Ads: full UI redesign — global date picker, flat campaign rows, product link)
         </div>
       </div>
 
-      {/* Exchange rate bar */}
+      {/* ── Exchange Rate Bar ── */}
       <div className="card" style={{ marginBottom: 16, padding: '12px 16px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', background: '#12121a', borderRadius: 8, padding: 3, gap: 2 }}>
@@ -671,6 +930,7 @@ export default function Ads() {
         </div>
       </div>
 
+<<<<<<< HEAD
       {/* ── Page KPI Summary Bar ── */}
       {platformsConnected > 0 && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 10, marginBottom: 16 }}>
@@ -697,317 +957,811 @@ export default function Ads() {
       {/* ── PLATFORM CARDS (only shown when connected) ── */}
 
       {/* META */}
-      {metaStatus?.connected && (
-        <div className="card" style={{ marginBottom: 20, borderTop: '3px solid #0866FF' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-            <MetaLogo size={36} />
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 700, fontSize: 16 }}>Meta Ads</div>
-              <div style={{ fontSize: 12, color: '#8892b0', marginTop: 2 }}>
-                <span style={{ color: '#00d48f' }}>● Connected</span> · {metaStatus.account_name} · {metaActive} active campaign{metaActive !== 1 ? 's' : ''}
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: 6 }}>
-              <button className="btn btn-primary btn-sm" onClick={() => setShowWizard(true)} style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Plus size={13} /> New Campaign</button>
-              <button className="btn btn-secondary btn-sm" onClick={loadMetaCampaigns} disabled={metaLoading}><RefreshCw size={12} style={{ animation: metaLoading ? 'spin 1s linear infinite' : 'none' }} /></button>
-              <button className="btn btn-danger btn-sm" onClick={handleMetaDisconnect}><Unlink size={12} /> Disconnect</button>
-            </div>
-          </div>
-          {metaLoading ? <div style={{ color: '#8892b0', fontSize: 13 }}>Loading campaigns…</div>
-          : metaCampaigns.length === 0 ? <div style={{ color: '#8892b0', fontSize: 13 }}>No campaigns found in this account.</div>
-          : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {metaCampaigns.map(c => {
-                const isActive = c.status === 'ACTIVE';
-                const conn = connections.find(cn => cn.meta_campaign_id === c.id && (cn.platform === 'meta' || !cn.platform));
-                const stats = conn ? (connStats[conn.id] || {}) : null;
-                const periodUsd = spendById[c.id] ?? null;
-                const periodSpendMAD = periodUsd != null ? periodUsd * usdRate : null;
-                const delivered = stats?.delivered_orders || 0;
-                const adCostPerOrder = (periodSpendMAD != null && delivered > 0) ? periodSpendMAD / delivered : null;
-                const prices = conn ? getItemPrices(conn.item_type, conn.item_id) : null;
-                const profit = (prices && adCostPerOrder != null)
-                  ? prices.selling_price - prices.buy_price - prices.packaging_cost - conn.delivery_cost - adCostPerOrder
-                  : null;
-                const dot = getDotInfo(conn, delivered, periodSpendMAD, profit);
-                const displaySpend = periodSpendMAD ?? (c.spend_all_time_usd || 0) * usdRate;
-                return (
-                  <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: 'var(--bg)', borderRadius: 8, border: '1px solid var(--border)', flexWrap: 'wrap' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 7, width: 240, flexShrink: 0, minWidth: 0 }}>
-                      <span title={dot.title} style={{ width: 10, height: 10, borderRadius: '50%', background: dot.color, flexShrink: 0, cursor: 'help' }} />
-                      <span style={{ fontSize: 13, fontWeight: 600, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
-                      <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20, fontWeight: 700, background: isActive ? '#0d2a1e' : '#1a1a2e', color: isActive ? '#00d48f' : '#8892b0', flexShrink: 0 }}>
-                        {isActive ? 'Active' : c.status === 'PAUSED' ? 'Paused' : c.status}
-                      </span>
-                    </div>
-                    <div style={{ display: 'flex', gap: 18, flex: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-                      <MetricCell label="Spend" value={`${fmt(displaySpend)} MAD`} color="#f59e0b" />
-                      <MetricCell label="Impr" value={(c.impressions || 0).toLocaleString()} />
-                      <MetricCell label="Reach" value={(c.reach || 0).toLocaleString()} />
-                      <MetricCell label="Clicks" value={(c.clicks || 0).toLocaleString()} />
-                      <MetricCell label="CTR" value={c.ctr ? `${fmt(c.ctr)}%` : '—'} />
-                      <MetricCell label="CPC" value={c.cpc ? `${fmt(c.cpc * usdRate)} MAD` : '—'} />
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                      {c.daily_budget_usd != null && <span style={{ fontSize: 11, color: '#60a5fa', background: '#131c2e', padding: '3px 8px', borderRadius: 6 }}>${fmt(c.daily_budget_usd)}/d</span>}
-                      {isActive
-                        ? <button className="btn btn-secondary btn-sm" onClick={() => handlePause(c.id)} style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Pause size={11} /> Pause</button>
-                        : c.status === 'PAUSED' ? <button className="btn btn-primary btn-sm" onClick={() => handleResume(c.id)} style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Play size={11} /> Resume</button>
-                        : null}
-                      {conn
-                        ? <button onClick={() => setConnectSidebar({ campaign: c, existingConn: conn, platform: 'meta' })} style={{ fontSize: 11, color: '#00d48f', background: 'none', border: 'none', cursor: 'pointer', padding: 0, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>● {conn.item_name}</button>
-                        : <button onClick={() => setConnectSidebar({ campaign: c, existingConn: null, platform: 'meta' })} style={{ fontSize: 11, color: '#8892b0', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>⚪ Link product</button>}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+      {metaStatus?.connected && (() => {
+        const isOpen = expanded['meta'] !== false;
+        return (
+          <div className="card" style={{ marginBottom: 20, borderTop: '3px solid #0866FF' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }} onClick={() => setExpanded(e => ({ ...e, meta: !isOpen }))}>
+              <MetaLogo size={36} />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 700, fontSize: 16 }}>Meta Ads</div>
+                <div style={{ fontSize: 12, color: '#8892b0', marginTop: 2 }}>
+                  <span style={{ color: '#00d48f' }}>● Connected</span> · {metaStatus.account_name} · {metaActive} active campaign{metaActive !== 1 ? 's' : ''}
+=======
+      {error && <ErrorExplain message={error} page="Ads" />}
+      {success && (
+        <div className="alert alert-success">
+          {success}
+          <button style={{ float: 'right', background: 'none', border: 'none', color: 'inherit', cursor: 'pointer' }} onClick={() => setSuccess('')}>✕</button>
         </div>
       )}
+
+      {/* ── KPI Strip ── */}
+      {platforms.length > 0 && (
+        <div className="stat-grid" style={{ marginBottom: 24 }}>
+          <div className="stat-card">
+            <div className="stat-label">Total Spent (All Time)</div>
+            <div className="stat-value">{fmt(grandTotalMAD)} <span style={{ fontSize: 14, color: 'var(--t2)' }}>MAD</span></div>
+            <div className="stat-sub">{platforms.length} platform{platforms.length !== 1 ? 's' : ''}</div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-label">Active Campaigns</div>
+            <div className="stat-value">{activeCount}</div>
+            <div className="stat-sub">currently running</div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-label">Exchange Rate</div>
+            <div className="stat-value">{fmt(usdRate)} <span style={{ fontSize: 14, color: 'var(--t2)' }}>MAD/USD</span></div>
+            <div className="stat-sub" style={{ color: rateMode === 'market' ? '#00d48f' : 'var(--t2)' }}>
+              {rateMode === 'market' ? `live · ${marketDate || '…'}` : 'manual'}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Cost Per Order Calculator ── */}
+      <div className="card" style={{ marginBottom: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+          <Calculator size={16} strokeWidth={1.75} style={{ color: '#00d48f' }} />
+          <span style={{ fontWeight: 600 }}>Cost Per Order Calculator</span>
+          <span style={{ fontSize: 12, color: 'var(--t2)', marginLeft: 4 }}>uses order date, not upload date</span>
+        </div>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+          <div>
+            <label className="form-label">From</label>
+            <input className="form-input" type="date" value={calcStart} onChange={e => setCalcStart(e.target.value)} style={{ width: 150 }} />
+          </div>
+          <div>
+            <label className="form-label">To</label>
+            <input className="form-input" type="date" value={calcEnd} onChange={e => setCalcEnd(e.target.value)} style={{ width: 150 }} />
+          </div>
+          <button className="btn btn-primary" onClick={runCalc} disabled={calcLoading}>
+            {calcLoading ? 'Calculating...' : 'Calculate'}
+          </button>
+        </div>
+        {calcResult && (
+          <div style={{ marginTop: 16, padding: 16, background: '#0f1117', borderRadius: 10, border: '1px solid #2d3248' }}>
+            <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', marginBottom: 14 }}>
+              <div>
+                <div style={{ fontSize: 12, color: 'var(--t2)' }}>Orders in period</div>
+                <div style={{ fontSize: 22, fontWeight: 700 }}>{calcResult.order_count}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 12, color: 'var(--t2)' }}>Total Ad Spend</div>
+                <div style={{ fontSize: 22, fontWeight: 700 }}>${fmt(calcResult.total_usd)} <span style={{ fontSize: 13, color: 'var(--t2)' }}>USD</span></div>
+                <div style={{ fontSize: 13, color: 'var(--t2)' }}>{fmt(calcResult.total_usd * usdRate)} MAD</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 12, color: 'var(--t2)' }}>Cost per Order</div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: '#00d48f' }}>
+                  {calcResult.order_count > 0 ? fmt(calcResult.total_usd * usdRate / calcResult.order_count) : '—'} <span style={{ fontSize: 13, color: 'var(--t2)' }}>MAD</span>
+>>>>>>> 47a5f8c (Ads: full UI redesign — global date picker, flat campaign rows, product link)
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 6 }} onClick={e => e.stopPropagation()}>
+                <button className="btn btn-primary btn-sm" onClick={() => setShowWizard(true)} style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Plus size={13} /> New Campaign</button>
+                <button className="btn btn-secondary btn-sm" onClick={loadMetaCampaigns} disabled={metaLoading}><RefreshCw size={12} style={{ animation: metaLoading ? 'spin 1s linear infinite' : 'none' }} /></button>
+                <button className="btn btn-danger btn-sm" onClick={handleMetaDisconnect}><Unlink size={12} /> Disconnect</button>
+              </div>
+              <div style={{ color: '#8892b0', marginLeft: 4 }}>{isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</div>
+            </div>
+<<<<<<< HEAD
+            {isOpen && (
+              <div style={{ marginTop: 16 }}>
+                {metaLoading ? <div style={{ color: '#8892b0', fontSize: 13 }}>Loading campaigns…</div>
+                : metaCampaigns.length === 0 ? <div style={{ color: '#8892b0', fontSize: 13 }}>No campaigns found in this account.</div>
+                : (
+                  <div className="table-wrapper">
+                    <table>
+                      <thead><tr><th></th><th>Status</th><th>Campaign</th><th>Objective</th><th>Daily Budget</th><th>Total Spent</th><th>Connected</th><th></th></tr></thead>
+                      <tbody>
+                        {metaCampaigns.map(c => {
+                          const isActive  = c.status === 'ACTIVE';
+                          const isExpanded = expandedRows.has(c.id);
+                          const conn = connections.find(cn => cn.meta_campaign_id === c.id && (cn.platform === 'meta' || !cn.platform));
+                          const stats = conn ? (connStats[conn.id] || {}) : null;
+                          const periodUsd = spendById[c.id] ?? null;
+                          const periodSpend = periodUsd != null ? periodUsd * usdRate : null;
+                          const delivered = stats?.delivered_orders || 0;
+                          const adCostPerOrder = (periodSpend != null && delivered > 0) ? periodSpend / delivered : null;
+                          const prices = conn ? getItemPrices(conn.item_type, conn.item_id) : null;
+                          const profit = (prices && adCostPerOrder != null)
+                            ? prices.selling_price - prices.buy_price - prices.packaging_cost - conn.delivery_cost - adCostPerOrder
+                            : null;
+                          return (
+                            <>
+                              <tr key={c.id} style={{ cursor: 'pointer' }} onClick={() => toggleRow(c.id)}>
+                                <td style={{ width: 24, color: '#8892b0' }}>{isExpanded ? <ChevronUp size={13}/> : <ChevronDown size={13}/>}</td>
+                                <td>
+                                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600, background: isActive ? '#0d2a1e' : '#2d3248', color: isActive ? '#00d48f' : '#8892b0' }}>
+                                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: isActive ? '#00d48f' : '#8892b0', display: 'inline-block' }} />
+                                    {isActive ? 'Active' : c.status === 'PAUSED' ? 'Paused' : c.status}
+                                  </span>
+                                </td>
+                                <td style={{ fontWeight: 500, maxWidth: 240 }}>
+                                  <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
+                                  {c.start_time && <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>{c.start_time.slice(0, 10)}</div>}
+                                  {conn && (
+                                    <div style={{ display: 'flex', gap: 8, marginTop: 5, flexWrap: 'wrap' }}>
+                                      <span style={{ fontSize: 10, color: '#a78bfa', background: '#1e1a2e', padding: '2px 6px', borderRadius: 6 }}>
+                                        💸 {periodSpend != null ? `${fmt(periodSpend)} MAD` : `${fmt(c.spend_all_time_usd * usdRate)} MAD`}
+                                      </span>
+                                      <span style={{ fontSize: 10, color: '#60a5fa', background: '#131c2e', padding: '2px 6px', borderRadius: 6 }}>
+                                        📦 {delivered} delivered
+                                      </span>
+                                      <span style={{ fontSize: 10, color: adCostPerOrder != null && adCostPerOrder > 0 ? '#f59e0b' : '#8892b0', background: '#1e1a14', padding: '2px 6px', borderRadius: 6 }}>
+                                        🎯 {adCostPerOrder != null && delivered > 0 ? `${fmt(adCostPerOrder)} MAD/order` : 'No orders yet'}
+                                      </span>
+                                    </div>
+                                  )}
+                                </td>
+                                <td style={{ fontSize: 12, color: '#8892b0' }}>{c.objective?.replace('OUTCOME_', '') || '—'}</td>
+                                <td onClick={e => e.stopPropagation()}>{c.daily_budget_usd != null ? <><span style={{ color: '#60a5fa', fontWeight: 600 }}>${fmt(c.daily_budget_usd)}</span><span style={{ color: '#8892b0', fontSize: 11 }}>/day</span></> : <span style={{ color: '#8892b0' }}>—</span>}</td>
+                                <td onClick={e => e.stopPropagation()}>
+                                  <div style={{ fontWeight: 700, color: '#f59e0b' }}>${fmt(c.spend_all_time_usd)}</div>
+                                  <div style={{ fontSize: 11, color: '#8892b0' }}>{fmt(c.spend_all_time_usd * usdRate)} MAD</div>
+                                </td>
+                                <td onClick={e => e.stopPropagation()}>
+                                  {conn ? (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                      <span style={{ background: '#0d2a1e', color: '#00d48f', padding: '3px 8px', borderRadius: 12, fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap' }}>● {conn.item_name}</span>
+                                      <span style={{ fontSize: 10, color: '#8892b0', textTransform: 'uppercase' }}>{conn.item_type}</span>
+                                      <button onClick={() => setConnectSidebar({ campaign: c, existingConn: conn, platform: 'meta' })} style={{ background: 'none', border: 'none', color: '#60a5fa', cursor: 'pointer', fontSize: 11, padding: 0 }}>Edit</button>
+                                    </div>
+                                  ) : (
+                                    <button onClick={() => setConnectSidebar({ campaign: c, existingConn: null, platform: 'meta' })}
+                                      style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 6, border: '1px solid #2d3248', background: '#1d1d27', color: '#8892b0', cursor: 'pointer', fontSize: 11 }}>
+                                      <Link2 size={10} /> Connect
+                                    </button>
+                                  )}
+                                </td>
+                                <td onClick={e => e.stopPropagation()}>
+                                  {isActive ? <button className="btn btn-secondary btn-sm" onClick={() => handlePause(c.id)} style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Pause size={11} /> Pause</button>
+                                  : c.status === 'PAUSED' ? <button className="btn btn-primary btn-sm" onClick={() => handleResume(c.id)} style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Play size={11} /> Resume</button>
+                                  : null}
+                                </td>
+                              </tr>
+                              {isExpanded && (
+                                <tr key={`${c.id}-exp`}>
+                                  <td colSpan={8} style={{ padding: 0, background: '#13151e' }}>
+                                    <div style={{ padding: '14px 16px', display: 'flex', gap: 16 }}>
+
+                                      {/* Left: Meta platform metrics */}
+                                      <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{ fontSize: 11, fontWeight: 700, color: '#8892b0', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10 }}>
+                                          Meta Insights (all-time)
+                                        </div>
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                                          {[
+                                            { label: 'Impressions', value: (c.impressions || 0).toLocaleString() },
+                                            { label: 'Reach',       value: (c.reach || 0).toLocaleString() },
+                                            { label: 'Clicks',      value: (c.clicks || 0).toLocaleString(), color: '#60a5fa' },
+                                            { label: 'CTR',         value: `${fmt(c.ctr)}%`,                 color: '#60a5fa' },
+                                            { label: 'CPC',         value: `$${fmt(c.cpc)}`,                 color: '#f59e0b' },
+                                            ...(c.purchases > 0 ? [
+                                              { label: 'Purchases',      value: c.purchases,                      color: '#00d48f' },
+                                              { label: 'Cost/Purchase',  value: `$${fmt(c.cost_per_purchase_usd)}`, color: '#00d48f' },
+                                            ] : []),
+                                          ].map((m, i) => (
+                                            <div key={i} style={{ background: '#1a1d27', borderRadius: 8, padding: '8px 12px', minWidth: 90 }}>
+                                              <div style={{ fontSize: 10, color: '#8892b0', marginBottom: 3 }}>{m.label}</div>
+                                              <div style={{ fontWeight: 700, fontSize: 14, color: m.color || '#fff' }}>{m.value}</div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+
+                                      {/* Right: Product profitability (only if connected) */}
+                                      {conn && (
+                                        <div style={{ flex: 1, minWidth: 0, borderLeft: '1px solid #222733', paddingLeft: 16 }}>
+                                          <div style={{ fontSize: 11, fontWeight: 700, color: '#8892b0', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10 }}>
+                                            Product Profitability ({calcStart} → {calcEnd})
+                                          </div>
+                                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                                            {[
+                                              { label: 'Delivered Orders', value: delivered,                                                              color: '#60a5fa' },
+                                              { label: 'Return Rate',       value: `${stats?.return_rate || 0}%`,                                          color: (stats?.return_rate || 0) > 30 ? '#f87171' : '#fbbf24' },
+                                              { label: 'Ad Cost/Order',    value: adCostPerOrder != null ? `${fmt(adCostPerOrder)} MAD` : '—',            color: '#f87171' },
+                                              { label: 'Profit/Order',     value: profit != null ? `${fmt(profit)} MAD` : '—',                            color: profit == null ? '#8892b0' : profit >= 0 ? '#00d48f' : '#f87171' },
+                                              { label: 'Total Profit',     value: profit != null ? `${fmt(profit * delivered)} MAD` : '—',                color: profit == null ? '#8892b0' : profit >= 0 ? '#00d48f' : '#f87171' },
+                                            ].map((m, i) => (
+                                              <div key={i} style={{ background: '#1a1d27', borderRadius: 8, padding: '8px 12px', minWidth: 100 }}>
+                                                <div style={{ fontSize: 10, color: '#8892b0', marginBottom: 3 }}>{m.label}</div>
+                                                <div style={{ fontWeight: 700, fontSize: 14, color: m.color }}>{m.value}</div>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                            </>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+                <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #2d3248' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 13, color: '#8892b0' }}>Real spend from Meta:</span>
+                    <input className="form-input" type="date" value={calcStart} onChange={e => setCalcStart(e.target.value)} style={{ width: 140 }} />
+                    <span style={{ color: '#8892b0' }}>→</span>
+                    <input className="form-input" type="date" value={calcEnd} onChange={e => setCalcEnd(e.target.value)} style={{ width: 140 }} />
+                    <button className="btn btn-secondary btn-sm" onClick={runMetaSpend} disabled={metaSpendLoading}>{metaSpendLoading ? 'Loading…' : 'Fetch Spend'}</button>
+                  </div>
+                  {metaSpendResult && (
+                    <div style={{ marginTop: 12, display: 'flex', gap: 20, flexWrap: 'wrap', alignItems: 'center' }}>
+                      <div>
+                        <div style={{ fontSize: 11, color: '#8892b0' }}>Total Spend</div>
+                        <div style={{ fontWeight: 700, fontSize: 18, color: '#f59e0b' }}>${fmt(metaSpendResult.total_spend_usd)} <span style={{ fontSize: 12, color: '#8892b0' }}>USD</span></div>
+                        <div style={{ fontSize: 12, color: '#8892b0' }}>{fmt(metaSpendResult.total_spend_usd * usdRate)} MAD</div>
+                      </div>
+                      {metaSpendResult.breakdown.length > 0 && (
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                          {metaSpendResult.breakdown.map(b => (
+                            <div key={b.campaign} style={{ background: '#1d1d27', borderRadius: 6, padding: '4px 10px', fontSize: 12 }}>
+                              <span style={{ color: '#8892b0' }}>{b.campaign}: </span>
+                              <span style={{ color: '#60a5fa' }}>${fmt(b.spend_usd)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* TIKTOK */}
-      {ttStatus?.connected && (
-        <div className="card" style={{ marginBottom: 20, borderTop: '3px solid #010101' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-            <PlatformIcon name="tiktok" size={36} />
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 700, fontSize: 16 }}>TikTok Ads</div>
-              <div style={{ fontSize: 12, color: '#8892b0', marginTop: 2 }}><span style={{ color: '#00d48f' }}>● Connected</span> · {ttStatus.account_name}</div>
+      {ttStatus?.connected && (() => {
+        const isOpen = expanded['tiktok'] !== false;
+        return (
+          <div className="card" style={{ marginBottom: 20, borderTop: '3px solid #010101' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }} onClick={() => setExpanded(e => ({ ...e, tiktok: !isOpen }))}>
+              <PlatformIcon name="tiktok" size={36} />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 700, fontSize: 16 }}>TikTok Ads</div>
+                <div style={{ fontSize: 12, color: '#8892b0', marginTop: 2 }}><span style={{ color: '#00d48f' }}>● Connected</span> · {ttStatus.account_name}</div>
+              </div>
+              <div style={{ display: 'flex', gap: 6 }} onClick={e => e.stopPropagation()}>
+                <button className="btn btn-secondary btn-sm" onClick={loadTtCampaigns} disabled={ttLoading}><RefreshCw size={12} /></button>
+                <button className="btn btn-danger btn-sm" onClick={handleTtDisconnect}><Unlink size={12} /> Disconnect</button>
+              </div>
+              <div style={{ color: '#8892b0', marginLeft: 4 }}>{isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</div>
             </div>
-            <div style={{ display: 'flex', gap: 6 }}>
-              <button className="btn btn-secondary btn-sm" onClick={loadTtCampaigns} disabled={ttLoading}><RefreshCw size={12} /></button>
-              <button className="btn btn-danger btn-sm" onClick={handleTtDisconnect}><Unlink size={12} /> Disconnect</button>
-            </div>
-          </div>
-          {ttLoading ? <div style={{ color: '#8892b0', fontSize: 13 }}>Loading campaigns…</div>
-          : ttCampaigns.length === 0 ? <div style={{ color: '#8892b0', fontSize: 13 }}>No campaigns found.</div>
-          : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {ttCampaigns.map(c => {
-                const isActive = c.status === 'ENABLE';
-                const conn = connections.find(cn => cn.meta_campaign_id === c.id && cn.platform === 'tiktok');
-                const stats = conn ? (connStats[conn.id] || {}) : null;
-                const periodUsd = spendById[c.id] ?? null;
-                const periodSpendMAD = periodUsd != null ? periodUsd * usdRate : null;
-                const delivered = stats?.delivered_orders || 0;
-                const adCostPerOrder = (periodSpendMAD != null && delivered > 0) ? periodSpendMAD / delivered : null;
-                const prices = conn ? getItemPrices(conn.item_type, conn.item_id) : null;
-                const profit = (prices && adCostPerOrder != null)
-                  ? prices.selling_price - prices.buy_price - prices.packaging_cost - conn.delivery_cost - adCostPerOrder
-                  : null;
-                const dot = getDotInfo(conn, delivered, periodSpendMAD, profit);
-                return (
-                  <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: 'var(--bg)', borderRadius: 8, border: '1px solid var(--border)', flexWrap: 'wrap' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 7, width: 240, flexShrink: 0, minWidth: 0 }}>
-                      <span title={dot.title} style={{ width: 10, height: 10, borderRadius: '50%', background: dot.color, flexShrink: 0, cursor: 'help' }} />
-                      <span style={{ fontSize: 13, fontWeight: 600, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
-                      <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20, fontWeight: 700, background: isActive ? '#0d2a1e' : '#1a1a2e', color: isActive ? '#00d48f' : '#8892b0', flexShrink: 0 }}>
-                        {isActive ? 'Active' : 'Paused'}
-                      </span>
-                    </div>
-                    <div style={{ display: 'flex', gap: 18, flex: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-                      {periodSpendMAD != null && <MetricCell label="Spend" value={`${fmt(periodSpendMAD)} MAD`} color="#f59e0b" />}
-                      <MetricCell label="Budget" value={c.budget ? `$${fmt(c.budget)}/d` : '—'} />
-                      <MetricCell label="Objective" value={c.objective_type || '—'} />
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                      {isActive
-                        ? <button className="btn btn-secondary btn-sm" onClick={() => pauseTikTokCampaign(c.id).then(loadTtCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))} style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Pause size={11} /> Pause</button>
-                        : <button className="btn btn-primary btn-sm" onClick={() => resumeTikTokCampaign(c.id).then(loadTtCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))} style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Play size={11} /> Resume</button>}
-                      {conn
-                        ? <button onClick={() => setConnectSidebar({ campaign: c, existingConn: conn, platform: 'tiktok' })} style={{ fontSize: 11, color: '#00d48f', background: 'none', border: 'none', cursor: 'pointer', padding: 0, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>● {conn.item_name}</button>
-                        : <button onClick={() => setConnectSidebar({ campaign: c, existingConn: null, platform: 'tiktok' })} style={{ fontSize: 11, color: '#8892b0', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>⚪ Link product</button>}
-                    </div>
+            {isOpen && (
+              <div style={{ marginTop: 16 }}>
+                {ttLoading ? <div style={{ color: '#8892b0', fontSize: 13 }}>Loading campaigns…</div>
+                : ttCampaigns.length === 0 ? <div style={{ color: '#8892b0', fontSize: 13 }}>No campaigns found.</div>
+                : (
+                  <div className="table-wrapper">
+                    <table><thead><tr><th>Status</th><th>Campaign</th><th>Objective</th><th>Budget</th><th>Connected</th><th></th></tr></thead>
+                      <tbody>
+                        {ttCampaigns.map(c => {
+                          const conn = connections.find(cn => cn.meta_campaign_id === c.id && cn.platform === 'tiktok');
+                          return (
+                            <tr key={c.id}>
+                              <td><span style={{ color: c.status === 'ENABLE' ? '#00d48f' : '#8892b0', fontWeight: 600, fontSize: 12 }}>{c.status === 'ENABLE' ? '● Active' : '● Paused'}</span></td>
+                              <td style={{ fontWeight: 500 }}>{c.name}</td>
+                              <td style={{ color: '#8892b0', fontSize: 13 }}>{c.objective_type}</td>
+                              <td style={{ fontSize: 13 }}>${fmt(c.budget)}/day</td>
+                              <td>
+                                {conn ? (
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <span style={{ background: '#0d2a1e', color: '#00d48f', padding: '3px 8px', borderRadius: 12, fontSize: 11, fontWeight: 600 }}>● {conn.item_name}</span>
+                                    <button onClick={() => setConnectSidebar({ campaign: c, existingConn: conn, platform: 'tiktok' })} style={{ background: 'none', border: 'none', color: '#60a5fa', cursor: 'pointer', fontSize: 11, padding: 0 }}>Edit</button>
+                                  </div>
+                                ) : (
+                                  <button onClick={() => setConnectSidebar({ campaign: c, existingConn: null, platform: 'tiktok' })}
+                                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 6, border: '1px solid #2d3248', background: '#1d1d27', color: '#8892b0', cursor: 'pointer', fontSize: 11 }}>
+                                    <Link2 size={10} /> Connect
+                                  </button>
+                                )}
+                              </td>
+                              <td>
+                                {c.status === 'ENABLE'
+                                  ? <button className="btn btn-secondary btn-sm" onClick={() => pauseTikTokCampaign(c.id).then(loadTtCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))}><Pause size={12} /></button>
+                                  : <button className="btn btn-primary btn-sm" onClick={() => resumeTikTokCampaign(c.id).then(loadTtCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))}><Play size={12} /></button>
+                                }
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* SNAPCHAT */}
-      {scStatus?.connected && (
-        <div className="card" style={{ marginBottom: 20, borderTop: '3px solid #FFFC00' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-            <PlatformIcon name="snapchat" size={36} />
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 700, fontSize: 16 }}>Snapchat Ads</div>
-              <div style={{ fontSize: 12, color: '#8892b0', marginTop: 2 }}><span style={{ color: '#00d48f' }}>● Connected</span> · {scStatus.account_name}</div>
-            </div>
-            <div style={{ display: 'flex', gap: 6 }}>
-              <button className="btn btn-secondary btn-sm" onClick={loadScCampaigns} disabled={scLoading}><RefreshCw size={12} /></button>
-              <button className="btn btn-danger btn-sm" onClick={handleScDisconnect}><Unlink size={12} /> Disconnect</button>
-            </div>
+      {scStatus?.connected && (() => {
+        const isOpen = expanded['snapchat'] !== false;
+        return (
+          <div className="card" style={{ marginBottom: 20, borderTop: '3px solid #FFFC00' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }} onClick={() => setExpanded(e => ({ ...e, snapchat: !isOpen }))}>
+              <PlatformIcon name="snapchat" size={36} />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 700, fontSize: 16 }}>Snapchat Ads</div>
+                <div style={{ fontSize: 12, color: '#8892b0', marginTop: 2 }}><span style={{ color: '#00d48f' }}>● Connected</span> · {scStatus.account_name}</div>
+              </div>
+              <div style={{ display: 'flex', gap: 6 }} onClick={e => e.stopPropagation()}>
+                <button className="btn btn-secondary btn-sm" onClick={loadScCampaigns} disabled={scLoading}><RefreshCw size={12} /></button>
+                <button className="btn btn-danger btn-sm" onClick={handleScDisconnect}><Unlink size={12} /> Disconnect</button>
+              </div>
+              <div style={{ color: '#8892b0', marginLeft: 4 }}>{isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</div>
+=======
+            {calcResult.breakdown.length > 0 && (
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                {calcResult.breakdown.map(b => (
+                  <div key={b.platform} style={{ background: '#1d1d27', borderRadius: 8, padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: b.color, display: 'inline-block' }} />
+                    <span style={{ fontSize: 13 }}>{b.platform}</span>
+                    <span style={{ fontSize: 13, color: 'var(--t2)' }}>${fmt(b.total_usd)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {calcResult.order_count === 0 && (
+              <div style={{ fontSize: 13, color: '#f59e0b' }}>No orders found in this date range (based on order date)</div>
+            )}
           </div>
-          {scLoading ? <div style={{ color: '#8892b0', fontSize: 13 }}>Loading campaigns…</div>
-          : scCampaigns.length === 0 ? <div style={{ color: '#8892b0', fontSize: 13 }}>No campaigns found.</div>
-          : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {scCampaigns.map(c => {
-                const isActive = c.status === 'ACTIVE';
-                const conn = connections.find(cn => cn.meta_campaign_id === c.id && cn.platform === 'snapchat');
-                const stats = conn ? (connStats[conn.id] || {}) : null;
-                const periodUsd = spendById[c.id] ?? null;
-                const periodSpendMAD = periodUsd != null ? periodUsd * usdRate : null;
-                const delivered = stats?.delivered_orders || 0;
-                const adCostPerOrder = (periodSpendMAD != null && delivered > 0) ? periodSpendMAD / delivered : null;
-                const prices = conn ? getItemPrices(conn.item_type, conn.item_id) : null;
-                const profit = (prices && adCostPerOrder != null)
-                  ? prices.selling_price - prices.buy_price - prices.packaging_cost - conn.delivery_cost - adCostPerOrder
-                  : null;
-                const dot = getDotInfo(conn, delivered, periodSpendMAD, profit);
-                return (
-                  <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: 'var(--bg)', borderRadius: 8, border: '1px solid var(--border)', flexWrap: 'wrap' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 7, width: 240, flexShrink: 0, minWidth: 0 }}>
-                      <span title={dot.title} style={{ width: 10, height: 10, borderRadius: '50%', background: dot.color, flexShrink: 0, cursor: 'help' }} />
-                      <span style={{ fontSize: 13, fontWeight: 600, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
-                      <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20, fontWeight: 700, background: isActive ? '#0d2a1e' : '#1a1a2e', color: isActive ? '#00d48f' : '#8892b0', flexShrink: 0 }}>
-                        {isActive ? 'Active' : 'Paused'}
-                      </span>
+        )}
+      </div>
+
+      {/* ── Platform Sections ── */}
+      {platforms.length === 0 ? (
+        <div className="card">
+          <div className="empty-state">
+            <Megaphone size={40} strokeWidth={1} style={{ margin: '0 auto 12px', color: 'var(--t2)' }} />
+            <h3>No platforms yet</h3>
+            <p>Click "Add Platform" to start tracking your ad spend</p>
+          </div>
+        </div>
+      ) : (
+        platforms.map(platform => {
+          const isFb = platform.name === 'facebook';
+          const campaigns = normalizeCampaigns(platform, isFb ? metaData : null, usdRate);
+          const totalSpend = isFb && metaData
+            ? (metaData.currency === 'USD' ? metaData.total_spend * usdRate : metaData.total_spend)
+            : platformTotal(platform.campaigns, usdRate);
+
+          return (
+            <div key={platform.id} className="card" style={{ marginBottom: 16, borderTop: `3px solid ${platform.color}` }}>
+
+              {/* Platform header */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+                <PlatformIcon name={platform.name} size={36} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, fontSize: 15 }}>{platform.label}</div>
+                  <div style={{ fontSize: 12, color: 'var(--t2)', marginTop: 3, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    {isFb ? (
+                      metaStatus?.connected
+                        ? <span style={{ color: '#00d48f' }}>● Connected · {metaStatus.account_name}</span>
+                        : <span>○ Not connected</span>
+                    ) : (
+                      platform.campaigns.filter(c => !c.end_date).length > 0
+                        ? <span style={{ color: '#00d48f' }}>● Active</span>
+                        : <span>No active campaign</span>
+                    )}
+                    <span>·</span>
+                    <span style={{ fontWeight: 600, color: '#f59e0b' }}>{fmt(totalSpend)} MAD</span>
+                    {isFb && metaData && !metaSyncing && (
+                      <span>({metaSyncStart} → {metaSyncEnd})</span>
+                    )}
+                    {isFb && metaStatus?.connected && metaStatus.currency && metaStatus.currency !== 'USD' && (
+                      <span style={{ color: '#f59e0b' }}>⚠ Account currency: {metaStatus.currency}</span>
+                    )}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
+                  {isFb && (
+                    metaStatus?.connected ? (
+                      <button className="btn btn-secondary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: 5 }}
+                        onClick={handleMetaDisconnect}>
+                        <Unlink size={12} /> Disconnect
+                      </button>
+                    ) : (
+                      <button className="btn btn-primary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: 5 }}
+                        onClick={() => setMetaShowForm(f => !f)}>
+                        <Zap size={12} /> Connect
+                      </button>
+                    )
+                  )}
+                  <button className="btn btn-primary btn-sm" onClick={() => openNewCampaign(platform.id)}>
+                    + Campaign
+                  </button>
+                  <button className="btn btn-danger btn-sm" onClick={() => removePlatform(platform.id)}>
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Meta connect form */}
+              {isFb && metaShowForm && !metaStatus?.connected && (
+                <div style={{ marginBottom: 14, padding: '14px 16px', background: 'var(--bg)', borderRadius: 10, border: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: 12, color: 'var(--t2)', marginBottom: 10 }}>
+                    Get your access token from{' '}
+                    <a href="https://developers.facebook.com/tools/explorer/" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)' }}>
+                      Meta Graph API Explorer
+                    </a>
+                    {' '}(request <code>ads_read</code> permission). Your Ad Account ID is in{' '}
+                    <a href="https://business.facebook.com/" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)' }}>
+                      Meta Business Suite
+                    </a>.
+                  </div>
+                  {metaConnectError && (
+                    <div style={{ marginBottom: 10, padding: '8px 12px', borderRadius: 6, background: '#f8717122', border: '1px solid #f8717150', color: '#f87171', fontSize: 13 }}>
+                      {metaConnectError}
                     </div>
-                    <div style={{ display: 'flex', gap: 18, flex: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-                      {periodSpendMAD != null && <MetricCell label="Spend" value={`${fmt(periodSpendMAD)} MAD`} color="#f59e0b" />}
-                      {c.daily_budget_usd != null && <MetricCell label="Budget" value={`$${fmt(c.daily_budget_usd)}/d`} />}
+                  )}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+                    <div>
+                      <label className="form-label">Access Token</label>
+                      <input className="form-input" type="password" placeholder="EAA…"
+                        value={metaForm.token} onChange={e => setMetaForm(f => ({ ...f, token: e.target.value }))} />
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                      {isActive
-                        ? <button className="btn btn-secondary btn-sm" onClick={() => pauseSnapchatCampaign(c.id).then(loadScCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))} style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Pause size={11} /> Pause</button>
-                        : <button className="btn btn-primary btn-sm" onClick={() => resumeSnapchatCampaign(c.id).then(loadScCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))} style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Play size={11} /> Resume</button>}
-                      {conn
-                        ? <button onClick={() => setConnectSidebar({ campaign: c, existingConn: conn, platform: 'snapchat' })} style={{ fontSize: 11, color: '#00d48f', background: 'none', border: 'none', cursor: 'pointer', padding: 0, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>● {conn.item_name}</button>
-                        : <button onClick={() => setConnectSidebar({ campaign: c, existingConn: null, platform: 'snapchat' })} style={{ fontSize: 11, color: '#8892b0', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>⚪ Link product</button>}
+                    <div>
+                      <label className="form-label">Ad Account ID</label>
+                      <input className="form-input" type="text" placeholder="act_123456789 or 123456789"
+                        value={metaForm.accountId} onChange={e => setMetaForm(f => ({ ...f, accountId: e.target.value }))} />
                     </div>
                   </div>
-                );
-              })}
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button className="btn btn-primary" onClick={handleMetaConnect}
+                      disabled={metaConnecting || !metaForm.token || !metaForm.accountId}>
+                      {metaConnecting ? 'Connecting…' : 'Connect'}
+                    </button>
+                    <button className="btn btn-secondary" onClick={() => { setMetaShowForm(false); setMetaConnectError(''); }}>Cancel</button>
+                  </div>
+                </div>
+              )}
+
+              {/* Campaign rows */}
+              {campaigns.length === 0 ? (
+                <div style={{ color: 'var(--t2)', fontSize: 13, padding: '6px 0' }}>
+                  {isFb && !metaStatus?.connected
+                    ? 'Connect Meta Ads API to see campaigns, or add manual entries with "+ Campaign".'
+                    : isFb && metaSyncing
+                    ? 'Syncing campaigns…'
+                    : 'No campaigns yet. Click "+ Campaign" to add one.'}
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {campaigns.map((campaign, idx) => {
+                    const linked = campaignLinks[campaign.linkKey];
+                    // Profitability dot: ⚪ always until backend profitability support added
+                    const dotColor = linked ? '#6b7280' : '#6b7280';
+                    const dotTitle = linked ? 'No delivered orders data yet' : 'No product linked';
+                    const isEditing = budgetEdit?.id === campaign.localId && campaign.localId != null;
+
+                    return (
+                      <div key={idx} style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 12,
+                        padding: '10px 14px',
+                        background: 'var(--bg)',
+                        borderRadius: 8,
+                        border: '1px solid var(--border)',
+                      }}>
+                        {/* Left: dot + name + status badge */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 7, width: 230, flexShrink: 0, minWidth: 0 }}>
+                          <span
+                            title={dotTitle}
+                            style={{
+                              width: 10, height: 10, borderRadius: '50%',
+                              background: dotColor, flexShrink: 0, cursor: 'default',
+                              border: '1.5px solid #6b7280',
+                            }}
+                          />
+                          <span style={{
+                            fontSize: 13, fontWeight: 600,
+                            flex: 1, minWidth: 0,
+                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                          }}>
+                            {campaign.displayName}
+                          </span>
+                          <span style={{
+                            fontSize: 10, padding: '2px 8px', borderRadius: 20, fontWeight: 700, flexShrink: 0,
+                            background: campaign.status === 'active' ? '#0d2a1e' : '#1a1a2e',
+                            color: campaign.status === 'active' ? '#00d48f' : 'var(--t2)',
+                          }}>
+                            {campaign.status === 'active' ? 'Active' : 'Paused'}
+                          </span>
+                        </div>
+
+                        {/* Middle: metrics */}
+                        <div style={{ display: 'flex', gap: 18, flex: 1, alignItems: 'center' }}>
+                          <MetricCell label="Spend" value={`${fmt(campaign.spendMAD)} MAD`} color="#f59e0b" />
+                          <MetricCell label="Impr" value={campaign.impressions != null ? campaign.impressions.toLocaleString() : '—'} />
+                          <MetricCell label="Reach" value="—" />
+                          <MetricCell label="Clicks" value={campaign.clicks != null ? campaign.clicks.toLocaleString() : '—'} />
+                          <MetricCell label="CTR" value={campaign.ctr != null ? `${campaign.ctr.toFixed(2)}%` : '—'} />
+                          <MetricCell label="CPC" value={campaign.cpc != null ? `${fmt(campaign.cpc)} MAD` : '—'} />
+                        </div>
+
+                        {/* Right: actions */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+
+                          {/* Adjust Budget — local campaigns only */}
+                          {campaign.localId && (
+                            isEditing ? (
+                              <input
+                                autoFocus
+                                type="number" min="0" step="0.5"
+                                className="form-input"
+                                value={budgetEdit.value}
+                                style={{ width: 76, padding: '4px 8px', fontSize: 12 }}
+                                onChange={e => setBudgetEdit(be => ({ ...be, value: e.target.value }))}
+                                onKeyDown={e => {
+                                  if (e.key === 'Enter') saveBudget();
+                                  if (e.key === 'Escape') setBudgetEdit(null);
+                                }}
+                                onBlur={saveBudget}
+                              />
+                            ) : (
+                              <button
+                                className="btn btn-secondary btn-sm"
+                                onClick={() => setBudgetEdit({
+                                  id: campaign.localId,
+                                  value: String(campaign.dailyRateUsd),
+                                  platformId: platform.id,
+                                  startDate: campaign.startDate,
+                                  endDate: campaign.endDate,
+                                })}
+                                style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 4 }}
+                              >
+                                <Edit2 size={10} /> ${fmt(campaign.dailyRateUsd)}/d
+                              </button>
+                            )
+                          )}
+
+                          {/* Pause/Resume — local campaigns only */}
+                          {campaign.localId && (
+                            <button
+                              onClick={() => toggleCampaign(platform, {
+                                id: campaign.localId,
+                                daily_rate_usd: campaign.dailyRateUsd,
+                                start_date: campaign.startDate,
+                                end_date: campaign.endDate,
+                              })}
+                              style={{
+                                padding: '4px 10px', borderRadius: 20, border: 'none', cursor: 'pointer',
+                                fontSize: 11, fontWeight: 600,
+                                background: campaign.status === 'active' ? '#0d2a1e' : '#2d3248',
+                                color: campaign.status === 'active' ? '#00d48f' : 'var(--t2)',
+                              }}
+                            >
+                              {campaign.status === 'active' ? 'Pause' : 'Resume'}
+                            </button>
+                          )}
+
+                          {/* Product link */}
+                          {linked ? (
+                            <button
+                              title={linked.productName}
+                              onClick={() => {
+                                setLinkModal({ key: campaign.linkKey });
+                                setLinkProductSel(String(linked.productId));
+                              }}
+                              style={{
+                                fontSize: 11, color: '#00d48f', background: 'none', border: 'none',
+                                cursor: 'pointer', padding: 0, maxWidth: 110,
+                                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                display: 'flex', alignItems: 'center', gap: 4,
+                              }}
+                            >
+                              ● {linked.productName}
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => { setLinkModal({ key: campaign.linkKey }); setLinkProductSel(''); }}
+                              style={{
+                                fontSize: 11, color: 'var(--t2)', background: 'none', border: 'none',
+                                cursor: 'pointer', padding: 0, whiteSpace: 'nowrap',
+                                display: 'flex', alignItems: 'center', gap: 4,
+                              }}
+                            >
+                              ⚪ Link product
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+>>>>>>> 47a5f8c (Ads: full UI redesign — global date picker, flat campaign rows, product link)
             </div>
-          )}
-        </div>
-      )}
+            {isOpen && (
+              <div style={{ marginTop: 16 }}>
+                {scLoading ? <div style={{ color: '#8892b0', fontSize: 13 }}>Loading campaigns…</div>
+                : scCampaigns.length === 0 ? <div style={{ color: '#8892b0', fontSize: 13 }}>No campaigns found.</div>
+                : (
+                  <div className="table-wrapper">
+                    <table><thead><tr><th>Status</th><th>Campaign</th><th>Daily Budget</th><th>Connected</th><th></th></tr></thead>
+                      <tbody>
+                        {scCampaigns.map(c => {
+                          const conn = connections.find(cn => cn.meta_campaign_id === c.id && cn.platform === 'snapchat');
+                          return (
+                            <tr key={c.id}>
+                              <td><span style={{ color: c.status === 'ACTIVE' ? '#00d48f' : '#8892b0', fontWeight: 600, fontSize: 12 }}>{c.status === 'ACTIVE' ? '● Active' : '● Paused'}</span></td>
+                              <td style={{ fontWeight: 500 }}>{c.name}</td>
+                              <td style={{ fontSize: 13 }}>{c.daily_budget_usd ? `$${fmt(c.daily_budget_usd)}/day` : '—'}</td>
+                              <td>
+                                {conn ? (
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <span style={{ background: '#0d2a1e', color: '#00d48f', padding: '3px 8px', borderRadius: 12, fontSize: 11, fontWeight: 600 }}>● {conn.item_name}</span>
+                                    <button onClick={() => setConnectSidebar({ campaign: c, existingConn: conn, platform: 'snapchat' })} style={{ background: 'none', border: 'none', color: '#60a5fa', cursor: 'pointer', fontSize: 11, padding: 0 }}>Edit</button>
+                                  </div>
+                                ) : (
+                                  <button onClick={() => setConnectSidebar({ campaign: c, existingConn: null, platform: 'snapchat' })}
+                                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 6, border: '1px solid #2d3248', background: '#1d1d27', color: '#8892b0', cursor: 'pointer', fontSize: 11 }}>
+                                    <Link2 size={10} /> Connect
+                                  </button>
+                                )}
+                              </td>
+                              <td>
+                                {c.status === 'ACTIVE'
+                                  ? <button className="btn btn-secondary btn-sm" onClick={() => pauseSnapchatCampaign(c.id).then(loadScCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))}><Pause size={12} /></button>
+                                  : <button className="btn btn-primary btn-sm" onClick={() => resumeSnapchatCampaign(c.id).then(loadScCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))}><Play size={12} /></button>
+                                }
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* PINTEREST */}
-      {ptStatus?.connected && (
-        <div className="card" style={{ marginBottom: 20, borderTop: '3px solid #E60023' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-            <PlatformIcon name="pinterest" size={36} />
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 700, fontSize: 16 }}>Pinterest Ads</div>
-              <div style={{ fontSize: 12, color: '#8892b0', marginTop: 2 }}><span style={{ color: '#00d48f' }}>● Connected</span> · {ptStatus.account_name}</div>
+      {ptStatus?.connected && (() => {
+        const isOpen = expanded['pinterest'] !== false;
+        return (
+          <div className="card" style={{ marginBottom: 20, borderTop: '3px solid #E60023' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }} onClick={() => setExpanded(e => ({ ...e, pinterest: !isOpen }))}>
+              <PlatformIcon name="pinterest" size={36} />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 700, fontSize: 16 }}>Pinterest Ads</div>
+                <div style={{ fontSize: 12, color: '#8892b0', marginTop: 2 }}><span style={{ color: '#00d48f' }}>● Connected</span> · {ptStatus.account_name}</div>
+              </div>
+              <div style={{ display: 'flex', gap: 6 }} onClick={e => e.stopPropagation()}>
+                <button className="btn btn-secondary btn-sm" onClick={loadPtCampaigns} disabled={ptLoading}><RefreshCw size={12} /></button>
+                <button className="btn btn-danger btn-sm" onClick={handlePtDisconnect}><Unlink size={12} /> Disconnect</button>
+              </div>
+              <div style={{ color: '#8892b0', marginLeft: 4 }}>{isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</div>
             </div>
-            <div style={{ display: 'flex', gap: 6 }}>
-              <button className="btn btn-secondary btn-sm" onClick={loadPtCampaigns} disabled={ptLoading}><RefreshCw size={12} /></button>
-              <button className="btn btn-danger btn-sm" onClick={handlePtDisconnect}><Unlink size={12} /> Disconnect</button>
-            </div>
-          </div>
-          {ptLoading ? <div style={{ color: '#8892b0', fontSize: 13 }}>Loading campaigns…</div>
-          : ptCampaigns.length === 0 ? <div style={{ color: '#8892b0', fontSize: 13 }}>No campaigns found.</div>
-          : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {ptCampaigns.map(c => {
-                const isActive = c.status === 'ACTIVE';
-                const conn = connections.find(cn => cn.meta_campaign_id === c.id && cn.platform === 'pinterest');
-                const stats = conn ? (connStats[conn.id] || {}) : null;
-                const periodUsd = spendById[c.id] ?? null;
-                const periodSpendMAD = periodUsd != null ? periodUsd * usdRate : null;
-                const delivered = stats?.delivered_orders || 0;
-                const adCostPerOrder = (periodSpendMAD != null && delivered > 0) ? periodSpendMAD / delivered : null;
-                const prices = conn ? getItemPrices(conn.item_type, conn.item_id) : null;
-                const profit = (prices && adCostPerOrder != null)
-                  ? prices.selling_price - prices.buy_price - prices.packaging_cost - conn.delivery_cost - adCostPerOrder
-                  : null;
-                const dot = getDotInfo(conn, delivered, periodSpendMAD, profit);
-                return (
-                  <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: 'var(--bg)', borderRadius: 8, border: '1px solid var(--border)', flexWrap: 'wrap' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 7, width: 240, flexShrink: 0, minWidth: 0 }}>
-                      <span title={dot.title} style={{ width: 10, height: 10, borderRadius: '50%', background: dot.color, flexShrink: 0, cursor: 'help' }} />
-                      <span style={{ fontSize: 13, fontWeight: 600, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
-                      <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20, fontWeight: 700, background: isActive ? '#0d2a1e' : '#1a1a2e', color: isActive ? '#00d48f' : '#8892b0', flexShrink: 0 }}>
-                        {isActive ? 'Active' : 'Paused'}
-                      </span>
-                    </div>
-                    <div style={{ display: 'flex', gap: 18, flex: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-                      {periodSpendMAD != null && <MetricCell label="Spend" value={`${fmt(periodSpendMAD)} MAD`} color="#f59e0b" />}
-                      {c.daily_budget_usd != null && <MetricCell label="Budget" value={`$${fmt(c.daily_budget_usd)}/d`} />}
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                      {isActive
-                        ? <button className="btn btn-secondary btn-sm" onClick={() => pausePinterestCampaign(c.id).then(loadPtCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))} style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Pause size={11} /> Pause</button>
-                        : <button className="btn btn-primary btn-sm" onClick={() => resumePinterestCampaign(c.id).then(loadPtCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))} style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Play size={11} /> Resume</button>}
-                      {conn
-                        ? <button onClick={() => setConnectSidebar({ campaign: c, existingConn: conn, platform: 'pinterest' })} style={{ fontSize: 11, color: '#00d48f', background: 'none', border: 'none', cursor: 'pointer', padding: 0, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>● {conn.item_name}</button>
-                        : <button onClick={() => setConnectSidebar({ campaign: c, existingConn: null, platform: 'pinterest' })} style={{ fontSize: 11, color: '#8892b0', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>⚪ Link product</button>}
-                    </div>
+            {isOpen && (
+              <div style={{ marginTop: 16 }}>
+                {ptLoading ? <div style={{ color: '#8892b0', fontSize: 13 }}>Loading campaigns…</div>
+                : ptCampaigns.length === 0 ? <div style={{ color: '#8892b0', fontSize: 13 }}>No campaigns found.</div>
+                : (
+                  <div className="table-wrapper">
+                    <table><thead><tr><th>Status</th><th>Campaign</th><th>Daily Budget</th><th>Connected</th><th></th></tr></thead>
+                      <tbody>
+                        {ptCampaigns.map(c => {
+                          const conn = connections.find(cn => cn.meta_campaign_id === c.id && cn.platform === 'pinterest');
+                          return (
+                            <tr key={c.id}>
+                              <td><span style={{ color: c.status === 'ACTIVE' ? '#00d48f' : '#8892b0', fontWeight: 600, fontSize: 12 }}>{c.status === 'ACTIVE' ? '● Active' : '● Paused'}</span></td>
+                              <td style={{ fontWeight: 500 }}>{c.name}</td>
+                              <td style={{ fontSize: 13 }}>{c.daily_budget_usd ? `$${fmt(c.daily_budget_usd)}/day` : '—'}</td>
+                              <td>
+                                {conn ? (
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <span style={{ background: '#0d2a1e', color: '#00d48f', padding: '3px 8px', borderRadius: 12, fontSize: 11, fontWeight: 600 }}>● {conn.item_name}</span>
+                                    <button onClick={() => setConnectSidebar({ campaign: c, existingConn: conn, platform: 'pinterest' })} style={{ background: 'none', border: 'none', color: '#60a5fa', cursor: 'pointer', fontSize: 11, padding: 0 }}>Edit</button>
+                                  </div>
+                                ) : (
+                                  <button onClick={() => setConnectSidebar({ campaign: c, existingConn: null, platform: 'pinterest' })}
+                                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 6, border: '1px solid #2d3248', background: '#1d1d27', color: '#8892b0', cursor: 'pointer', fontSize: 11 }}>
+                                    <Link2 size={10} /> Connect
+                                  </button>
+                                )}
+                              </td>
+                              <td>
+                                {c.status === 'ACTIVE'
+                                  ? <button className="btn btn-secondary btn-sm" onClick={() => pausePinterestCampaign(c.id).then(loadPtCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))}><Pause size={12} /></button>
+                                  : <button className="btn btn-primary btn-sm" onClick={() => resumePinterestCampaign(c.id).then(loadPtCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))}><Play size={12} /></button>
+                                }
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* GOOGLE */}
-      {ggStatus?.connected && (
-        <div className="card" style={{ marginBottom: 20, borderTop: '3px solid #ea4335' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-            <PlatformIcon name="google" size={36} />
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 700, fontSize: 16 }}>Google Ads</div>
-              <div style={{ fontSize: 12, color: '#8892b0', marginTop: 2 }}><span style={{ color: '#00d48f' }}>● Connected</span> · {ggStatus.account_name} · {ggStatus.customer_id}</div>
+      {ggStatus?.connected && (() => {
+        const isOpen = expanded['google'] !== false;
+        return (
+          <div className="card" style={{ marginBottom: 20, borderTop: '3px solid #ea4335' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }} onClick={() => setExpanded(e => ({ ...e, google: !isOpen }))}>
+              <PlatformIcon name="google" size={36} />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 700, fontSize: 16 }}>Google Ads</div>
+                <div style={{ fontSize: 12, color: '#8892b0', marginTop: 2 }}><span style={{ color: '#00d48f' }}>● Connected</span> · {ggStatus.account_name} · {ggStatus.customer_id}</div>
+              </div>
+              <div style={{ display: 'flex', gap: 6 }} onClick={e => e.stopPropagation()}>
+                <button className="btn btn-secondary btn-sm" onClick={loadGgCampaigns} disabled={ggLoading}><RefreshCw size={12} /></button>
+                <button className="btn btn-danger btn-sm" onClick={handleGgDisconnect}><Unlink size={12} /> Disconnect</button>
+              </div>
+              <div style={{ color: '#8892b0', marginLeft: 4 }}>{isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</div>
             </div>
-            <div style={{ display: 'flex', gap: 6 }}>
-              <button className="btn btn-secondary btn-sm" onClick={loadGgCampaigns} disabled={ggLoading}><RefreshCw size={12} /></button>
-              <button className="btn btn-danger btn-sm" onClick={handleGgDisconnect}><Unlink size={12} /> Disconnect</button>
-            </div>
-          </div>
-          {ggLoading ? <div style={{ color: '#8892b0', fontSize: 13 }}>Loading campaigns…</div>
-          : ggCampaigns.length === 0 ? <div style={{ color: '#8892b0', fontSize: 13 }}>No campaigns found.</div>
-          : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {ggCampaigns.map(c => {
-                const isActive = c.status === 'ENABLED';
-                const conn = connections.find(cn => cn.meta_campaign_id === c.id && cn.platform === 'google');
-                const stats = conn ? (connStats[conn.id] || {}) : null;
-                const periodUsd = spendById[c.id] ?? null;
-                const periodSpendMAD = periodUsd != null ? periodUsd * usdRate : null;
-                const delivered = stats?.delivered_orders || 0;
-                const adCostPerOrder = (periodSpendMAD != null && delivered > 0) ? periodSpendMAD / delivered : null;
-                const prices = conn ? getItemPrices(conn.item_type, conn.item_id) : null;
-                const profit = (prices && adCostPerOrder != null)
-                  ? prices.selling_price - prices.buy_price - prices.packaging_cost - conn.delivery_cost - adCostPerOrder
-                  : null;
-                const dot = getDotInfo(conn, delivered, periodSpendMAD, profit);
-                const displaySpend = periodSpendMAD ?? (c.spend_all_time_usd || 0) * usdRate;
-                return (
-                  <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: 'var(--bg)', borderRadius: 8, border: '1px solid var(--border)', flexWrap: 'wrap' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 7, width: 240, flexShrink: 0, minWidth: 0 }}>
-                      <span title={dot.title} style={{ width: 10, height: 10, borderRadius: '50%', background: dot.color, flexShrink: 0, cursor: 'help' }} />
-                      <span style={{ fontSize: 13, fontWeight: 600, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
-                      <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20, fontWeight: 700, background: isActive ? '#0d2a1e' : '#1a1a2e', color: isActive ? '#00d48f' : '#8892b0', flexShrink: 0 }}>
-                        {isActive ? 'Active' : 'Paused'}
-                      </span>
-                    </div>
-                    <div style={{ display: 'flex', gap: 18, flex: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-                      <MetricCell label="Spend" value={`${fmt(displaySpend)} MAD`} color="#f59e0b" />
-                      {c.daily_budget_usd != null && <MetricCell label="Budget" value={`$${fmt(c.daily_budget_usd)}/d`} />}
-                      {c.channel_type && <MetricCell label="Type" value={c.channel_type} />}
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                      {isActive
-                        ? <button className="btn btn-secondary btn-sm" onClick={() => pauseGoogleCampaign(c.id).then(loadGgCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))} style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Pause size={11} /> Pause</button>
-                        : <button className="btn btn-primary btn-sm" onClick={() => resumeGoogleCampaign(c.id).then(loadGgCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))} style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Play size={11} /> Resume</button>}
-                      {conn
-                        ? <button onClick={() => setConnectSidebar({ campaign: c, existingConn: conn, platform: 'google' })} style={{ fontSize: 11, color: '#00d48f', background: 'none', border: 'none', cursor: 'pointer', padding: 0, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>● {conn.item_name}</button>
-                        : <button onClick={() => setConnectSidebar({ campaign: c, existingConn: null, platform: 'google' })} style={{ fontSize: 11, color: '#8892b0', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>⚪ Link product</button>}
-                    </div>
+            {isOpen && (
+              <div style={{ marginTop: 16 }}>
+                {ggLoading ? <div style={{ color: '#8892b0', fontSize: 13 }}>Loading campaigns…</div>
+                : ggCampaigns.length === 0 ? <div style={{ color: '#8892b0', fontSize: 13 }}>No campaigns found.</div>
+                : (
+                  <div className="table-wrapper">
+                    <table><thead><tr><th>Status</th><th>Campaign</th><th>Type</th><th>Daily Budget</th><th>All-Time Spend</th><th>Connected</th><th></th></tr></thead>
+                      <tbody>
+                        {ggCampaigns.map(c => {
+                          const conn = connections.find(cn => cn.meta_campaign_id === c.id && cn.platform === 'google');
+                          return (
+                            <tr key={c.id}>
+                              <td><span style={{ color: c.status === 'ENABLED' ? '#00d48f' : '#8892b0', fontWeight: 600, fontSize: 12 }}>{c.status === 'ENABLED' ? '● Active' : '● Paused'}</span></td>
+                              <td style={{ fontWeight: 500, maxWidth: 200 }}><div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div></td>
+                              <td style={{ color: '#8892b0', fontSize: 13 }}>{c.channel_type || '—'}</td>
+                              <td style={{ fontSize: 13 }}>{c.daily_budget_usd != null ? `$${fmt(c.daily_budget_usd)}/day` : '—'}</td>
+                              <td>
+                                <div style={{ fontWeight: 700, color: '#f59e0b' }}>${fmt(c.spend_all_time_usd)}</div>
+                                <div style={{ fontSize: 11, color: '#8892b0' }}>{fmt(c.spend_all_time_usd * usdRate)} MAD</div>
+                              </td>
+                              <td>
+                                {conn ? (
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <span style={{ background: '#0d2a1e', color: '#00d48f', padding: '3px 8px', borderRadius: 12, fontSize: 11, fontWeight: 600 }}>● {conn.item_name}</span>
+                                    <button onClick={() => setConnectSidebar({ campaign: c, existingConn: conn, platform: 'google' })} style={{ background: 'none', border: 'none', color: '#60a5fa', cursor: 'pointer', fontSize: 11, padding: 0 }}>Edit</button>
+                                  </div>
+                                ) : (
+                                  <button onClick={() => setConnectSidebar({ campaign: c, existingConn: null, platform: 'google' })}
+                                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 6, border: '1px solid #2d3248', background: '#1d1d27', color: '#8892b0', cursor: 'pointer', fontSize: 11 }}>
+                                    <Link2 size={10} /> Connect
+                                  </button>
+                                )}
+                              </td>
+                              <td>
+                                {c.status === 'ENABLED'
+                                  ? <button className="btn btn-secondary btn-sm" onClick={() => pauseGoogleCampaign(c.id).then(loadGgCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))}><Pause size={12} /></button>
+                                  : <button className="btn btn-primary btn-sm" onClick={() => resumeGoogleCampaign(c.id).then(loadGgCampaigns).catch(e => setError(e.response?.data?.detail || 'Failed'))}><Play size={12} /></button>
+                                }
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* No platforms connected yet */}
       {!metaStatus?.connected && !ttStatus?.connected && !scStatus?.connected && !ptStatus?.connected && !ggStatus?.connected && (
@@ -1018,7 +1772,11 @@ export default function Ads() {
         </div>
       )}
 
+<<<<<<< HEAD
       {/* Connect Platform Modal */}
+=======
+      {/* ── Add Platform Modal ── */}
+>>>>>>> 47a5f8c (Ads: full UI redesign — global date picker, flat campaign rows, product link)
       {showAddPlatform && (
         <div className="modal-overlay">
           <div className="modal">
@@ -1144,6 +1902,7 @@ export default function Ads() {
         </div>
       )}
 
+<<<<<<< HEAD
       {/* ── Real Profitability Dashboard ── */}
       {connections.length > 0 && (() => {
         const rows = connections.map(conn => {
@@ -1255,6 +2014,10 @@ export default function Ads() {
 
       {/* Create Meta Campaign Modal (simple) */}
       {showMetaCreate && (
+=======
+      {/* ── Add / Edit Campaign Modal ── */}
+      {campaignModal && (
+>>>>>>> 47a5f8c (Ads: full UI redesign — global date picker, flat campaign rows, product link)
         <div className="modal-overlay">
           <div className="modal">
             <div className="modal-header">
@@ -1306,6 +2069,43 @@ export default function Ads() {
             <div className="modal-footer">
               <button className="btn btn-secondary" onClick={() => { setShowMetaCreate(false); setError(''); }}>Cancel</button>
               <button className="btn btn-primary" onClick={handleMetaCreate}>Create in Meta</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Product Link Modal ── */}
+      {linkModal && (
+        <div className="modal-overlay">
+          <div className="modal" style={{ maxWidth: 340 }}>
+            <div className="modal-header">
+              <h2>Link Product</h2>
+              <button className="btn-icon" onClick={() => setLinkModal(null)}>✕</button>
+            </div>
+            <div className="modal-body">
+              <label className="form-label">Product</label>
+              <select
+                className="form-input"
+                value={linkProductSel}
+                onChange={e => setLinkProductSel(e.target.value)}
+              >
+                <option value="">— Select a product —</option>
+                {products.map(p => (
+                  <option key={p.id} value={String(p.id)}>{p.name}</option>
+                ))}
+              </select>
+              {campaignLinks[linkModal.key] && (
+                <button
+                  style={{ marginTop: 12, fontSize: 12, color: '#f87171', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                  onClick={() => { removeCampaignLink(linkModal.key); setLinkModal(null); }}
+                >
+                  Remove link
+                </button>
+              )}
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setLinkModal(null)}>Cancel</button>
+              <button className="btn btn-primary" onClick={saveCampaignLink} disabled={!linkProductSel}>Save</button>
             </div>
           </div>
         </div>

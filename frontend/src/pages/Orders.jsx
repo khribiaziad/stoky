@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { getOrders, getProducts, getPacks, uploadPickupPDF, bulkCreateOrders, uploadReturnPDF, processReturns, updateOrderStatus, updateOrder, deleteOrder, bulkUpdateOrderStatus, sendToOlivraison, sendToForcelog, getForcelogStatus, syncAllForcelog, syncAllOlivraison, requestOlivRamassage, requestForcelogRamassage, confirmPickup, errorMessage } from '../api';
+import { getOrders, getProducts, getPacks, getOffers, getPromoCodes, uploadPickupPDF, bulkCreateOrders, uploadReturnPDF, processReturns, updateOrderStatus, updateOrder, deleteOrder, bulkUpdateOrderStatus, sendToOlivraison, sendToForcelog, getForcelogStatus, syncAllForcelog, syncAllOlivraison, requestOlivRamassage, requestForcelogRamassage, confirmPickup, errorMessage } from '../api';
 import ErrorExplain from '../components/ErrorExplain';
 import { validatePhone, validateAmount, numericOnly, fieldErrorStyle } from '../utils/validate';
 
@@ -46,7 +46,7 @@ const statusStyle = (o) => {
 };
 
 const rowStyle = (o) => {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })();
   const isDueToday = o.status === 'reported' && o.reported_date && o.reported_date.slice(0, 10) === today;
   if (isDueToday) return { background: 'rgba(0,194,203,0.10)', borderLeft: '3px solid #00c2cb' };
   const S = {
@@ -69,6 +69,8 @@ export default function Orders() {
   const [statusCounts, setStatusCounts] = useState({});
   const [products, setProducts] = useState([]);
   const [packs, setPacks] = useState([]);
+  const [offers, setOffers] = useState([]);
+  const [promoCodes, setPromoCodes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
@@ -96,6 +98,14 @@ export default function Orders() {
   const [manualOrder, setManualOrder] = useState(emptyManualOrder());
   const [manualItems, setManualItems] = useState([{ variant_id: '', quantity: 1 }]);
   const [manualExpenses, setManualExpenses] = useState({ sticker: 0, seal_bag: 0, packaging: 1 });
+  const [manualOrderType, setManualOrderType] = useState('single'); // 'single' | 'pack' | 'offer'
+  const [showExtraOptions, setShowExtraOptions] = useState(false);
+  const nameInputRef = useRef(null);
+  const [selectedPackId, setSelectedPackId] = useState('');
+  const [selectedPresetId, setSelectedPresetId] = useState('');
+  const [selectedOfferId, setSelectedOfferId] = useState('');
+  const [promoCode, setPromoCode] = useState('');
+  const [promoResult, setPromoResult] = useState(null); // { discount, label } or { error }
 
   // Manual return
   const [showManualReturn, setShowManualReturn] = useState(false);
@@ -141,7 +151,7 @@ export default function Orders() {
   const [ramassageLoading, setRamassageLoading] = useState(false);
 
   // Date range selectors
-  const [dateRange,     setDateRange]     = useState('today'); // for order_date (non-reported)
+  const [dateRange,     setDateRange]     = useState('all'); // for order_date (non-reported)
   const [reportedRange, setReportedRange] = useState('all');  // for reported_date (reported tab)
 
 
@@ -150,6 +160,27 @@ export default function Orders() {
 
   const pickupRef = useRef();
   const returnRef = useRef();
+
+  const activePacks = packs.filter(p => p.is_active);
+  const activeOffers = offers.filter(o => o.is_active);
+  const hasPacksOrOffers = activePacks.length > 0 || activeOffers.length > 0;
+
+  const validatePromo = (code, baseAmount) => {
+    if (!code.trim()) return null;
+    const pc = promoCodes.find(p => p.code === code.toUpperCase().trim() && p.is_active);
+    if (!pc) return { error: 'Invalid or inactive code' };
+    if (pc.expiry_date && new Date(pc.expiry_date) < new Date()) return { error: 'Code expired' };
+    if (pc.usage_limit && pc.used_count >= pc.usage_limit) return { error: 'Usage limit reached' };
+    if (pc.min_order_value && baseAmount < pc.min_order_value) return { error: `Min order: ${pc.min_order_value} MAD` };
+    if (pc.applies_to === 'packs' && manualOrderType !== 'pack') return { error: 'Code only applies to packs' };
+    if (pc.applies_to === 'packs' && selectedPackId && pc.target_ids?.length && !pc.target_ids.includes(parseInt(selectedPackId))) return { error: 'Code not valid for this pack' };
+    if (pc.applies_to === 'products' && manualOrderType !== 'single') return { error: 'Code only applies to products' };
+    const discount = pc.discount_type === 'percentage'
+      ? Math.round((baseAmount * pc.discount_value) / 100 * 100) / 100
+      : pc.discount_value;
+    const label = pc.discount_type === 'percentage' ? `-${pc.discount_value}% applied` : `-${pc.discount_value} MAD applied`;
+    return { discount: Math.min(discount, baseAmount), label, code: pc.code };
+  };
 
   const allVariants = products.flatMap(p => p.variants.map(v => ({
     ...v,
@@ -191,7 +222,7 @@ export default function Orders() {
   const getDateBounds = (range, future = false) => {
     if (!range || range === 'all') return {};
     const today = new Date(); today.setHours(0, 0, 0, 0);
-    const fmt = d => d.toISOString().slice(0, 10);
+    const fmt = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     if (range === 'today') return { from: fmt(today), to: fmt(today) };
     if (range === 'week') {
       if (future) { const e = new Date(today); e.setDate(today.getDate() + 7); return { from: fmt(today), to: fmt(e) }; }
@@ -222,8 +253,14 @@ export default function Orders() {
 
   const load = (overrides = {}) => {
     setLoading(true);
-    Promise.all([getOrders(buildParams(overrides)), getProducts(), getPacks()])
-      .then(([o, p, pk]) => {
+    Promise.all([
+      getOrders(buildParams(overrides)),
+      getProducts(),
+      getPacks(),
+      getOffers().catch(() => ({ data: [] })),
+      getPromoCodes().catch(() => ({ data: [] })),
+    ])
+      .then(([o, p, pk, off, promo]) => {
         setOrders(o.data.orders);
         setTotalPages(o.data.pages);
         setOrderCount(o.data.order_count);
@@ -231,17 +268,27 @@ export default function Orders() {
         setStatusCounts(o.data.status_counts || {});
         setProducts(p.data);
         setPacks(pk.data);
+        setOffers(off.data);
+        setPromoCodes(promo.data);
       })
+      .catch(e => setError(e.response?.data?.detail || e.message || `HTTP ${e.response?.status} — Failed to load orders`))
       .finally(() => setLoading(false));
   };
 
   useEffect(() => {
-    load({ p: 1, f: 'all', t: 'orders', dr: 'today' });
+    load({ p: 1, f: 'all', t: 'orders', dr: 'all' });
     // Silently sync delivery statuses in the background on page load
     Promise.allSettled([syncAllForcelog(), syncAllOlivraison()])
-      .then(() => load({ p: 1, f: 'all', t: 'orders', dr: 'today' }))
+      .then(() => load({ p: 1, f: 'all', t: 'orders', dr: 'all' }))
       .catch(() => {});
   }, []);
+
+  // Auto-focus name field when manual order form opens (mobile UX)
+  useEffect(() => {
+    if (showManualOrder && nameInputRef.current) {
+      setTimeout(() => nameInputRef.current?.focus(), 80);
+    }
+  }, [showManualOrder]);
 
   useEffect(() => {
     if (!showMoreMenu) return;
@@ -271,13 +318,34 @@ export default function Orders() {
       .filter(item => item.variant_id)
       .map(item => ({ variant_id: parseInt(item.variant_id), quantity: parseInt(item.quantity) || 1 }));
     if (flatItems.length === 0) { setManualFieldErrors(e => ({ ...e, products: 'Add at least one product' })); return; }
+    const baseAmount = parseFloat(manualOrder.total_amount);
+    const discount = promoResult?.discount || 0;
     try {
-      await bulkCreateOrders([{ ...manualOrder, total_amount: parseFloat(manualOrder.total_amount), items: flatItems, expenses: manualExpenses }]);
+      await bulkCreateOrders([{
+        ...manualOrder,
+        total_amount: Math.max(0, baseAmount - discount),
+        items: flatItems,
+        expenses: manualExpenses,
+        pack_id: manualOrderType === 'pack' && selectedPackId ? parseInt(selectedPackId) : null,
+        offer_id: manualOrderType === 'offer' && selectedOfferId ? parseInt(selectedOfferId) : null,
+        promo_code: promoResult?.discount > 0 ? promoResult.code : null,
+        discount_amount: discount,
+      }]);
+      const isMobileSubmit = window.innerWidth < 768;
       setSuccess('Order created successfully!');
-      setShowManualOrder(false);
       setManualOrder(emptyManualOrder());
       setManualItems([{ variant_id: '', quantity: 1 }]);
       setManualExpenses({ sticker: 0, seal_bag: 0, packaging: 1 });
+      setManualOrderType('single');
+      setSelectedPackId(''); setSelectedPresetId(''); setSelectedOfferId('');
+      setPromoCode(''); setPromoResult(null);
+      setShowExtraOptions(false);
+      if (isMobileSubmit) {
+        // Keep form open for next order — re-focus name field
+        setTimeout(() => nameInputRef.current?.focus(), 80);
+      } else {
+        setShowManualOrder(false);
+      }
       load();
     } catch (e) { setError(errorMessage(e)); }
   };
@@ -982,7 +1050,7 @@ export default function Orders() {
               </thead>
               <tbody>
                 {filtered.map(o => {
-                  const today = new Date().toISOString().slice(0, 10);
+                  const today = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })();
                   const isDueToday = o.status === 'reported' && o.reported_date && o.reported_date.slice(0, 10) === today;
                   const trStyle = selectedIds.has(o.id)
                     ? { background: '#1a2a1a', borderLeft: '3px solid var(--accent)', cursor: 'pointer' }
@@ -1589,116 +1657,333 @@ export default function Orders() {
           <form className="modal modal-lg" onSubmit={e => { e.preventDefault(); handleManualOrder(); }}>
             <div className="modal-header">
               <h2>+ New Order</h2>
-              <button className="btn-icon" onClick={() => { setShowManualOrder(false); setError(''); }}>✕</button>
+              <button className="btn-icon" onClick={() => { setShowManualOrder(false); setError(''); setManualOrderType('single'); setSelectedPackId(''); setSelectedPresetId(''); setSelectedOfferId(''); setPromoCode(''); setPromoResult(null); }}>✕</button>
             </div>
             <div className="modal-body">
               {error && <div className="alert alert-error">{error}</div>}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
-                <div>
-                  <label className="form-label">CMD ID <span style={{ color: 'var(--accent)', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>auto</span></label>
-                  <input className="form-input" value={manualOrder.caleo_id} readOnly
-                    style={{ color: 'var(--accent)', fontFamily: 'monospace', opacity: 0.8, cursor: 'default' }} />
-                </div>
-                <div>
-                  <label className="form-label">Customer Name *</label>
-                  <input className="form-input" placeholder="Full name" value={manualOrder.customer_name}
-                    onChange={e => setManualOrder({ ...manualOrder, customer_name: e.target.value })} />
-                  {manualFieldErrors.customer_name && <div style={fieldErrorStyle}>{manualFieldErrors.customer_name}</div>}
-                </div>
-                <div>
-                  <label className="form-label">Phone</label>
-                  <input className="form-input" placeholder="0600000000" value={manualOrder.customer_phone}
-                    onKeyDown={numericOnly}
-                    onChange={e => setManualOrder({ ...manualOrder, customer_phone: e.target.value })} />
-                  {manualFieldErrors.customer_phone && <div style={fieldErrorStyle}>{manualFieldErrors.customer_phone}</div>}
-                </div>
-                <div>
-                  <label className="form-label">City</label>
-                  <input className="form-input" placeholder="City" value={manualOrder.city}
-                    onChange={e => setManualOrder({ ...manualOrder, city: e.target.value })} />
-                </div>
-                <div style={{ gridColumn: '1 / -1' }}>
-                  <label className="form-label">Address</label>
-                  <input className="form-input" placeholder="Delivery address" value={manualOrder.customer_address}
-                    onChange={e => setManualOrder({ ...manualOrder, customer_address: e.target.value })} />
-                </div>
-                <div>
-                  <label className="form-label">
-                    Total Amount (MAD) *
-                    {manualOrder.total_amount && <span style={{ fontWeight: 400, color: 'var(--accent)', textTransform: 'none', letterSpacing: 0, marginLeft: 6 }}>auto</span>}
-                  </label>
-                  <input className="form-input" type="number" min="0" placeholder="0.00" value={manualOrder.total_amount}
-                    onChange={e => setManualOrder({ ...manualOrder, total_amount: e.target.value })} />
-                  {manualFieldErrors.total_amount && <div style={fieldErrorStyle}>{manualFieldErrors.total_amount}</div>}
-                </div>
-              </div>
 
-              <div style={{ marginBottom: 16 }}>
-                <label className="form-label">Products</label>
-                {manualFieldErrors.products && <div style={fieldErrorStyle}>{manualFieldErrors.products}</div>}
-                {manualItems.map((item, j) => (
-                  <div key={j} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-                    <select className="form-input" style={{ flex: 1 }} value={item.variant_id}
-                      onChange={e => {
-                        const newItems = [...manualItems];
-                        newItems[j] = { ...newItems[j], variant_id: e.target.value };
-                        setManualItems(newItems);
-                        setManualExpenses(prev => ({ ...prev, seal_bag: autoSealBag(newItems) }));
-                        setManualOrder(prev => ({ ...prev, total_amount: calcManualTotal(newItems) }));
+              {(() => {
+                const isMobile = window.innerWidth < 768;
+                const inputH = { minHeight: 48 };
+
+                // Shared: order type toggle
+                const orderTypeToggle = hasPacksOrOffers && (
+                  <div style={{ display: 'flex', gap: 4, marginBottom: 16, background: '#0f1117', borderRadius: 8, padding: 4 }}>
+                    {['single', 'pack', 'offer'].map(type => (
+                      <button key={type} type="button" onClick={() => {
+                        setManualOrderType(type);
+                        setSelectedPackId(''); setSelectedPresetId(''); setSelectedOfferId('');
+                        setManualItems([{ variant_id: '', quantity: 1 }]);
+                        setManualOrder(prev => ({ ...prev, total_amount: '' }));
+                        setManualExpenses({ sticker: 0, seal_bag: 0, packaging: 1 });
+                        setPromoCode(''); setPromoResult(null);
+                      }} style={{
+                        flex: 1, padding: isMobile ? '10px 0' : '7px 0', borderRadius: 6, border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: 13,
+                        background: manualOrderType === type ? 'var(--accent)' : 'transparent',
+                        color: manualOrderType === type ? '#0f1117' : '#8892b0',
+                        transition: 'all 0.15s',
                       }}>
-                      <option value="">Select product...</option>
-                      {allVariants.map(v => (
-                        <option key={v.id} value={v.id} disabled={v.stock === 0}>
-                          {v.stock === 0 ? `${v.label} — OUT OF STOCK` : v.stock <= 3 ? `${v.label} (⚠ ${v.stock} left)` : `${v.label} (${v.stock} in stock)`}
-                        </option>
-                      ))}
+                        {type === 'single' ? 'Product' : type === 'pack' ? 'Pack' : 'Offer'}
+                      </button>
+                    ))}
+                  </div>
+                );
+
+                // Shared: pack selector
+                const packSelector = manualOrderType === 'pack' && (
+                  <div style={{ marginBottom: 12 }}>
+                    <select className="form-input" style={isMobile ? inputH : {}} value={selectedPackId} onChange={e => {
+                      const pid = e.target.value;
+                      setSelectedPackId(pid); setSelectedPresetId('');
+                      setManualItems([{ variant_id: '', quantity: 1 }]);
+                      if (pid) {
+                        const pk = activePacks.find(p => p.id === parseInt(pid));
+                        if (pk) { setManualOrder(prev => ({ ...prev, total_amount: String(pk.selling_price) })); setManualExpenses(prev => ({ ...prev, packaging: pk.packaging_cost || 1 })); }
+                      }
+                    }}>
+                      <option value="">— Select a pack —</option>
+                      {activePacks.map(p => <option key={p.id} value={p.id}>{p.name} — {p.selling_price} MAD</option>)}
                     </select>
-                    <input className="form-input" type="number" min="1" placeholder="Qty" style={{ width: 80 }}
-                      value={item.quantity}
-                      onChange={e => {
-                        const newItems = [...manualItems];
-                        newItems[j] = { ...newItems[j], quantity: e.target.value };
-                        setManualItems(newItems);
-                        setManualOrder(prev => ({ ...prev, total_amount: calcManualTotal(newItems) }));
-                      }} />
-                    {manualItems.length > 1 && (
-                      <button className="btn btn-danger btn-sm" onClick={() => {
-                        const newItems = manualItems.filter((_, idx) => idx !== j);
-                        setManualItems(newItems);
-                        setManualExpenses(prev => ({ ...prev, seal_bag: autoSealBag(newItems) }));
-                        setManualOrder(prev => ({ ...prev, total_amount: calcManualTotal(newItems) }));
-                      }}>✕</button>
+                    {selectedPackId && (() => {
+                      const pk = activePacks.find(p => p.id === parseInt(selectedPackId));
+                      if (!pk || pk.presets.length === 0) return null;
+                      return (
+                        <div style={{ marginTop: 8 }}>
+                          <select className="form-input" style={isMobile ? inputH : {}} value={selectedPresetId} onChange={e => {
+                            const prid = e.target.value; setSelectedPresetId(prid);
+                            if (prid) { const pr = pk.presets.find(p => p.id === parseInt(prid)); if (pr) setManualItems(pr.items.map(it => ({ variant_id: String(it.variant_id), quantity: it.quantity }))); }
+                            else setManualItems([{ variant_id: '', quantity: 1 }]);
+                          }}>
+                            <option value="">— Select a preset —</option>
+                            {pk.presets.map(pr => <option key={pr.id} value={pr.id}>{pr.name}</option>)}
+                          </select>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                );
+
+                // Shared: offer selector
+                const offerSelector = manualOrderType === 'offer' && (
+                  <div style={{ marginBottom: 12 }}>
+                    <select className="form-input" style={isMobile ? inputH : {}} value={selectedOfferId} onChange={e => {
+                      const oid = e.target.value; setSelectedOfferId(oid);
+                      if (oid) {
+                        const off = activeOffers.find(o => o.id === parseInt(oid));
+                        if (off) { setManualOrder(prev => ({ ...prev, total_amount: String(off.selling_price) })); setManualExpenses(prev => ({ ...prev, packaging: off.packaging_cost || 1 })); setManualItems(off.items.map(it => ({ variant_id: String(it.variant_id), quantity: it.quantity }))); }
+                      } else { setManualItems([{ variant_id: '', quantity: 1 }]); setManualOrder(prev => ({ ...prev, total_amount: '' })); }
+                    }}>
+                      <option value="">— Select an offer —</option>
+                      {activeOffers.map(o => <option key={o.id} value={o.id}>{o.name} — {o.selling_price} MAD</option>)}
+                    </select>
+                  </div>
+                );
+
+                // Shared: expenses row (sticker, seal bag, packaging)
+                const expensesRow = (
+                  <div style={{ display: 'flex', gap: 16, padding: 12, background: '#0f1117', borderRadius: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+                    <label className="checkbox-label">
+                      <input type="checkbox" checked={manualExpenses.sticker === 1} onChange={e => setManualExpenses({ ...manualExpenses, sticker: e.target.checked ? 1 : 0 })} />
+                      Sticker (1 MAD)
+                    </label>
+                    <label className="checkbox-label">
+                      <input type="checkbox" checked={manualExpenses.seal_bag === 1} onChange={e => setManualExpenses({ ...manualExpenses, seal_bag: e.target.checked ? 1 : 0 })} />
+                      Seal Bag (1 MAD)
+                    </label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ color: 'var(--t2)', fontSize: 13 }}>Packaging:</span>
+                      <input className="form-input" type="number" min="0" style={{ width: 60, padding: '4px 8px' }} value={manualExpenses.packaging} onChange={e => setManualExpenses({ ...manualExpenses, packaging: parseFloat(e.target.value) || 0 })} />
+                      <span style={{ color: 'var(--t2)', fontSize: 13 }}>MAD</span>
+                    </div>
+                  </div>
+                );
+
+                // Shared: promo code
+                const promoSection = (
+                  <div>
+                    <label className="form-label">Promo Code <span style={{ color: '#8892b0', fontWeight: 400, textTransform: 'none' }}>(optional)</span></label>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <input className="form-input" placeholder="Enter code..." value={promoCode} style={{ flex: 1, textTransform: 'uppercase' }}
+                        onChange={e => {
+                          const val = e.target.value.toUpperCase(); setPromoCode(val);
+                          if (!val.trim()) { setPromoResult(null); return; }
+                          setPromoResult(validatePromo(val, parseFloat(manualOrder.total_amount) || 0));
+                        }} />
+                      {promoResult && (promoResult.error
+                        ? <span style={{ fontSize: 12, color: '#f87171', whiteSpace: 'nowrap' }}>✕ {promoResult.error}</span>
+                        : <span style={{ fontSize: 12, color: '#4ade80', whiteSpace: 'nowrap', fontWeight: 600 }}>✓ {promoResult.label}</span>)}
+                    </div>
+                    {promoResult?.discount > 0 && (
+                      <div style={{ marginTop: 6, fontSize: 13, color: '#8892b0' }}>
+                        Final price: <span style={{ color: '#e2e8f0', fontWeight: 600 }}>{Math.max(0, (parseFloat(manualOrder.total_amount) || 0) - promoResult.discount).toLocaleString()} MAD</span>
+                      </div>
                     )}
                   </div>
-                ))}
-                <button className="btn btn-secondary btn-sm" onClick={() => setManualItems([...manualItems, { variant_id: '', quantity: 1 }])}>
-                  + Add Product
-                </button>
-              </div>
+                );
 
-              <div style={{ display: 'flex', gap: 16, padding: 12, background: '#0f1117', borderRadius: 8, flexWrap: 'wrap' }}>
-                <label className="checkbox-label">
-                  <input type="checkbox" checked={manualExpenses.sticker === 1}
-                    onChange={e => setManualExpenses({ ...manualExpenses, sticker: e.target.checked ? 1 : 0 })} />
-                  Sticker (1 MAD)
-                </label>
-                <label className="checkbox-label">
-                  <input type="checkbox" checked={manualExpenses.seal_bag === 1}
-                    onChange={e => setManualExpenses({ ...manualExpenses, seal_bag: e.target.checked ? 1 : 0 })} />
-                  Sell Bag (1 MAD)
-                </label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ color: 'var(--t2)', fontSize: 13 }}>Packaging:</span>
-                  <input className="form-input" type="number" min="0" style={{ width: 60, padding: '4px 8px' }}
-                    value={manualExpenses.packaging}
-                    onChange={e => setManualExpenses({ ...manualExpenses, packaging: parseFloat(e.target.value) || 0 })} />
-                  <span style={{ color: 'var(--t2)', fontSize: 13 }}>MAD</span>
-                </div>
-              </div>
+                if (isMobile) {
+                  // ── MOBILE LAYOUT ──────────────────────────────────────────
+                  const isReadOnly = manualOrderType === 'offer' || (manualOrderType === 'pack' && selectedPresetId);
+                  return (
+                    <>
+                      {orderTypeToggle}
+
+                      {/* Name */}
+                      <div style={{ marginBottom: 10 }}>
+                        <input ref={nameInputRef} className="form-input" placeholder="Full name *" value={manualOrder.customer_name}
+                          style={inputH} onChange={e => setManualOrder({ ...manualOrder, customer_name: e.target.value })} />
+                        {manualFieldErrors.customer_name && <div style={fieldErrorStyle}>{manualFieldErrors.customer_name}</div>}
+                      </div>
+
+                      {/* Phone */}
+                      <div style={{ marginBottom: 10 }}>
+                        <input className="form-input" placeholder="Phone" inputMode="tel" value={manualOrder.customer_phone}
+                          style={inputH} onKeyDown={numericOnly} onChange={e => setManualOrder({ ...manualOrder, customer_phone: e.target.value })} />
+                        {manualFieldErrors.customer_phone && <div style={fieldErrorStyle}>{manualFieldErrors.customer_phone}</div>}
+                      </div>
+
+                      {/* City */}
+                      <div style={{ marginBottom: 10 }}>
+                        <input className="form-input" placeholder="City" value={manualOrder.city}
+                          style={inputH} onChange={e => setManualOrder({ ...manualOrder, city: e.target.value })} />
+                      </div>
+
+                      {/* Address */}
+                      <div style={{ marginBottom: 12 }}>
+                        <input className="form-input" placeholder="Delivery address" value={manualOrder.customer_address}
+                          style={inputH} onChange={e => setManualOrder({ ...manualOrder, customer_address: e.target.value })} />
+                      </div>
+
+                      {/* Pack / Offer / Product rows */}
+                      {packSelector}
+                      {offerSelector}
+                      {manualFieldErrors.products && <div style={fieldErrorStyle}>{manualFieldErrors.products}</div>}
+                      {manualItems.map((item, j) => (
+                        <div key={j} style={{ display: 'flex', gap: 8, marginBottom: 8, opacity: isReadOnly ? 0.7 : 1 }}>
+                          <select className="form-input" style={{ ...inputH, flex: 1 }} value={item.variant_id} disabled={isReadOnly}
+                            onChange={e => {
+                              if (isReadOnly) return;
+                              const newItems = [...manualItems]; newItems[j] = { ...newItems[j], variant_id: e.target.value };
+                              setManualItems(newItems);
+                              setManualExpenses(prev => ({ ...prev, seal_bag: autoSealBag(newItems) }));
+                              if (manualOrderType === 'single') setManualOrder(prev => ({ ...prev, total_amount: calcManualTotal(newItems) }));
+                            }}>
+                            <option value="">Select product...</option>
+                            {allVariants.map(v => (
+                              <option key={v.id} value={v.id} disabled={v.stock === 0}>
+                                {v.stock === 0 ? `${v.label} — OUT` : v.stock <= 3 ? `${v.label} (⚠ ${v.stock})` : v.label}
+                              </option>
+                            ))}
+                          </select>
+                          <input className="form-input" type="number" inputMode="numeric" min="1" placeholder="Qty"
+                            style={{ ...inputH, width: 64, textAlign: 'center', fontWeight: 700 }}
+                            value={item.quantity} readOnly={manualOrderType === 'offer'}
+                            onChange={e => {
+                              if (manualOrderType === 'offer') return;
+                              const newItems = [...manualItems]; newItems[j] = { ...newItems[j], quantity: e.target.value };
+                              setManualItems(newItems);
+                              if (manualOrderType === 'single') setManualOrder(prev => ({ ...prev, total_amount: calcManualTotal(newItems) }));
+                            }} />
+                          {manualItems.length > 1 && manualOrderType === 'single' && (
+                            <button type="button" className="btn btn-danger btn-sm" style={{ minHeight: 48, padding: '0 12px' }} onClick={() => {
+                              const newItems = manualItems.filter((_, idx) => idx !== j);
+                              setManualItems(newItems);
+                              setManualExpenses(prev => ({ ...prev, seal_bag: autoSealBag(newItems) }));
+                              setManualOrder(prev => ({ ...prev, total_amount: calcManualTotal(newItems) }));
+                            }}>✕</button>
+                          )}
+                        </div>
+                      ))}
+                      {manualOrderType === 'single' && (
+                        <button type="button" className="btn btn-secondary btn-sm" style={{ width: '100%', marginBottom: 12, minHeight: 44 }}
+                          onClick={() => setManualItems([...manualItems, { variant_id: '', quantity: 1 }])}>
+                          + Add Product
+                        </button>
+                      )}
+
+                      {/* Total */}
+                      <div style={{ marginBottom: 16 }}>
+                        <input className="form-input" type="number" min="0" placeholder="Total (MAD)"
+                          style={{ ...inputH, width: '100%', fontWeight: 700, fontSize: 20, color: '#4ade80', cursor: manualOrderType !== 'single' ? 'default' : undefined }}
+                          value={manualOrder.total_amount} readOnly={manualOrderType !== 'single'}
+                          onChange={e => { if (manualOrderType === 'single') setManualOrder({ ...manualOrder, total_amount: e.target.value }); }} />
+                        {manualFieldErrors.total_amount && <div style={fieldErrorStyle}>{manualFieldErrors.total_amount}</div>}
+                      </div>
+
+                      {/* Extra options — collapsed */}
+                      <div style={{ marginBottom: 8 }}>
+                        <button type="button" onClick={() => setShowExtraOptions(o => !o)}
+                          style={{ background: 'none', border: 'none', color: 'var(--t3)', fontSize: 12, cursor: 'pointer', padding: '4px 0' }}>
+                          Extra options {showExtraOptions ? '▴' : '▾'}
+                        </button>
+                        {showExtraOptions && (
+                          <div style={{ marginTop: 8 }}>
+                            {expensesRow}
+                            {promoSection}
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  );
+                }
+
+                // ── DESKTOP LAYOUT (unchanged) ─────────────────────────────
+                return (
+                  <>
+                    {orderTypeToggle}
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+                      <div>
+                        <label className="form-label">CMD ID <span style={{ color: 'var(--accent)', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>auto</span></label>
+                        <input className="form-input" value={manualOrder.caleo_id} readOnly style={{ color: 'var(--accent)', fontFamily: 'monospace', opacity: 0.8, cursor: 'default' }} />
+                      </div>
+                      <div>
+                        <label className="form-label">Customer Name *</label>
+                        <input ref={nameInputRef} className="form-input" placeholder="Full name" value={manualOrder.customer_name} onChange={e => setManualOrder({ ...manualOrder, customer_name: e.target.value })} />
+                        {manualFieldErrors.customer_name && <div style={fieldErrorStyle}>{manualFieldErrors.customer_name}</div>}
+                      </div>
+                      <div>
+                        <label className="form-label">Phone</label>
+                        <input className="form-input" placeholder="0600000000" value={manualOrder.customer_phone} onKeyDown={numericOnly} onChange={e => setManualOrder({ ...manualOrder, customer_phone: e.target.value })} />
+                        {manualFieldErrors.customer_phone && <div style={fieldErrorStyle}>{manualFieldErrors.customer_phone}</div>}
+                      </div>
+                      <div>
+                        <label className="form-label">City</label>
+                        <input className="form-input" placeholder="City" value={manualOrder.city} onChange={e => setManualOrder({ ...manualOrder, city: e.target.value })} />
+                      </div>
+                      <div style={{ gridColumn: '1 / -1' }}>
+                        <label className="form-label">Address</label>
+                        <input className="form-input" placeholder="Delivery address" value={manualOrder.customer_address} onChange={e => setManualOrder({ ...manualOrder, customer_address: e.target.value })} />
+                      </div>
+                      <div>
+                        <label className="form-label">
+                          Total Amount (MAD) *
+                          {manualOrder.total_amount && manualOrderType === 'single' && <span style={{ fontWeight: 400, color: 'var(--accent)', textTransform: 'none', letterSpacing: 0, marginLeft: 6 }}>auto</span>}
+                        </label>
+                        <input className="form-input" type="number" min="0" placeholder="0.00"
+                          value={manualOrder.total_amount} readOnly={manualOrderType !== 'single'}
+                          style={manualOrderType !== 'single' ? { opacity: 0.6, cursor: 'default' } : {}}
+                          onChange={e => { if (manualOrderType === 'single') setManualOrder({ ...manualOrder, total_amount: e.target.value }); }} />
+                        {manualFieldErrors.total_amount && <div style={fieldErrorStyle}>{manualFieldErrors.total_amount}</div>}
+                      </div>
+                    </div>
+
+                    {packSelector}
+                    {offerSelector}
+
+                    {/* Products (desktop multi-item) */}
+                    <div style={{ marginBottom: 16 }}>
+                      <label className="form-label">Products</label>
+                      {manualFieldErrors.products && <div style={fieldErrorStyle}>{manualFieldErrors.products}</div>}
+                      {manualItems.map((item, j) => {
+                        const isReadOnly = manualOrderType === 'offer' || (manualOrderType === 'pack' && selectedPresetId);
+                        return (
+                          <div key={j} style={{ display: 'flex', gap: 8, marginBottom: 8, opacity: isReadOnly ? 0.7 : 1 }}>
+                            <select className="form-input" style={{ flex: 1 }} value={item.variant_id} disabled={isReadOnly}
+                              onChange={e => {
+                                if (isReadOnly) return;
+                                const newItems = [...manualItems]; newItems[j] = { ...newItems[j], variant_id: e.target.value };
+                                setManualItems(newItems); setManualExpenses(prev => ({ ...prev, seal_bag: autoSealBag(newItems) }));
+                                if (manualOrderType === 'single') setManualOrder(prev => ({ ...prev, total_amount: calcManualTotal(newItems) }));
+                              }}>
+                              <option value="">Select product...</option>
+                              {allVariants.map(v => (
+                                <option key={v.id} value={v.id} disabled={v.stock === 0}>
+                                  {v.stock === 0 ? `${v.label} — OUT OF STOCK` : v.stock <= 3 ? `${v.label} (⚠ ${v.stock} left)` : `${v.label} (${v.stock} in stock)`}
+                                </option>
+                              ))}
+                            </select>
+                            <input className="form-input" type="number" min="1" placeholder="Qty" style={{ width: 80 }} value={item.quantity} readOnly={manualOrderType === 'offer'}
+                              onChange={e => {
+                                if (manualOrderType === 'offer') return;
+                                const newItems = [...manualItems]; newItems[j] = { ...newItems[j], quantity: e.target.value };
+                                setManualItems(newItems);
+                                if (manualOrderType === 'single') setManualOrder(prev => ({ ...prev, total_amount: calcManualTotal(newItems) }));
+                              }} />
+                            {manualItems.length > 1 && manualOrderType === 'single' && (
+                              <button className="btn btn-danger btn-sm" type="button" onClick={() => {
+                                const newItems = manualItems.filter((_, idx) => idx !== j);
+                                setManualItems(newItems); setManualExpenses(prev => ({ ...prev, seal_bag: autoSealBag(newItems) }));
+                                setManualOrder(prev => ({ ...prev, total_amount: calcManualTotal(newItems) }));
+                              }}>✕</button>
+                            )}
+                          </div>
+                        );
+                      })}
+                      {manualOrderType === 'single' && (
+                        <button className="btn btn-secondary btn-sm" type="button" onClick={() => setManualItems([...manualItems, { variant_id: '', quantity: 1 }])}>+ Add Product</button>
+                      )}
+                    </div>
+
+                    {expensesRow}
+                    {promoSection}
+                  </>
+                );
+              })()}
             </div>
-            <div className="modal-footer">
-              <button type="button" className="btn btn-secondary" onClick={() => { setShowManualOrder(false); setError(''); }}>Cancel</button>
-              <button type="submit" className="btn btn-primary">Create Order</button>
+            <div className="modal-footer" style={window.innerWidth < 768 ? { display: 'flex', gap: 10 } : {}}>
+              <button type="button" className="btn btn-secondary" style={window.innerWidth < 768 ? { flex: 1, minHeight: 52, fontSize: 16 } : {}} onClick={() => { setShowManualOrder(false); setError(''); setManualOrderType('single'); setSelectedPackId(''); setSelectedPresetId(''); setSelectedOfferId(''); setPromoCode(''); setPromoResult(null); }}>Cancel</button>
+              <button type="submit" className="btn btn-primary" style={window.innerWidth < 768 ? { flex: 1, minHeight: 52, fontSize: 16, fontWeight: 700 } : {}}>Create Order</button>
             </div>
           </form>
         </div>
@@ -1972,7 +2257,7 @@ export default function Orders() {
           {filtered.length === 0 ? (
             <div className="empty-state"><h3>No orders found</h3></div>
           ) : filtered.map(o => {
-            const today = new Date().toISOString().slice(0, 10);
+            const today = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })();
             const isDueToday = o.status === 'reported' && o.reported_date && o.reported_date.slice(0, 10) === today;
             const isExpanded = expandedCardId === o.id;
             return (

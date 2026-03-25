@@ -1,11 +1,9 @@
 import { useState, useEffect } from 'react';
 import { getProducts, getStockArrivals, addBulkStockArrival, getBrokenStock, addBrokenStock, updateBrokenStock, deleteBrokenStock, deleteArrival, adjustStock, addSupplierPayment } from '../api';
-import StockMobile from './StockMobile';
 
 const emptyItem = () => ({ product_id: '', variant_ids: [], quantity: 1 });
 
-export default function Stock({ readOnly = false }) {
-  if (window.innerWidth < 768) return <StockMobile readOnly={readOnly} />;
+export default function StockMobile({ readOnly = false }) {
   const [tab, setTab] = useState('arrivals');
   const [products, setProducts] = useState([]);
   const [arrivals, setArrivals] = useState([]);
@@ -27,6 +25,9 @@ export default function Stock({ readOnly = false }) {
   const [paid, setPaid] = useState(false);
 
   const [brokenForm, setBrokenForm] = useState({ product_id: '', variant_id: '', quantity: 1, source: 'storage', returnable_to_supplier: false });
+
+  // Overview tab accordion state — independent from other tabs
+  const [expandedStock, setExpandedStock] = useState(null);
 
   const load = () => {
     getProducts().then(r => setProducts(r.data));
@@ -173,18 +174,52 @@ export default function Stock({ readOnly = false }) {
     } catch (e) { setError(e.response?.data?.detail || 'Error'); }
   };
 
+  // Shared card style for arrivals and broken lists
+  const cardStyle = {
+    background: 'var(--card)',
+    border: '1px solid var(--border)',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 8,
+  };
+
+  // Pill style for variant labels
+  const pillStyle = {
+    display: 'inline-block',
+    fontSize: 11,
+    fontWeight: 600,
+    padding: '2px 8px',
+    borderRadius: 20,
+    background: 'var(--accent-b, rgba(99,102,241,0.15))',
+    color: 'var(--accent)',
+    border: '1px solid var(--accent)',
+  };
+
+  const badgeStyle = (color) => ({
+    display: 'inline-block',
+    fontSize: 11,
+    fontWeight: 600,
+    padding: '2px 8px',
+    borderRadius: 20,
+    background: color + '22',
+    color: color,
+    border: `1px solid ${color}44`,
+  });
+
   return (
     <div>
+      {/* Header */}
       <div className="page-header">
-        <h1 className="page-title">Stock Management</h1>
+        <h1 className="page-title">Stock</h1>
         {!readOnly && (
-          <div style={{ display: 'flex', gap: 10 }}>
-            <button className="btn btn-primary" onClick={() => { setError(''); setShowAdd(true); }}>+ New Arrival</button>
-            <button className="btn btn-danger" onClick={() => { setError(''); setShowAddBroken(true); }}>Report Broken</button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn btn-primary" onClick={() => { setError(''); setShowAdd(true); }}>+ Arrival</button>
+            <button className="btn btn-danger" onClick={() => { setError(''); setShowAddBroken(true); }}>Broken</button>
           </div>
         )}
       </div>
 
+      {/* Success banner */}
       {success && (
         <div className="alert alert-success">
           {success}
@@ -192,145 +227,171 @@ export default function Stock({ readOnly = false }) {
         </div>
       )}
 
+      {/* Tabs */}
       <div className="tabs">
-        <div className={`tab ${tab === 'arrivals' ? 'active' : ''}`} onClick={() => setTab('arrivals')}>Stock Arrivals</div>
-        <div className={`tab ${tab === 'broken' ? 'active' : ''}`} onClick={() => setTab('broken')}>Broken Stock</div>
-        <div className={`tab ${tab === 'overview' ? 'active' : ''}`} onClick={() => setTab('overview')}>Current Stock</div>
+        <div className={`tab ${tab === 'arrivals' ? 'active' : ''}`} onClick={() => setTab('arrivals')}>Arrivals</div>
+        <div className={`tab ${tab === 'broken' ? 'active' : ''}`} onClick={() => setTab('broken')}>Broken</div>
+        <div className={`tab ${tab === 'overview' ? 'active' : ''}`} onClick={() => setTab('overview')}>Stock</div>
       </div>
 
-      {/* Current Stock Overview */}
-      {tab === 'overview' && (
-        <div className="card">
-          {products.length === 0 ? (
-            <div className="empty-state"><h3>No products yet</h3><p>Add products first from the Products page</p></div>
-          ) : (
-            <div className="table-wrapper">
-              <table>
-                <thead>
-                  <tr><th>Product</th><th>Size</th><th>Color</th><th>Buy Price</th><th>Stock</th><th>Broken</th><th>Status</th><th></th></tr>
-                </thead>
-                <tbody>
-                  {products.flatMap(p =>
-                    p.variants.map(v => (
-                      <tr key={v.id}>
-                        <td style={{ fontWeight: 600 }}>{p.name}</td>
-                        <td>{v.size || '—'}</td>
-                        <td>{v.color || '—'}</td>
-                        <td>{v.buying_price} MAD</td>
-                        <td style={{ fontWeight: 700, color: v.stock <= v.low_stock_threshold ? '#fbbf24' : '#4ade80' }}>
-                          {v.stock}
-                        </td>
-                        <td style={{ color: v.broken_stock > 0 ? '#f87171' : '#8892b0' }}>
-                          {v.broken_stock || 0}
-                        </td>
-                        <td>
-                          {v.stock === 0
-                            ? <span className="badge badge-red">Out of Stock</span>
-                            : v.stock <= v.low_stock_threshold
-                              ? <span className="badge badge-yellow">Low Stock</span>
-                              : <span className="badge badge-green">OK</span>
-                          }
-                        </td>
-                        <td><button className="btn btn-secondary btn-sm" onClick={() => { setAdjustVariant({ id: v.id, name: p.name, size: v.size, color: v.color }); setAdjustValue(v.stock); }}>Adjust</button></td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Arrivals History */}
+      {/* ── Arrivals tab ── */}
       {tab === 'arrivals' && (
-        <div className="card">
+        <div>
           {arrivals.length === 0 ? (
-            <div className="empty-state"><h3>No stock arrivals yet</h3><p>Click "New Arrival" to record your first shipment</p></div>
+            <div className="empty-state"><h3>No stock arrivals yet</h3><p>Tap "+ Arrival" to record your first shipment</p></div>
           ) : (
-            <div className="table-wrapper">
-              <table>
-                <thead>
-                  <tr><th>Date</th><th>Product</th><th>Variant</th><th>Qty</th><th>Unit Cost</th><th>Extra Fees</th><th>Total</th><th>Note</th><th></th></tr>
-                </thead>
-                <tbody>
-                  {arrivals.map(a => (
-                    <tr key={a.id}>
-                      <td style={{ color: '#8892b0', fontSize: 12 }}>{a.date ? new Date(a.date).toLocaleDateString() : '—'}</td>
-                      <td style={{ fontWeight: 500 }}>{a.product_name}</td>
-                      <td>
-                        {(a.size || a.color)
-                          ? <span className="pill">{[a.size, a.color].filter(Boolean).join(' / ')}</span>
-                          : '—'}
-                      </td>
-                      <td style={{ fontWeight: 600 }}>+{a.quantity}</td>
-                      <td style={{ color: '#8892b0' }}>
-                        {a.additional_fees > 0
-                          ? `${(a.total_cost - a.additional_fees).toFixed(0)} MAD`
-                          : `${a.total_cost} MAD`}
-                      </td>
-                      <td style={{ color: a.additional_fees > 0 ? '#fbbf24' : '#8892b0' }}>
-                        {a.additional_fees > 0 ? `${a.additional_fees} MAD` : '—'}
-                      </td>
-                      <td style={{ fontWeight: 600, color: '#f87171' }}>{a.total_cost} MAD</td>
-                      <td style={{ color: '#8892b0', fontSize: 12 }}>{a.description || '—'}</td>
-                      <td><button className="btn btn-danger btn-sm" onClick={() => handleDeleteArrival(a.id)}>Delete</button></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            arrivals.map(a => (
+              <div key={a.id} style={cardStyle}>
+                {/* Row 1: date + product name */}
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 6 }}>
+                  <span style={{ fontSize: 11, color: '#8892b0', flexShrink: 0 }}>
+                    {a.date ? new Date(a.date).toLocaleDateString() : '—'}
+                  </span>
+                  <span style={{ fontWeight: 700, fontSize: 15, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {a.product_name}
+                  </span>
+                  {(a.size || a.color) && (
+                    <span style={pillStyle}>{[a.size, a.color].filter(Boolean).join(' / ')}</span>
+                  )}
+                </div>
+                {/* Row 2: qty + cost + delete */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ fontWeight: 700, color: '#4ade80', fontSize: 15 }}>+{a.quantity}</span>
+                  <span style={{ fontWeight: 700, color: '#f87171', fontSize: 14 }}>{a.total_cost} MAD</span>
+                  {a.description && (
+                    <span style={{ fontSize: 11, color: '#8892b0', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.description}</span>
+                  )}
+                  {!readOnly && (
+                    <button
+                      className="btn btn-danger btn-sm"
+                      style={{ marginLeft: 'auto', flexShrink: 0 }}
+                      onClick={() => handleDeleteArrival(a.id)}
+                    >
+                      Delete
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))
           )}
         </div>
       )}
 
-      {/* Broken Stock */}
+      {/* ── Broken tab ── */}
       {tab === 'broken' && (
-        <div className="card">
+        <div>
           {broken.length === 0 ? (
             <div className="empty-state"><h3>No broken stock</h3><p>Nothing broken yet — great!</p></div>
           ) : (
-            <div className="table-wrapper">
-              <table>
-                <thead>
-                  <tr><th>Date</th><th>Product</th><th>Variant</th><th>Qty</th><th>Source</th><th>Returnable</th><th>Value Lost</th><th></th></tr>
-                </thead>
-                <tbody>
-                  {broken.map(b => (
-                    <tr key={b.id}>
-                      <td style={{ color: '#8892b0', fontSize: 12 }}>{b.date ? new Date(b.date).toLocaleDateString() : '—'}</td>
-                      <td style={{ fontWeight: 500 }}>{b.product_name}</td>
-                      <td>
-                        {(b.size || b.color)
-                          ? <span className="pill">{[b.size, b.color].filter(Boolean).join(' / ')}</span>
-                          : '—'}
-                      </td>
-                      <td>{b.quantity}</td>
-                      <td><span className={`badge ${b.source === 'return' ? 'badge-yellow' : 'badge-gray'}`}>{b.source}</span></td>
-                      <td>
-                        {b.returnable_to_supplier
-                          ? <span className="badge badge-green">Yes</span>
-                          : <span className="badge badge-red">No</span>}
-                      </td>
-                      <td style={{ color: b.returnable_to_supplier ? '#8892b0' : '#f87171' }}>
-                        {b.returnable_to_supplier ? '0 (refund)' : `${b.value_lost} MAD`}
-                      </td>
-                      <td>
-                        <div style={{ display: 'flex', gap: 6 }}>
-                          <button className="btn btn-secondary btn-sm" onClick={() => { setEditBroken(b); setEditBrokenForm({ quantity: b.quantity, returnable_to_supplier: b.returnable_to_supplier }); }}>Edit</button>
-                          <button className="btn btn-danger btn-sm" onClick={() => handleDeleteBroken(b.id)}>Delete</button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            broken.map(b => (
+              <div key={b.id} style={cardStyle}>
+                {/* Row 1: date + product + variant pill */}
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 6 }}>
+                  <span style={{ fontSize: 11, color: '#8892b0', flexShrink: 0 }}>
+                    {b.date ? new Date(b.date).toLocaleDateString() : '—'}
+                  </span>
+                  <span style={{ fontWeight: 700, fontSize: 15, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {b.product_name}
+                  </span>
+                  {(b.size || b.color) && (
+                    <span style={pillStyle}>{[b.size, b.color].filter(Boolean).join(' / ')}</span>
+                  )}
+                </div>
+                {/* Row 2: qty + source badge + returnable badge + value lost */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+                  <span style={{ fontWeight: 600, fontSize: 14 }}>x{b.quantity}</span>
+                  <span style={badgeStyle(b.source === 'return' ? '#fbbf24' : '#8892b0')}>{b.source}</span>
+                  {b.returnable_to_supplier
+                    ? <span style={badgeStyle('#4ade80')}>Returnable</span>
+                    : <span style={badgeStyle('#f87171')}>Not returnable</span>}
+                  <span style={{ color: b.returnable_to_supplier ? '#8892b0' : '#f87171', fontWeight: 600, fontSize: 13 }}>
+                    {b.returnable_to_supplier ? '0 MAD (refund)' : `${b.value_lost} MAD lost`}
+                  </span>
+                </div>
+                {/* Row 3: action buttons */}
+                {!readOnly && (
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => { setEditBroken(b); setEditBrokenForm({ quantity: b.quantity, returnable_to_supplier: b.returnable_to_supplier }); }}
+                    >
+                      Edit
+                    </button>
+                    <button className="btn btn-danger btn-sm" onClick={() => handleDeleteBroken(b.id)}>Delete</button>
+                  </div>
+                )}
+              </div>
+            ))
           )}
         </div>
       )}
 
-      {/* Bulk Stock Arrival Modal */}
+      {/* ── Current Stock (overview) tab — accordion by product ── */}
+      {tab === 'overview' && (
+        <div>
+          {products.length === 0 ? (
+            <div className="empty-state"><h3>No products yet</h3><p>Add products first from the Products page</p></div>
+          ) : (
+            products.map(p => {
+              const totalStock = p.variants.reduce((s, v) => s + v.stock, 0);
+              const hasLow = p.variants.some(v => v.stock > 0 && v.stock <= v.low_stock_threshold);
+              const hasOut = p.variants.some(v => v.stock === 0);
+              const isOpen = expandedStock === p.id;
+              const stockColor = totalStock === 0 ? '#f87171' : hasLow ? '#fbbf24' : '#4ade80';
+
+              return (
+                <div key={p.id} style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 10, marginBottom: 8, overflow: 'hidden' }}>
+                  {/* Collapsed header */}
+                  <div
+                    style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '13px 14px', cursor: 'pointer', userSelect: 'none' }}
+                    onClick={() => setExpandedStock(isOpen ? null : p.id)}
+                  >
+                    <span style={{ fontSize: 11, color: 'var(--text-muted, #8892b0)', flexShrink: 0, transition: 'transform 0.2s', transform: isOpen ? 'rotate(90deg)' : 'none' }}>▶</span>
+                    <span style={{ fontWeight: 700, fontSize: 15, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
+                    <span style={{ fontWeight: 700, fontSize: 15, color: stockColor, flexShrink: 0 }}>{totalStock}</span>
+                    {hasLow && <span style={badgeStyle('#fbbf24')}>Low</span>}
+                    {hasOut && <span style={badgeStyle('#f87171')}>Out</span>}
+                  </div>
+
+                  {/* Expanded: variant rows */}
+                  {isOpen && (
+                    <div style={{ borderTop: '1px solid var(--border)', padding: '8px 12px 12px' }}>
+                      {p.variants.length === 0 ? (
+                        <div style={{ color: '#8892b0', fontSize: 13, padding: '6px 0' }}>No variants</div>
+                      ) : (
+                        p.variants.map(v => {
+                          const label = [v.size, v.color].filter(Boolean).join(' / ') || 'Default';
+                          const vColor = v.stock === 0 ? '#f87171' : v.stock <= v.low_stock_threshold ? '#fbbf24' : '#4ade80';
+                          return (
+                            <div
+                              key={v.id}
+                              style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: 8, paddingBottom: 8, borderBottom: '1px solid var(--border)' }}
+                            >
+                              <span style={{ flex: 1, fontSize: 14, fontWeight: 500 }}>{label}</span>
+                              <span style={{ fontWeight: 700, fontSize: 16, color: vColor }}>{v.stock}</span>
+                              {!readOnly && (
+                                <button
+                                  className="btn btn-secondary btn-sm"
+                                  style={{ flexShrink: 0 }}
+                                  onClick={() => { setAdjustVariant({ id: v.id, name: p.name, size: v.size, color: v.color }); setAdjustValue(v.stock); }}
+                                >
+                                  Adjust
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
+
+      {/* ── Bulk Stock Arrival Modal ── */}
       {showAdd && (
         <div className="modal-overlay" onClick={() => setShowAdd(false)}>
           <div className="modal modal-lg" onClick={e => e.stopPropagation()}>
@@ -472,7 +533,7 @@ export default function Stock({ readOnly = false }) {
         </div>
       )}
 
-      {/* Report Broken Modal */}
+      {/* ── Report Broken Modal ── */}
       {showAddBroken && (
         <div className="modal-overlay" onClick={() => setShowAddBroken(false)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
@@ -517,7 +578,7 @@ export default function Stock({ readOnly = false }) {
         </div>
       )}
 
-      {/* Adjust Stock Modal */}
+      {/* ── Adjust Stock Modal ── */}
       {adjustVariant && (
         <div className="modal-overlay" onClick={() => setAdjustVariant(null)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
@@ -542,7 +603,7 @@ export default function Stock({ readOnly = false }) {
         </div>
       )}
 
-      {/* Edit Broken Modal */}
+      {/* ── Edit Broken Modal ── */}
       {editBroken && (
         <div className="modal-overlay" onClick={() => setEditBroken(null)}>
           <div className="modal" onClick={e => e.stopPropagation()}>

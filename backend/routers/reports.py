@@ -260,8 +260,8 @@ def get_dashboard_stats(
         models.Order.tracking_id.isnot(None),
     ).all()
     in_delivery_amount = round(sum(o.total_amount or 0 for o in in_transit_orders), 2)
-    oliv_amount  = round(sum(o.total_amount or 0 for o in in_transit_orders if o.delivery_provider == "olivraison"), 2)
-    force_amount = round(sum(o.total_amount or 0 for o in in_transit_orders if o.delivery_provider == "forcelog"), 2)
+    oliv_amount  = 0
+    force_amount = 0
 
     # Daily orders — last 7 days (always, for the trend line)
     daily_orders = []
@@ -311,12 +311,7 @@ def get_attention(
         models.Order.tracking_id.is_(None),
     ).scalar() or 0
 
-    reported_due_today = db.query(func.count(models.Order.id)).filter(
-        models.Order.user_id == uid,
-        models.Order.status == "reported",
-        models.Order.reported_date >= today_start,
-        models.Order.reported_date <= today_end,
-    ).scalar() or 0
+    reported_due_today = 0
 
     low_stock_variants = db.query(models.Variant).join(
         models.Product, models.Variant.product_id == models.Product.id

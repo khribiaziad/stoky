@@ -22,19 +22,6 @@ class FixedExpenseCreate(BaseModel):
     start_date: Optional[str] = None
 
 
-class AdPlatformCreate(BaseModel):
-    name: str    # slug: facebook, tiktok, google, snapchat, etc.
-    label: str   # display name
-    color: str = "#1877f2"
-
-
-class AdCampaignCreate(BaseModel):
-    platform_id: int
-    daily_rate_usd: float
-    start_date: str
-    end_date: Optional[str] = None
-
-
 class WithdrawalCreate(BaseModel):
     amount: float
     description: Optional[str] = None
@@ -111,7 +98,7 @@ def delete_fixed_expense(expense_id: int, db: Session = Depends(get_db), user: m
     return {"success": True}
 
 
-# ── Ad Platforms ────────────────────────────────────────────
+# ── Ad Platforms (read-only, used by Expenses page) ─────────
 
 @router.get("/platforms")
 def list_platforms(db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
@@ -136,97 +123,14 @@ def list_platforms(db: Session = Depends(get_db), user: models.User = Depends(ge
     return result
 
 
-@router.post("/platforms")
-def create_platform(data: AdPlatformCreate, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
-    existing = db.query(models.AdPlatform).filter(
-        models.AdPlatform.user_id == user.id,
-        models.AdPlatform.name == data.name
-    ).first()
-    if existing:
-        raise HTTPException(status_code=400, detail="Platform already added")
-    platform = models.AdPlatform(user_id=user.id, name=data.name, label=data.label, color=data.color)
-    db.add(platform)
-    db.commit()
-    db.refresh(platform)
-    return {"id": platform.id}
-
-
-@router.delete("/platforms/{platform_id}")
-def delete_platform(platform_id: int, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
-    platform = db.query(models.AdPlatform).filter(
-        models.AdPlatform.id == platform_id, models.AdPlatform.user_id == user.id
-    ).first()
-    if not platform:
-        raise HTTPException(status_code=404, detail="Platform not found")
-    db.delete(platform)
-    db.commit()
-    return {"success": True}
-
-
-# ── Ad Campaigns (per platform) ──────────────────────────────
-
-@router.post("/campaigns")
-def create_campaign(data: AdCampaignCreate, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
-    platform = db.query(models.AdPlatform).filter(
-        models.AdPlatform.id == data.platform_id, models.AdPlatform.user_id == user.id
-    ).first()
-    if not platform:
-        raise HTTPException(status_code=404, detail="Platform not found")
-    # Auto-close previous open campaign for this platform
-    prev = db.query(models.FacebookAd).filter(
-        models.FacebookAd.platform_id == data.platform_id,
-        models.FacebookAd.end_date == None,
-    ).first()
-    if prev:
-        prev.end_date = datetime.fromisoformat(data.start_date)
-    campaign = models.FacebookAd(
-        user_id=user.id,
-        platform_id=data.platform_id,
-        platform=platform.name,
-        daily_rate_usd=data.daily_rate_usd,
-        start_date=datetime.fromisoformat(data.start_date),
-        end_date=datetime.fromisoformat(data.end_date) if data.end_date else None,
-    )
-    db.add(campaign)
-    db.commit()
-    db.refresh(campaign)
-    return {"id": campaign.id}
-
-
-@router.put("/campaigns/{campaign_id}")
-def update_campaign(campaign_id: int, data: AdCampaignCreate, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
-    campaign = db.query(models.FacebookAd).filter(
-        models.FacebookAd.id == campaign_id, models.FacebookAd.user_id == user.id
-    ).first()
-    if not campaign:
-        raise HTTPException(status_code=404, detail="Campaign not found")
-    campaign.daily_rate_usd = data.daily_rate_usd
-    campaign.start_date = datetime.fromisoformat(data.start_date)
-    campaign.end_date = datetime.fromisoformat(data.end_date) if data.end_date else None
-    db.commit()
-    return {"success": True}
-
-
-@router.delete("/campaigns/{campaign_id}")
-def delete_campaign(campaign_id: int, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
-    campaign = db.query(models.FacebookAd).filter(
-        models.FacebookAd.id == campaign_id, models.FacebookAd.user_id == user.id
-    ).first()
-    if not campaign:
-        raise HTTPException(status_code=404, detail="Campaign not found")
-    db.delete(campaign)
-    db.commit()
-    return {"success": True}
-
-
 @router.get("/cost-per-order")
 def cost_per_order(start: str, end: str, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
-    """Calculate total ad spend and cost per order for a date range, using order_date."""
+    """Calculate total ad spend and cost per order for a date range using real Meta spend."""
+    import httpx
     from auth import get_store_id
     start_dt = datetime.fromisoformat(start)
     end_dt = datetime.fromisoformat(end).replace(hour=23, minute=59, second=59)
 
-    # Count orders in range using order_date (not created_at — handles late uploads)
     order_count = db.query(models.Order).filter(
         models.Order.user_id == get_store_id(user),
         models.Order.order_date >= start_dt,
@@ -234,24 +138,39 @@ def cost_per_order(start: str, end: str, db: Session = Depends(get_db), user: mo
         models.Order.status != "cancelled",
     ).count()
 
-    # Sum ad spend across all platforms for overlapping campaign days
-    platforms = db.query(models.AdPlatform).filter(models.AdPlatform.user_id == user.id).all()
     total_usd = 0.0
     breakdown = []
-    for p in platforms:
-        platform_usd = 0.0
-        for c in p.campaigns:
-            c_start = c.start_date
-            c_end = c.end_date if c.end_date else datetime.now()
-            # Find overlap between campaign and query range
-            overlap_start = max(c_start, start_dt)
-            overlap_end = min(c_end, end_dt)
-            if overlap_end > overlap_start:
-                days = (overlap_end - overlap_start).days + 1
-                platform_usd += days * c.daily_rate_usd
-        total_usd += platform_usd
-        if platform_usd > 0:
-            breakdown.append({"platform": p.label, "color": p.color, "total_usd": round(platform_usd, 2)})
+
+    meta_token = db.query(models.AppSettings).filter(
+        models.AppSettings.key == "meta_access_token",
+        models.AppSettings.user_id == user.id,
+    ).first()
+    meta_account = db.query(models.AppSettings).filter(
+        models.AppSettings.key == "meta_ad_account_id",
+        models.AppSettings.user_id == user.id,
+    ).first()
+
+    meta_connected = bool(meta_token and meta_account)
+    if meta_connected:
+        try:
+            resp = httpx.get(
+                f"https://graph.facebook.com/v19.0/{meta_account.value}/insights",
+                params={
+                    "access_token": meta_token.value,
+                    "fields": "spend",
+                    "time_range": f'{{"since":"{start}","until":"{end}"}}',
+                    "level": "account",
+                },
+                timeout=15,
+            )
+            if resp.status_code == 200:
+                data = resp.json().get("data", [])
+                meta_spend = sum(float(d.get("spend", 0)) for d in data)
+                if meta_spend > 0:
+                    total_usd += meta_spend
+                    breakdown.append({"platform": "Meta Ads", "color": "#0866FF", "total_usd": round(meta_spend, 2)})
+        except Exception:
+            pass
 
     return {
         "start": start,
@@ -259,10 +178,11 @@ def cost_per_order(start: str, end: str, db: Session = Depends(get_db), user: mo
         "order_count": order_count,
         "total_usd": round(total_usd, 2),
         "breakdown": breakdown,
+        "meta_connected": meta_connected,
     }
 
 
-# ── Legacy facebook-ads endpoints (keep for backwards compat) ──
+# ── Legacy facebook-ads (used by Team.jsx reports) ──────────
 
 @router.get("/facebook-ads")
 def list_facebook_ads(db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
