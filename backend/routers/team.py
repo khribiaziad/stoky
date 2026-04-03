@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from database import get_db
 from auth import get_current_user, get_store_id, hash_password
 from core.permissions import require_admin
-from services.calculations import calculate_months_in_range
+from services.calculations import _months_in_range as calculate_months_in_range
 import models
 
 router = APIRouter(prefix="/team", tags=["team"])
