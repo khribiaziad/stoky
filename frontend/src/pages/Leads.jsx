@@ -305,7 +305,7 @@ export default function Leads() {
     setError('');
     try {
       const res = await getLeads();
-      setLeads(res.data);
+      setLeads(res.data.leads);
     } catch (e) {
       setError(errorMessage(e));
     } finally {
