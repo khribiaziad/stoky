@@ -1,13 +1,19 @@
 import os
 import shutil
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload
 from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from database import get_db
+
+MOROCCO_TZ = ZoneInfo("Africa/Casablanca")
 from auth import get_current_user, get_store_id
+from core.permissions import require_admin
 from services.pdf_parser import parse_pickup_pdf, parse_return_pdf
+from services import expense_service, order_service
 import models
 
 router = APIRouter(prefix="/orders", tags=["orders"])
@@ -149,6 +155,7 @@ def list_orders(
     date_to: Optional[str] = None,
     reported_from: Optional[str] = None,
     reported_to: Optional[str] = None,
+    search: Optional[str] = None,
     db: Session = Depends(get_db),
     user: models.User = Depends(get_current_user),
 ):
@@ -201,6 +208,15 @@ def list_orders(
             query = query.filter(models.Order.reported_date <= rt)
         except ValueError:
             pass
+
+    if search:
+        query = query.filter(
+            or_(
+                models.Order.customer_name.ilike(f"%{search}%"),
+                models.Order.customer_phone.ilike(f"%{search}%"),
+                models.Order.city.ilike(f"%{search}%"),
+            )
+        )
 
     total = query.count()
     orders = (
@@ -323,99 +339,177 @@ def bulk_create_orders(data: BulkOrderCreate, db: Session = Depends(get_db), use
     """Create multiple orders from parsed PDF data."""
     sid = get_store_id(user)
     created = []
+    failed = 0
+    errors = []
 
     for order_data in data.orders:
-        # Check if order already exists for this store
-        existing = db.query(models.Order).filter(
-            models.Order.caleo_id == order_data.caleo_id,
-            models.Order.user_id == sid,
-        ).first()
-        if existing:
-            continue
+        try:
+            # Fix #39: reject zero/negative totals
+            if order_data.total_amount <= 0:
+                raise HTTPException(status_code=400, detail="Order total must be greater than 0")
 
-        delivery_fee, return_fee, is_casa = get_city_fees(order_data.city or "", db)
-        packaging = order_data.expenses.packaging if order_data.expenses.packaging else (2 if is_casa else 3)
-
-        order_date = None
-        if order_data.order_date:
-            try:
-                order_date = datetime.fromisoformat(order_data.order_date)
-            except ValueError:
-                order_date = datetime.now()
-
-        order = models.Order(
-            user_id=sid,
-            uploaded_by=user.id,
-            caleo_id=order_data.caleo_id,
-            customer_name=order_data.customer_name,
-            customer_phone=order_data.customer_phone,
-            customer_address=order_data.customer_address,
-            city=order_data.city,
-            total_amount=order_data.total_amount,
-            status="pending",
-            order_date=order_date or datetime.now(),
-            pack_id=order_data.pack_id,
-            offer_id=order_data.offer_id,
-            promo_code_used=order_data.promo_code,
-            discount_amount=order_data.discount_amount or 0,
-        )
-        db.add(order)
-        db.flush()
-
-        # Add items and reduce stock
-        for item_data in order_data.items:
-            variant = db.query(models.Variant).filter(
-                models.Variant.id == item_data.variant_id
+            # Check if order already exists for this store
+            existing = db.query(models.Order).filter(
+                models.Order.caleo_id == order_data.caleo_id,
+                models.Order.user_id == sid,
             ).first()
-            if not variant:
-                db.rollback()
-                raise HTTPException(status_code=404, detail=f"Variant {item_data.variant_id} not found")
+            if existing:
+                continue
 
-            if variant.stock < item_data.quantity:
-                db.rollback()
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Insufficient stock for {variant.product.name} {variant.size or ''} {variant.color or ''}. "
-                           f"Available: {variant.stock}, requested: {item_data.quantity}"
-                )
-            variant.stock -= item_data.quantity
+            # Fix #146: mutual exclusion — pack and offer cannot coexist
+            if order_data.pack_id and order_data.offer_id:
+                raise HTTPException(status_code=400, detail="An order cannot have both a pack and an offer")
 
-            order_item = models.OrderItem(
-                order_id=order.id,
-                variant_id=variant.id,
-                product_name=variant.product.name,
-                size=variant.size,
-                color=variant.color,
-                quantity=item_data.quantity,
-                unit_cost=variant.buying_price,
-                unit_price=variant.selling_price,
+            # Fix #154: validate pack is active
+            if order_data.pack_id:
+                pack = db.query(models.Pack).filter(
+                    models.Pack.id == order_data.pack_id,
+                    models.Pack.is_active == True,
+                ).first()
+                if not pack:
+                    raise HTTPException(status_code=400, detail="Pack is not available")
+
+            # Fix #154 + #138: validate offer is active and within date range
+            if order_data.offer_id:
+                offer = db.query(models.Offer).filter(
+                    models.Offer.id == order_data.offer_id,
+                    models.Offer.is_active == True,
+                ).first()
+                if not offer:
+                    raise HTTPException(status_code=400, detail="Offer is not available")
+                now = datetime.now()
+                if offer.start_date and offer.start_date > now:
+                    raise HTTPException(status_code=400, detail="This offer has not started yet")
+                if offer.end_date and offer.end_date < now:
+                    raise HTTPException(status_code=400, detail="This offer has expired")
+
+            # Fix #137: promo code server-side validation
+            if order_data.promo_code:
+                promo = db.query(models.PromoCode).filter(
+                    models.PromoCode.code == order_data.promo_code,
+                    models.PromoCode.user_id == sid,
+                    models.PromoCode.is_active == True,
+                ).first()
+                if not promo:
+                    raise HTTPException(status_code=400, detail="Invalid or inactive promo code")
+                if promo.usage_limit and promo.used_count >= promo.usage_limit:
+                    raise HTTPException(status_code=400, detail="Promo code usage limit reached")
+                if promo.min_order_value and order_data.total_amount < promo.min_order_value:
+                    raise HTTPException(status_code=400, detail=f"Minimum order value is {promo.min_order_value} MAD")
+
+            # Warehouse routing: pick best warehouse based on stock + delivery cost
+            from services.warehouse_routing import pick_warehouse, deduct_warehouse_stock
+            item_dicts = [{"variant_id": i.variant_id, "quantity": i.quantity} for i in order_data.items]
+            best_wh, routed_delivery_fee = pick_warehouse(item_dicts, order_data.city or "", sid, db)
+
+            # City table only queried when routing did not return a delivery fee
+            if routed_delivery_fee is not None:
+                delivery_fee = routed_delivery_fee
+                _, return_fee, is_casa = get_city_fees(order_data.city or "", db)
+            else:
+                city_delivery_fee, return_fee, is_casa = get_city_fees(order_data.city or "", db)
+                delivery_fee = city_delivery_fee
+            packaging = order_data.expenses.packaging if order_data.expenses.packaging else (2 if is_casa else 3)
+
+            if order_data.order_date:
+                try:
+                    order_date = datetime.fromisoformat(str(order_data.order_date))
+                except (ValueError, TypeError):
+                    raise HTTPException(status_code=400, detail="Invalid order date format. Use ISO format: YYYY-MM-DD")
+            else:
+                order_date = datetime.now(MOROCCO_TZ).replace(tzinfo=None)
+
+            order = models.Order(
+                user_id=sid,
+                uploaded_by=user.id,
+                caleo_id=order_data.caleo_id,
+                customer_name=order_data.customer_name,
+                customer_phone=order_data.customer_phone,
+                customer_address=order_data.customer_address,
+                city=order_data.city,
+                total_amount=order_data.total_amount,
+                status="pending",
+                order_date=order_date or datetime.now(),
+                pack_id=order_data.pack_id,
+                offer_id=order_data.offer_id,
+                promo_code_used=order_data.promo_code,
+                discount_amount=order_data.discount_amount or 0,
+                warehouse_id=best_wh.id if best_wh else None,
             )
-            db.add(order_item)
+            db.add(order)
+            db.flush()
 
-        # Add expenses
-        expense = models.OrderExpense(
-            order_id=order.id,
-            sticker=order_data.expenses.sticker,
-            seal_bag=order_data.expenses.seal_bag,
-            packaging=packaging,
-            delivery_fee=delivery_fee,
-            return_fee=return_fee,
-        )
-        db.add(expense)
+            # Add items and reduce stock
+            for item_data in order_data.items:
+                variant = db.query(models.Variant).filter(
+                    models.Variant.id == item_data.variant_id
+                ).first()
+                if not variant:
+                    raise HTTPException(status_code=404, detail=f"Variant {item_data.variant_id} not found")
 
-        # Increment promo code usage
-        if order_data.promo_code:
-            promo = db.query(models.PromoCode).filter(
-                models.PromoCode.user_id == sid,
-                models.PromoCode.code == order_data.promo_code.upper().strip(),
-            ).first()
-            if promo:
-                promo.used_count = (promo.used_count or 0) + 1
+                if variant.stock < item_data.quantity:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Insufficient stock for {variant.product.name} {variant.size or ''} {variant.color or ''}. "
+                               f"Available: {variant.stock}, requested: {item_data.quantity}"
+                    )
+                variant.stock -= item_data.quantity
 
-        created.append(order.caleo_id)
+                # Also deduct from warehouse-specific stock
+                if best_wh:
+                    wh_stock = db.query(models.VariantStock).filter_by(
+                        variant_id=variant.id, warehouse_id=best_wh.id
+                    ).first()
+                    if wh_stock:
+                        wh_stock.quantity = max(0, wh_stock.quantity - item_data.quantity)
 
-    db.commit()
-    return {"success": True, "created": created, "count": len(created)}
+                order_item = models.OrderItem(
+                    order_id=order.id,
+                    variant_id=variant.id,
+                    product_name=variant.product.name,
+                    size=variant.size,
+                    color=variant.color,
+                    quantity=item_data.quantity,
+                    unit_cost=variant.buying_price,
+                    unit_price=variant.selling_price,
+                )
+                db.add(order_item)
+
+            # Add expenses
+            expense = models.OrderExpense(
+                order_id=order.id,
+                sticker=order_data.expenses.sticker,
+                seal_bag=order_data.expenses.seal_bag,
+                packaging=packaging,
+                delivery_fee=delivery_fee,
+                return_fee=return_fee,
+            )
+            db.add(expense)
+            db.flush()  # make expense relationship visible before safety-net check
+            expense_service.get_or_create_expense(db, order)  # Bug #189: every order must have an expense row
+
+            # Increment promo code usage
+            if order_data.promo_code:
+                promo = db.query(models.PromoCode).filter(
+                    models.PromoCode.user_id == sid,
+                    models.PromoCode.code == order_data.promo_code.upper().strip(),
+                ).first()
+                if promo:
+                    promo.used_count = (promo.used_count or 0) + 1
+
+            db.commit()
+            created.append(order.caleo_id)
+
+        except HTTPException as e:
+            db.rollback()
+            failed += 1
+            errors.append({"caleo_id": order_data.caleo_id, "error": e.detail})
+        except Exception as e:
+            db.rollback()
+            failed += 1
+            errors.append({"caleo_id": order_data.caleo_id, "error": str(e)})
+
+    return {"created": len(created), "failed": failed, "errors": errors}
 
 
 @router.post("/process-returns")
@@ -426,6 +520,9 @@ def process_returns(data: ProcessReturnsInput, db: Session = Depends(get_db), us
         order = db.query(models.Order).filter(models.Order.id == ret.order_id, models.Order.user_id == sid).first()
         if not order:
             raise HTTPException(status_code=404, detail=f"Order {ret.order_id} not found")
+
+        if order.status == "returned":
+            continue
 
         order.status = "cancelled"
 
@@ -467,9 +564,9 @@ def update_order_status(order_id: int, status: str, db: Session = Depends(get_db
     order = db.query(models.Order).filter(models.Order.id == order_id, models.Order.user_id == sid).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
-    if status not in ("pending", "delivered", "cancelled"):
-        raise HTTPException(status_code=400, detail="Invalid status")
-    order.status = status
+    if status == "delivered":
+        order.confirmed_by = user.id
+    order_service.change_order_status(db, order, status, changed_by=user.id)
     db.commit()
     return {"success": True}
 
@@ -480,6 +577,10 @@ def update_order(order_id: int, data: OrderUpdateInput, db: Session = Depends(ge
     order = db.query(models.Order).filter(models.Order.id == order_id, models.Order.user_id == sid).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
+    if order.tracking_id and order.delivery_provider:
+        raise HTTPException(status_code=400, detail="Cannot edit an order that has already been dispatched to a courier")
+    if order.status == "delivered":
+        raise HTTPException(status_code=400, detail="Cannot edit a delivered order. Create a return or exchange instead.")
 
     # Update basic fields
     if data.caleo_id is not None:
@@ -498,9 +599,15 @@ def update_order(order_id: int, data: OrderUpdateInput, db: Session = Depends(ge
     if data.city is not None:
         order.city = data.city
     if city_changed and order.expenses:
-        delivery_fee, return_fee, _ = get_city_fees(order.city or "", db)
-        order.expenses.delivery_fee = delivery_fee
-        order.expenses.return_fee = return_fee
+        # Re-run warehouse routing for new city
+        from services.warehouse_routing import pick_warehouse
+        item_dicts = [{"variant_id": i.variant_id, "quantity": i.quantity} for i in order.items]
+        best_wh, routed_fee = pick_warehouse(item_dicts, order.city or "", sid, db)
+        city_fee, return_fee, _ = get_city_fees(order.city or "", db)
+        order.expenses.delivery_fee = routed_fee if routed_fee is not None else city_fee
+        order.expenses.return_fee   = return_fee
+        if best_wh:
+            order.warehouse_id = best_wh.id
 
     # Update expenses (sticker, seal_bag, packaging)
     if data.expenses is not None and order.expenses:
@@ -555,8 +662,22 @@ def update_order(order_id: int, data: OrderUpdateInput, db: Session = Depends(ge
     return serialize_order(order)
 
 
+@router.patch("/{order_id}/reschedule")
+def reschedule_order(order_id: int, callback_time: datetime, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
+    order = db.query(models.Order).filter(
+        models.Order.id == order_id,
+        models.Order.user_id == get_store_id(user),
+        models.Order.status == "reported",
+    ).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Reported order not found")
+    order.callback_time = callback_time
+    db.commit()
+    return {"success": True}
+
+
 @router.delete("/{order_id}")
-def delete_order(order_id: int, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
+def delete_order(order_id: int, db: Session = Depends(get_db), user: models.User = Depends(require_admin)):
     sid = get_store_id(user)
     order = db.query(models.Order).filter(models.Order.id == order_id, models.Order.user_id == sid).first()
     if not order:
@@ -569,6 +690,6 @@ def delete_order(order_id: int, db: Session = Depends(get_db), user: models.User
             ).first()
             if variant:
                 variant.stock += item.quantity
-    db.delete(order)
+    order_service.soft_delete_order(db, order, deleted_by=user)
     db.commit()
     return {"success": True}

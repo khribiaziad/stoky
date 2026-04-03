@@ -20,7 +20,6 @@ export default function CampaignConnectSidebar({
 }) {
   const [itemType,     setItemType]     = useState(existingConn?.item_type || 'product');
   const [itemId,       setItemId]       = useState(existingConn?.item_id?.toString() || '');
-  const [deliveryCost, setDeliveryCost] = useState(String(existingConn?.delivery_cost ?? 25));
   const [stats,        setStats]        = useState(null);
   const [statsLoading, setStatsLoading] = useState(false);
   const [copied,       setCopied]       = useState(false);
@@ -69,7 +68,7 @@ export default function CampaignConnectSidebar({
       .finally(() => setStatsLoading(false));
   }, [itemType, itemId, dateFrom, dateTo]);
 
-  const delivery       = parseFloat(deliveryCost) || 0;
+  const delivery       = stats?.avg_delivery_cost ?? 0;
   const delivered      = stats?.delivered_orders || 0;
   const adCostPerOrder = delivered > 0 ? campaignSpend / delivered : 0;
   const realProfit     = prices
@@ -95,7 +94,6 @@ export default function CampaignConnectSidebar({
         campaign_name: campaign.name || '',
         item_type: itemType,
         item_id: parseInt(itemId),
-        delivery_cost: delivery,
       });
       onClose();
     } finally {
@@ -187,18 +185,12 @@ export default function CampaignConnectSidebar({
 
               <div style={{ borderTop: '1px solid #222733', margin: '6px 0' }} />
 
-              <div style={{ ...rowStyle, alignItems: 'center' }}>
+              <div style={rowStyle}>
                 <span style={labelStyle}>Delivery cost</span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ color: '#f87171', fontWeight: 600 }}>−</span>
-                  <input
-                    type="number" min="0" step="0.5" value={deliveryCost}
-                    onChange={e => setDeliveryCost(e.target.value)}
-                    placeholder="e.g. 25 MAD"
-                    style={{ width: 80, padding: '4px 8px', borderRadius: 6, border: '1px solid #2d3248', background: '#1d1d27', color: '#fff', fontSize: 13, textAlign: 'right' }}
-                  />
-                  <span style={{ fontSize: 11, color: '#8892b0' }}>MAD</span>
-                </div>
+                {delivery > 0
+                  ? <span style={{ ...valueStyle, color: '#f87171' }}>− {fmt(delivery)} MAD</span>
+                  : <span style={{ fontSize: 11, color: '#8892b0' }}>No data yet</span>
+                }
               </div>
 
               <div style={rowStyle}>

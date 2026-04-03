@@ -16,7 +16,6 @@ class ConnectionCreate(BaseModel):
     campaign_name: str = ""
     item_type: str                 # "product", "pack", "offer"
     item_id: int
-    delivery_cost: float = 25
 
 
 def _item_name(item_type: str, item_id: int, db: Session, store_id: int) -> str:
@@ -46,7 +45,6 @@ def _serialize(conn: models.CampaignConnection, db: Session, store_id: int) -> d
         "item_type": conn.item_type,
         "item_id": conn.item_id,
         "item_name": _item_name(conn.item_type, conn.item_id, db, store_id),
-        "delivery_cost": conn.delivery_cost,
     }
 
 
@@ -77,15 +75,39 @@ def _get_orders_for_item(item_type, item_id, store_id, from_dt, to_dt, db):
     return []
 
 
+def _avg(values):
+    return round(sum(values) / len(values), 2) if values else None
+
+
 def _order_stats(orders):
-    total     = len(orders)
-    delivered = len([o for o in orders if o.status == "delivered"])
-    returned  = len([o for o in orders if o.status == "cancelled"])
+    total            = len(orders)
+    delivered_orders = [o for o in orders if o.status == "delivered"]
+    returned_orders  = [o for o in orders if o.status == "cancelled"]
+    delivered        = len(delivered_orders)
+    returned         = len(returned_orders)
+
+    avg_delivery_cost  = _avg([o.expenses.delivery_fee for o in delivered_orders if o.expenses and o.expenses.delivery_fee])
+    avg_packaging_cost = _avg([o.expenses.packaging for o in delivered_orders if o.expenses and o.expenses.packaging])
+    avg_return_cost    = _avg([o.expenses.return_fee for o in returned_orders if o.expenses and o.expenses.return_fee])
+
+    # Weighted average buy price per order: sum(unit_cost × qty) / total_qty across delivered orders
+    buy_price_per_order = []
+    for o in delivered_orders:
+        total_qty  = sum(i.quantity for i in o.items)
+        total_cost = sum(i.unit_cost * i.quantity for i in o.items)
+        if total_qty > 0:
+            buy_price_per_order.append(total_cost / total_qty)
+    avg_buy_price = _avg(buy_price_per_order)
+
     return {
-        "total_orders":     total,
-        "delivered_orders": delivered,
-        "returned_orders":  returned,
-        "return_rate": round(returned / total * 100, 1) if total > 0 else 0,
+        "total_orders":      total,
+        "delivered_orders":  delivered,
+        "returned_orders":   returned,
+        "return_rate":       round(returned / total * 100, 1) if total > 0 else 0,
+        "avg_delivery_cost":  avg_delivery_cost,
+        "avg_packaging_cost": avg_packaging_cost,
+        "avg_return_cost":    avg_return_cost,
+        "avg_buy_price":      avg_buy_price,
     }
 
 
@@ -144,16 +166,42 @@ def upsert_connection(
     db: Session = Depends(get_db),
     user: models.User = Depends(get_current_user),
 ):
+    import logging
     store_id = get_store_id(user)
+
+    # Fix #224: validate item belongs to this store
+    item = None
+    if data.item_type == "product":
+        item = db.query(models.Product).filter(
+            models.Product.id == data.item_id,
+            models.Product.user_id == store_id,
+        ).first()
+    elif data.item_type == "pack":
+        item = db.query(models.Pack).filter(
+            models.Pack.id == data.item_id,
+            models.Pack.user_id == store_id,
+        ).first()
+    elif data.item_type == "offer":
+        item = db.query(models.Offer).filter(
+            models.Offer.id == data.item_id,
+            models.Offer.user_id == store_id,
+        ).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found in your store")
+
     existing = db.query(models.CampaignConnection).filter(
         models.CampaignConnection.meta_campaign_id == data.meta_campaign_id,
         models.CampaignConnection.platform == data.platform,
         models.CampaignConnection.user_id == store_id,
     ).first()
     if existing:
+        # Fix #159: log campaign attribution changes before overwriting
+        logging.info(
+            f"Campaign connection updated: store={store_id} campaign={data.meta_campaign_id} "
+            f"old_item={existing.item_type}:{existing.item_id} new_item={data.item_type}:{data.item_id}"
+        )
         existing.item_type     = data.item_type
         existing.item_id       = data.item_id
-        existing.delivery_cost = data.delivery_cost
         existing.campaign_name = data.campaign_name
         existing.platform      = data.platform
         db.commit()
@@ -166,7 +214,6 @@ def upsert_connection(
         campaign_name=data.campaign_name,
         item_type=data.item_type,
         item_id=data.item_id,
-        delivery_cost=data.delivery_cost,
     )
     db.add(conn)
     db.commit()

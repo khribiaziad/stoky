@@ -2,9 +2,12 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from database import get_db
 from auth import get_current_user
+from core.webhook_auth import secret_auth
 import models, httpx, time
 
 router = APIRouter(prefix="/olivraison", tags=["olivraison"])
+
+# Import Warehouse lazily to avoid circular imports — used in send endpoint
 
 OLIVRAISON_BASE = "https://partners.olivraison.com"
 
@@ -64,6 +67,12 @@ def send_to_olivraison(
     if order.tracking_id:
         raise HTTPException(400, "Order already sent to Olivraison")
 
+    # Use warehouse city as pickup city if available
+    if order.warehouse_id:
+        wh = db.query(models.Warehouse).filter_by(id=order.warehouse_id).first()
+        if wh and wh.city:
+            p_city = wh.city
+
     # Build description from order items
     if order.items:
         parts = []
@@ -116,55 +125,43 @@ def send_to_olivraison(
     order.tracking_id = tracking_id
     order.delivery_status = "Envoyé"
     order.delivery_provider = "olivraison"
+
+    # Fetch actual fees from Olivraison and write back to order expenses
+    if tracking_id:
+        try:
+            fee_r = httpx.get(
+                f"{OLIVRAISON_BASE}/package/{tracking_id}",
+                headers={"Authorization": f"Bearer {token}"},
+                timeout=10,
+            )
+            if fee_r.status_code == 200:
+                fee_data = fee_r.json()
+                if order.expenses:
+                    if fee_data.get("deliveryFees") is not None:
+                        order.expenses.delivery_fee = float(fee_data["deliveryFees"])
+                    if fee_data.get("returnedFees") is not None:
+                        order.expenses.return_fee = float(fee_data["returnedFees"])
+        except Exception:
+            pass  # fees will remain as estimated from routing
+
     db.commit()
+
+    # Trigger price sync to keep prices up to date
+    try:
+        from services.delivery_prices import sync_olivraison_prices
+        sync_olivraison_prices(sid, db, token, p_city)
+    except Exception:
+        pass
 
     return {"success": True, "tracking_id": tracking_id}
 
 
 @router.post("/webhook")
-async def olivraison_webhook(request: Request, db: Session = Depends(get_db)):
+async def olivraison_webhook(request: Request, db: Session = Depends(get_db), _: None = Depends(secret_auth("olivraison"))):
     """Public webhook — Olivraison calls this when delivery status changes."""
-    try:
-        payload = await request.json()
-    except Exception:
-        return {"ok": True}
-
-    tracking_id = (
-        payload.get("trackingID")
-        or payload.get("tracking_id")
-        or payload.get("id")
-    )
-    status_raw = str(payload.get("status") or payload.get("statut") or "").strip()
-
-    if not tracking_id:
-        return {"ok": True}
-
-    order = db.query(models.Order).filter(
-        models.Order.tracking_id == tracking_id
-    ).first()
-    if not order:
-        return {"ok": True}
-
-    # Always store the raw Olivraison status label
-    if status_raw:
-        order.delivery_status = status_raw
-
-    # Map to Stocky order status
-    from routers.forcelog import _map_status
-    mapped = _map_status(status_raw)
-    if mapped:
-        order.status = mapped
-
-    # Create in-app notification for meaningful events
-    if status_raw:
-        from routers.notifications import _create_notification
-        if mapped == "delivered":
-            _create_notification(db, order.user_id, order, f"Livré — {status_raw}", "delivered")
-        elif mapped == "cancelled":
-            _create_notification(db, order.user_id, order, f"Retour — {status_raw}", "returned")
-
-    db.commit()
-    return {"ok": True}
+    from integrations.couriers.olivraison.integration import OlivIntegration
+    payload = await request.json()
+    return OlivIntegration().process_webhook(db, payload)
 
 
 @router.post("/ramassage")
@@ -218,7 +215,7 @@ def sync_all_olivraison(
     user: models.User = Depends(get_current_user),
 ):
     """Refresh delivery status for all Olivraison orders that are still pending."""
-    from routers.forcelog import _map_status
+    from integrations.couriers.olivraison.integration import OlivIntegration
     sid = _get_store_id(user)
     api_key = _get_setting(db, "olivraison_api_key", sid)
     secret  = _get_setting(db, "olivraison_secret_key", sid)
@@ -246,7 +243,7 @@ def sync_all_olivraison(
                 status_raw = str(data.get("status") or data.get("statut") or "").strip()
                 if status_raw:
                     order.delivery_status = status_raw
-                    mapped = _map_status(status_raw)
+                    mapped = OlivIntegration().map_status(status_raw)
                     if mapped:
                         order.status = mapped
                     updated.append({"id": order.id, "caleo_id": order.caleo_id, "delivery_status": status_raw, "status": order.status})

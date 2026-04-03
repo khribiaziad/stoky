@@ -284,5 +284,13 @@ export const deleteCampaignConnection  = (id)                        => api.dele
 export const getCampaignItemStats      = (item_type, item_id, start, end) => api.get('/campaign-connections/item-stats', { params: { item_type, item_id, start, end } });
 export const getCampaignBulkStats      = (start, end)                => api.get('/campaign-connections/bulk-stats', { params: { start, end } });
 
+// Warehouses
+export const getWarehouses       = ()           => api.get('/warehouses');
+export const createWarehouse     = (data)       => api.post('/warehouses', data);
+export const updateWarehouse     = (id, data)   => api.put(`/warehouses/${id}`, data);
+export const deleteWarehouse     = (id)         => api.delete(`/warehouses/${id}`);
+export const syncWarehousePrices = ()           => api.post('/warehouses/sync-prices');
+export const getWarehouseStock   = (id)         => api.get(`/warehouses/${id}/stock`);
+
 // Utility
 export const errorMessage = (e) => e?.response?.data?.detail || e?.message || 'An error occurred';

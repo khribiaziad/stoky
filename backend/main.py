@@ -1,4 +1,6 @@
-from fastapi import FastAPI, Depends
+# Required environment variables:
+#   ANTHROPIC_API_KEY — Rex (AI layer) uses this to call Claude. Set in Render or .env.
+from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -8,7 +10,8 @@ from database import engine, get_db
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 import models
-from routers import products, stock, orders, team, expenses, reports, packs, auth as auth_router, cities as cities_router, platform as platform_router, leads as leads_router, suppliers as suppliers_router, olivraison as olivraison_router, youcan as youcan_router, woocommerce as woocommerce_router, shopify as shopify_router, meta_ads as meta_ads_router, tiktok_ads as tiktok_ads_router, snapchat_ads as snapchat_ads_router, pinterest_ads as pinterest_ads_router, google_ads as google_ads_router, offers as offers_router, promo_codes as promo_codes_router, bot as bot_router, campaign_connections as campaign_connections_router
+from routers import products, stock, orders, team, expenses, reports, packs, auth as auth_router, cities as cities_router, platform as platform_router, leads as leads_router, suppliers as suppliers_router, olivraison as olivraison_router, youcan as youcan_router, woocommerce as woocommerce_router, shopify as shopify_router, meta_ads as meta_ads_router, tiktok_ads as tiktok_ads_router, snapchat_ads as snapchat_ads_router, pinterest_ads as pinterest_ads_router, google_ads as google_ads_router, offers as offers_router, promo_codes as promo_codes_router, bot as bot_router, campaign_connections as campaign_connections_router, warehouses as warehouses_router, forcelog as forcelog_router
+from routers.rex import router as rex_router
 from auth import get_current_user
 from seed_cities import seed
 
@@ -27,7 +30,7 @@ with engine.connect() as conn:
         "ALTER TABLE subscriptions ADD COLUMN needs_renewal BOOLEAN DEFAULT false",
         "CREATE TABLE IF NOT EXISTS platform_expenses (id INTEGER PRIMARY KEY, name VARCHAR NOT NULL, category VARCHAR DEFAULT 'other', amount FLOAT NOT NULL, currency VARCHAR DEFAULT 'MAD', type VARCHAR DEFAULT 'monthly', date DATETIME NOT NULL, note TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)",
         "CREATE TABLE IF NOT EXISTS store_api_keys (id INTEGER PRIMARY KEY, store_id INTEGER NOT NULL UNIQUE REFERENCES users(id), key VARCHAR NOT NULL UNIQUE, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)",
-        "CREATE TABLE IF NOT EXISTS leads (id INTEGER PRIMARY KEY, store_id INTEGER NOT NULL REFERENCES users(id), customer_name VARCHAR NOT NULL, customer_phone VARCHAR NOT NULL, customer_email VARCHAR, customer_city VARCHAR, customer_address VARCHAR, raw_items JSON, matched_items JSON, total_amount FLOAT, notes TEXT, status VARCHAR DEFAULT 'pending', order_id INTEGER REFERENCES orders(id), message_count INTEGER DEFAULT 0, last_message_at DATETIME, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)",
+        "CREATE TABLE IF NOT EXISTS leads (id INTEGER PRIMARY KEY, store_id INTEGER NOT NULL REFERENCES users(id), customer_name VARCHAR NOT NULL, customer_phone VARCHAR NOT NULL, customer_email VARCHAR, customer_city VARCHAR, customer_address VARCHAR, raw_items JSON, matched_items JSON, total_amount FLOAT, notes TEXT, status VARCHAR DEFAULT 'pending', order_id INTEGER REFERENCES orders(id), last_message_at DATETIME, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)",
         "ALTER TABLE broken_stock ADD COLUMN user_id INTEGER REFERENCES users(id)",
         "ALTER TABLE products ADD COLUMN supplier VARCHAR",
         "ALTER TABLE products ADD COLUMN image_url VARCHAR",
@@ -51,7 +54,6 @@ with engine.connect() as conn:
         "ALTER TABLE orders ADD COLUMN discount_amount FLOAT DEFAULT 0",
         "ALTER TABLE orders ADD COLUMN reported_date DATETIME",
         "ALTER TABLE leads ADD COLUMN reported_date DATETIME",
-        "ALTER TABLE leads ADD COLUMN message_count INTEGER DEFAULT 0",
         "ALTER TABLE leads ADD COLUMN last_message_at DATETIME",
         "ALTER TABLE order_expenses ADD COLUMN seal_bag_returned BOOLEAN DEFAULT false",
         "ALTER TABLE order_expenses ADD COLUMN product_broken BOOLEAN DEFAULT false",
@@ -63,6 +65,32 @@ with engine.connect() as conn:
         "ALTER TABLE packs ADD COLUMN item_count INTEGER DEFAULT 1",
         "ALTER TABLE products ADD COLUMN short_name VARCHAR",
         # campaign_connections is managed by SQLAlchemy create_all — no raw SQL needed
+        "ALTER TABLE orders ADD COLUMN delivery_provider VARCHAR",
+        "ALTER TABLE orders ADD COLUMN warehouse_id INTEGER REFERENCES warehouses(id)",
+        "ALTER TABLE orders ADD COLUMN uploaded_by INTEGER REFERENCES users(id)",
+        "CREATE TABLE IF NOT EXISTS warehouses (id INTEGER PRIMARY KEY AUTOINCREMENT, store_id INTEGER NOT NULL REFERENCES users(id), name VARCHAR NOT NULL, city VARCHAR NOT NULL, is_default BOOLEAN DEFAULT 0, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)",
+        "CREATE TABLE IF NOT EXISTS variant_stock (id INTEGER PRIMARY KEY AUTOINCREMENT, variant_id INTEGER NOT NULL REFERENCES variants(id), warehouse_id INTEGER NOT NULL REFERENCES warehouses(id), quantity INTEGER NOT NULL DEFAULT 0, UNIQUE(variant_id, warehouse_id))",
+        "CREATE TABLE IF NOT EXISTS delivery_company_prices (id INTEGER PRIMARY KEY AUTOINCREMENT, store_id INTEGER NOT NULL REFERENCES users(id), company VARCHAR NOT NULL, from_city VARCHAR NOT NULL, to_city VARCHAR NOT NULL, national_fee FLOAT NOT NULL, local_fee FLOAT, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP, UNIQUE(store_id, company, from_city, to_city))",
+        "ALTER TABLE stock_arrivals ADD COLUMN warehouse_id INTEGER REFERENCES warehouses(id)",
+        "ALTER TABLE orders ADD COLUMN is_deleted BOOLEAN NOT NULL DEFAULT 0",
+        "ALTER TABLE orders ADD COLUMN deleted_at DATETIME",
+        "CREATE UNIQUE INDEX IF NOT EXISTS ix_orders_caleo_id ON orders (caleo_id) WHERE caleo_id IS NOT NULL",
+        "ALTER TABLE orders ADD COLUMN lead_id INTEGER REFERENCES leads(id)",
+        "ALTER TABLE leads ADD COLUMN source VARCHAR DEFAULT 'website'",
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_product_name_per_store ON products (user_id, name)",
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_supplier_name_per_store ON suppliers (user_id, name)",
+        "ALTER TABLE suppliers ADD COLUMN is_active BOOLEAN NOT NULL DEFAULT 1",
+        "ALTER TABLE stock_arrivals ADD COLUMN idempotency_key VARCHAR",
+        "CREATE INDEX IF NOT EXISTS ix_stock_arrivals_idempotency_key ON stock_arrivals (idempotency_key)",
+        "ALTER TABLE team_members ADD COLUMN is_suspended BOOLEAN NOT NULL DEFAULT 0",
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_appsettings_user_key ON app_settings (user_id, key)",
+        "ALTER TABLE store_api_keys ADD COLUMN previous_key VARCHAR",
+        "ALTER TABLE store_api_keys ADD COLUMN previous_key_expires_at DATETIME",
+        "CREATE TABLE IF NOT EXISTS team_member_rate_history (id INTEGER PRIMARY KEY AUTOINCREMENT, team_member_id INTEGER REFERENCES team_members(id), fixed_monthly FLOAT, per_order_rate FLOAT, effective_from DATETIME NOT NULL, effective_to DATETIME, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)",
+        "CREATE TABLE IF NOT EXISTS bot_api_keys (id INTEGER PRIMARY KEY AUTOINCREMENT, store_id INTEGER NOT NULL UNIQUE REFERENCES users(id), key VARCHAR NOT NULL UNIQUE, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)",
+        "CREATE TABLE IF NOT EXISTS product_price_history (id INTEGER PRIMARY KEY AUTOINCREMENT, variant_id INTEGER REFERENCES variants(id), old_selling_price FLOAT, new_selling_price FLOAT, old_buying_price FLOAT, new_buying_price FLOAT, changed_at DATETIME DEFAULT CURRENT_TIMESTAMP, changed_by INTEGER REFERENCES users(id))",
+        "ALTER TABLE orders ADD COLUMN callback_time DATETIME",
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_promocode_per_store ON promo_codes (user_id, code)",
     ]:
         try:
             conn.execute(text(stmt))
@@ -99,6 +127,7 @@ app = FastAPI(title="Stocky API", version="1.0.0")
 try:
     from apscheduler.schedulers.background import BackgroundScheduler
     from routers.leads import run_follow_up_job
+    from datetime import datetime as _dt, timedelta as _td
 
     _scheduler = BackgroundScheduler()
 
@@ -109,7 +138,22 @@ try:
         finally:
             db.close()
 
+    def _cleanup_old_leads():
+        from database import SessionLocal
+        db = SessionLocal()
+        try:
+            cutoff = _dt.now() - _td(days=30)
+            db.query(models.Lead).filter(
+                models.Lead.status == "pending",
+                models.Lead.created_at < cutoff,
+                models.Lead.order_id.is_(None),
+            ).delete()
+            db.commit()
+        finally:
+            db.close()
+
     _scheduler.add_job(_follow_up_task, "interval", minutes=30)
+    _scheduler.add_job(_cleanup_old_leads, "interval", hours=24)
     _scheduler.start()
 except ImportError:
     pass  # apscheduler not installed yet
@@ -149,6 +193,9 @@ app.include_router(offers_router.router, prefix="/api")
 app.include_router(promo_codes_router.router, prefix="/api")
 app.include_router(bot_router.router, prefix="/api")
 app.include_router(campaign_connections_router.router, prefix="/api")
+app.include_router(warehouses_router.router, prefix="/api")
+app.include_router(forcelog_router.router, prefix="/api")
+app.include_router(rex_router)  # Rex sets its own /api/rex prefix
 
 
 @app.get("/api/health")
@@ -178,6 +225,8 @@ def get_setting(key: str, db: Session = Depends(get_db), user: models.User = Dep
 
 @app.post("/api/settings/{key}")
 def set_setting(key: str, value: str, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
+    if key == 'store_logo' and len(value) > 500_000:
+        raise HTTPException(status_code=400, detail="Logo too large. Please use an image under 375KB.")
     setting = db.query(models.AppSettings).filter(models.AppSettings.key == key, models.AppSettings.user_id == user.id).first()
     if setting:
         setting.value = value

@@ -631,7 +631,7 @@ export default function Expenses() {
               const adCost    = delivered > 0 ? spend / delivered : 0;
               const prices    = getItemPrices(conn.item_type, conn.item_id);
               const profit    = prices
-                ? prices.selling_price - prices.buy_price - prices.packaging_cost - conn.delivery_cost - adCost
+                ? prices.selling_price - prices.buy_price - prices.packaging_cost - (stats?.avg_delivery_cost ?? 0) - adCost
                 : null;
               const totalProfit = profit !== null ? profit * delivered : null;
               return { conn, campaign, platform, spend, delivered, stats, profit, totalProfit };

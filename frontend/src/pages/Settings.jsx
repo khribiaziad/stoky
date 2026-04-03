@@ -2,9 +2,9 @@ import { useState, useEffect, useRef } from 'react';
 import {
   Sun, Moon, Globe, Lock, User, Store, ShieldCheck,
   Upload, Package, DollarSign, Truck, AlertTriangle, Edit2, Check,
-  MapPin, Plus, Trash2, Search, X, Link, RotateCcw, Copy, Zap, MessageCircle,
+  MapPin, Plus, Trash2, Search, X, Link, RotateCcw, Copy, Zap, MessageCircle, Warehouse,
 } from 'lucide-react';
-import { changePassword, updateStoreName, updateProfile, getSetting, setSetting, getCityList, createCity, updateCity, deleteCity, uploadCityPDF, getCityPdfJob, getApiKey, rotateApiKey, errorMessage, getBotStatus, getBotQR, connectBot, disconnectBot } from '../api';
+import { changePassword, updateStoreName, updateProfile, getSetting, setSetting, getCityList, createCity, updateCity, deleteCity, uploadCityPDF, getCityPdfJob, getApiKey, rotateApiKey, errorMessage, getBotStatus, getBotQR, connectBot, disconnectBot, getWarehouses, createWarehouse, updateWarehouse, deleteWarehouse, syncWarehousePrices } from '../api';
 
 const LANGUAGES = [
   { code: 'en', label: 'English',  flag: '🇬🇧' },
@@ -311,6 +311,7 @@ export default function Settings({ user, theme, setTheme, lang, setLang, accent,
   // ── Store settings (loaded from AppSettings) ──
   const [defaults, setDefaults] = useState({
     usd_rate: '10',
+    base_capital: '0',
     default_packaging: '1',
     default_sticker: '0',
     default_seal_bag: '0',
@@ -340,6 +341,17 @@ export default function Settings({ user, theme, setTheme, lang, setLang, accent,
   const [forcelogSaving, setForcelogSaving] = useState(false);
   const [forcelogSaved,  setForcelogSaved]  = useState(false);
 
+  // ── Warehouses ──
+  const [warehouses,      setWarehouses]      = useState([]);
+  const [whLoading,       setWhLoading]       = useState(false);
+  const [whError,         setWhError]         = useState('');
+  const [newWh,           setNewWh]           = useState({ name: '', city: '' });
+  const [addingWh,        setAddingWh]        = useState(false);
+  const [editingWhId,     setEditingWhId]     = useState(null);
+  const [editingWhForm,   setEditingWhForm]   = useState({ name: '', city: '' });
+  const [syncingPrices,   setSyncingPrices]   = useState(false);
+  const [syncPricesDone,  setSyncPricesDone]  = useState(false);
+
   useEffect(() => {
     if (!isAdmin) return;
     getApiKey().then(r => setApiKey(r.data.key)).catch(() => {});
@@ -368,6 +380,8 @@ export default function Settings({ user, theme, setTheme, lang, setLang, accent,
       setForcelogPickupCity(ct.data?.value || '');
       setForcelogPickupAddress(addr.data?.value || '');
     });
+    // Load Warehouses
+    getWarehouses().then(r => setWarehouses(r.data)).catch(() => {});
   }, [isAdmin]);
 
   const handleSaveOlivraison = async () => {
@@ -1092,6 +1106,22 @@ export default function Settings({ user, theme, setTheme, lang, setLang, accent,
               {savingKey === 'usd_rate' && <span style={{ fontSize: 12, color: 'var(--accent)' }}>Saved ✓</span>}
             </div>
             <p style={{ fontSize: 12, color: 'var(--t2)' }}>Used across the Ads page for cost calculations. You can also set it to auto-fetch from the Ads page.</p>
+
+            <div style={{ marginTop: 18 }}>
+              <label className="form-label">Starting Capital (MAD)</label>
+              <p style={{ fontSize: 12, color: 'var(--t2)', marginBottom: 8 }}>The initial cash you invested in the business. Used to calculate your real cash balance.</p>
+              <input
+                className="form-input"
+                type="number"
+                min="0"
+                style={{ width: 160 }}
+                value={defaults.base_capital}
+                onChange={e => setDefaults(d => ({ ...d, base_capital: e.target.value }))}
+                onBlur={e => saveDefault('base_capital', e.target.value)}
+                placeholder="0"
+              />
+              {savingKey === 'base_capital' && <span style={{ fontSize: 12, color: 'var(--accent)', marginLeft: 10 }}>Saved ✓</span>}
+            </div>
           </div>
 
           {/* Order Defaults */}
@@ -1326,6 +1356,135 @@ export default function Settings({ user, theme, setTheme, lang, setLang, accent,
             </div>
             <div style={{ marginTop: 8, fontSize: 12, color: 'var(--t3)' }}>
               {filteredCities.length} of {cities.length} cities
+            </div>
+          </div>
+
+          {/* ── Warehouses ── */}
+          <div className="card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+              <SectionHeader Icon={Warehouse} title="Warehouses" />
+              <button
+                className="btn btn-secondary"
+                style={{ fontSize: 12, padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 6 }}
+                disabled={syncingPrices}
+                onClick={async () => {
+                  setSyncingPrices(true);
+                  setSyncPricesDone(false);
+                  try { await syncWarehousePrices(); setSyncPricesDone(true); setTimeout(() => setSyncPricesDone(false), 3000); } catch {}
+                  setSyncingPrices(false);
+                }}
+              >
+                <RotateCcw size={13} />
+                {syncingPrices ? 'Syncing…' : syncPricesDone ? 'Synced!' : 'Sync Prices'}
+              </button>
+            </div>
+            <p style={{ fontSize: 13, color: 'var(--t2)', marginBottom: 18 }}>
+              Define your warehouses. Stocky will automatically route orders to the warehouse with available stock and the lowest delivery cost.
+            </p>
+
+            {whError && <div style={{ color: '#f87171', fontSize: 12, marginBottom: 12 }}>{whError}</div>}
+
+            {/* Warehouse list */}
+            {warehouses.length > 0 && (
+              <div style={{ marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {warehouses.map(wh => (
+                  <div key={wh.id} style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    background: 'var(--card-2)', borderRadius: 'var(--r-sm)',
+                    border: `1px solid ${wh.is_default ? 'var(--accent)' : 'var(--border)'}`,
+                    padding: '10px 14px',
+                  }}>
+                    {editingWhId === wh.id ? (
+                      <>
+                        <input
+                          className="form-input" placeholder="Name"
+                          value={editingWhForm.name}
+                          onChange={e => setEditingWhForm(f => ({ ...f, name: e.target.value }))}
+                          style={{ flex: 2 }}
+                        />
+                        <input
+                          className="form-input" placeholder="City"
+                          value={editingWhForm.city}
+                          onChange={e => setEditingWhForm(f => ({ ...f, city: e.target.value }))}
+                          style={{ flex: 2 }}
+                        />
+                        <button className="btn btn-primary" style={{ fontSize: 12, padding: '6px 12px' }}
+                          onClick={async () => {
+                            try {
+                              const r = await updateWarehouse(wh.id, editingWhForm);
+                              setWarehouses(ws => ws.map(w => w.id === wh.id ? r.data : w));
+                              setEditingWhId(null);
+                            } catch (e) { setWhError('Failed to update warehouse.'); }
+                          }}>
+                          Save
+                        </button>
+                        <button className="btn btn-secondary" style={{ fontSize: 12, padding: '6px 12px' }}
+                          onClick={() => setEditingWhId(null)}>Cancel</button>
+                      </>
+                    ) : (
+                      <>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontWeight: 600, fontSize: 13 }}>
+                            {wh.name}
+                            {wh.is_default && <span style={{ marginLeft: 8, fontSize: 10, background: 'var(--accent-faint)', color: 'var(--accent)', padding: '1px 7px', borderRadius: 20, fontWeight: 700 }}>Default</span>}
+                          </div>
+                          <div style={{ fontSize: 12, color: 'var(--t2)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <MapPin size={11} /> {wh.city}
+                          </div>
+                        </div>
+                        <button className="btn btn-secondary" style={{ fontSize: 12, padding: '5px 10px' }}
+                          onClick={() => { setEditingWhId(wh.id); setEditingWhForm({ name: wh.name, city: wh.city }); }}>
+                          <Edit2 size={12} />
+                        </button>
+                        <button className="btn btn-secondary" style={{ fontSize: 12, padding: '5px 10px', color: '#f87171' }}
+                          onClick={async () => {
+                            if (!window.confirm(`Delete warehouse "${wh.name}"?`)) return;
+                            try {
+                              await deleteWarehouse(wh.id);
+                              setWarehouses(ws => ws.filter(w => w.id !== wh.id));
+                            } catch (e) { setWhError(e?.response?.data?.detail || 'Cannot delete this warehouse.'); }
+                          }}>
+                          <Trash2 size={12} />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Add warehouse form */}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                className="form-input" placeholder="Warehouse name (e.g. Casa Main)"
+                value={newWh.name}
+                onChange={e => setNewWh(f => ({ ...f, name: e.target.value }))}
+                style={{ flex: 2 }}
+              />
+              <input
+                className="form-input" placeholder="City (e.g. Casablanca)"
+                value={newWh.city}
+                onChange={e => setNewWh(f => ({ ...f, city: e.target.value }))}
+                style={{ flex: 2 }}
+              />
+              <button
+                className="btn btn-primary"
+                style={{ fontSize: 12, padding: '6px 14px', display: 'flex', alignItems: 'center', gap: 6 }}
+                disabled={addingWh || !newWh.name.trim() || !newWh.city.trim()}
+                onClick={async () => {
+                  setAddingWh(true);
+                  setWhError('');
+                  try {
+                    const r = await createWarehouse({ name: newWh.name.trim(), city: newWh.city.trim() });
+                    setWarehouses(ws => [...ws, r.data]);
+                    setNewWh({ name: '', city: '' });
+                  } catch (e) { setWhError(e?.response?.data?.detail || 'Failed to add warehouse.'); }
+                  setAddingWh(false);
+                }}
+              >
+                <Plus size={13} />
+                {addingWh ? 'Adding…' : 'Add'}
+              </button>
             </div>
           </div>
         </>}

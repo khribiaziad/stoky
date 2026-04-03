@@ -5,6 +5,7 @@ from typing import Optional, List
 from datetime import datetime
 from database import get_db
 from auth import get_current_user, get_store_id
+from core.permissions import require_admin
 import models
 
 router = APIRouter(prefix="/stock", tags=["stock"])
@@ -20,6 +21,8 @@ class BulkStockArrivalCreate(BaseModel):
     additional_fees: float = 0
     description: Optional[str] = None
     date: Optional[str] = None
+    warehouse_id: Optional[int] = None
+    idempotency_key: Optional[str] = None
 
 
 class BrokenStockCreate(BaseModel):
@@ -56,6 +59,13 @@ def list_arrivals(db: Session = Depends(get_db), user: models.User = Depends(get
 def add_bulk_stock(data: BulkStockArrivalCreate, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
     if user.role == "confirmer":
         raise HTTPException(status_code=403, detail="Confirmers cannot add stock")
+    if data.idempotency_key:
+        existing = db.query(models.StockArrival).filter(
+            models.StockArrival.idempotency_key == data.idempotency_key,
+            models.StockArrival.user_id == user.id,
+        ).first()
+        if existing:
+            return {"success": True, "total_cost": 0, "items_count": 0, "duplicate": True}
     if not data.items:
         raise HTTPException(status_code=400, detail="At least one item is required")
 
@@ -87,9 +97,20 @@ def add_bulk_stock(data: BulkStockArrivalCreate, db: Session = Depends(get_db), 
             description=data.description,
             total_cost=item_cost + (data.additional_fees if i == 0 else 0),
             date=arrival_date,
+            warehouse_id=data.warehouse_id,
+            idempotency_key=data.idempotency_key if i == 0 else None,
         )
         db.add(arrival)
         variant.stock += quantity
+        # Also update per-warehouse stock if warehouse_id provided
+        if data.warehouse_id:
+            wh_stock = db.query(models.VariantStock).filter_by(
+                variant_id=variant.id, warehouse_id=data.warehouse_id
+            ).first()
+            if wh_stock:
+                wh_stock.quantity += quantity
+            else:
+                db.add(models.VariantStock(variant_id=variant.id, warehouse_id=data.warehouse_id, quantity=quantity))
 
     items_summary = ", ".join(
         f"{v.product.name} {v.size or ''} {v.color or ''} x{q}".strip()
@@ -120,6 +141,13 @@ def delete_arrival(arrival_id: int, db: Session = Depends(get_db), user: models.
     variant = db.query(models.Variant).filter(models.Variant.id == arrival.variant_id).first()
     if variant:
         variant.stock = max(0, variant.stock - arrival.quantity)
+    # Also reverse per-warehouse stock if this arrival was tied to a warehouse
+    if getattr(arrival, 'warehouse_id', None):
+        wh_stock = db.query(models.VariantStock).filter_by(
+            variant_id=arrival.variant_id, warehouse_id=arrival.warehouse_id
+        ).first()
+        if wh_stock:
+            wh_stock.quantity = max(0, wh_stock.quantity - arrival.quantity)
     # Remove matching stock_purchase withdrawal
     withdrawal = db.query(models.Withdrawal).filter(
         models.Withdrawal.user_id == get_store_id(user),
@@ -139,7 +167,7 @@ class StockAdjustInput(BaseModel):
 
 
 @router.put("/variants/{variant_id}/stock")
-def adjust_stock(variant_id: int, data: StockAdjustInput, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
+def adjust_stock(variant_id: int, data: StockAdjustInput, db: Session = Depends(get_db), user: models.User = Depends(require_admin)):
     variant = db.query(models.Variant).filter(
         models.Variant.id == variant_id,
         models.Variant.product_id.in_(

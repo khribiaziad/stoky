@@ -100,7 +100,7 @@ def update_promo_code(promo_id: int, data: PromoCodeCreate, db: Session = Depend
 @router.patch("/{promo_id}/toggle")
 def toggle_promo_code(promo_id: int, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
     promo = db.query(models.PromoCode).filter(
-        models.PromoCode.id == promo_id, models.PromoCode.user_id == user.id
+        models.PromoCode.id == promo_id, models.PromoCode.user_id == get_store_id(user)
     ).first()
     if not promo:
         raise HTTPException(status_code=404, detail="Promo code not found")

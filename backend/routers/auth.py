@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from database import get_db
 from auth import hash_password, verify_password, create_token, get_current_user
+from core.rate_limiter import rate_limit
 import models
 import os, httpx, secrets, string
 from datetime import datetime, timedelta
@@ -96,7 +97,12 @@ def register(data: RegisterInput, db: Session = Depends(get_db)):
 
 
 @router.post("/login")
-def login(data: LoginInput, db: Session = Depends(get_db)):
+def login(
+    request: Request,
+    data: LoginInput,
+    db: Session = Depends(get_db),
+    _: None = Depends(rate_limit(max_attempts=5, window_seconds=60)),
+):
     user = db.query(models.User).filter(models.User.username == data.username.lower().strip()).first()
     if not user or not verify_password(data.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid username or password")

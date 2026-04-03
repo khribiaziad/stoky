@@ -182,11 +182,16 @@ def seed():
         existing = db.query(models.City).filter(models.City.name == city_data["name"]).first()
         if existing:
             existing.delivery_fee = city_data["delivery_fee"]
-            existing.return_fee = city_data["return_fee"]
-            existing.is_casa = city_data["is_casa"]
+            existing.return_fee   = city_data["return_fee"]
+            existing.is_casa      = city_data["is_casa"]
             updated += 1
         else:
-            db.add(models.City(**city_data))
+            db.add(models.City(
+                name=city_data["name"],
+                delivery_fee=city_data["delivery_fee"],
+                return_fee=city_data["return_fee"],
+                is_casa=city_data["is_casa"],
+            ))
             added += 1
     db.commit()
     print(f"Cities: {added} added, {updated} updated.")

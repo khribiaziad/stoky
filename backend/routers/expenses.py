@@ -5,6 +5,7 @@ from typing import Optional
 from datetime import datetime, date
 from database import get_db
 from auth import get_current_user
+from core.permissions import require_admin
 import models
 
 router = APIRouter(prefix="/expenses", tags=["expenses"])
@@ -46,7 +47,7 @@ def list_fixed_expenses(db: Session = Depends(get_db), user: models.User = Depen
 
 
 @router.post("/fixed")
-def create_fixed_expense(data: FixedExpenseCreate, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
+def create_fixed_expense(data: FixedExpenseCreate, db: Session = Depends(get_db), user: models.User = Depends(require_admin)):
     if data.type not in VALID_TYPES:
         raise HTTPException(status_code=400, detail=f"type must be one of: {', '.join(VALID_TYPES)}")
     expense = models.FixedExpense(
@@ -62,7 +63,7 @@ def create_fixed_expense(data: FixedExpenseCreate, db: Session = Depends(get_db)
 
 
 @router.put("/fixed/{expense_id}")
-def update_fixed_expense(expense_id: int, data: FixedExpenseCreate, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
+def update_fixed_expense(expense_id: int, data: FixedExpenseCreate, db: Session = Depends(get_db), user: models.User = Depends(require_admin)):
     expense = db.query(models.FixedExpense).filter(models.FixedExpense.id == expense_id, models.FixedExpense.user_id == user.id).first()
     if not expense:
         raise HTTPException(status_code=404, detail="Expense not found")
@@ -89,7 +90,7 @@ def toggle_fixed_expense(expense_id: int, db: Session = Depends(get_db), user: m
 
 
 @router.delete("/fixed/{expense_id}")
-def delete_fixed_expense(expense_id: int, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
+def delete_fixed_expense(expense_id: int, db: Session = Depends(get_db), user: models.User = Depends(require_admin)):
     expense = db.query(models.FixedExpense).filter(models.FixedExpense.id == expense_id, models.FixedExpense.user_id == user.id).first()
     if not expense:
         raise HTTPException(status_code=404, detail="Expense not found")
@@ -207,7 +208,7 @@ def list_withdrawals(db: Session = Depends(get_db), user: models.User = Depends(
 
 
 @router.post("/withdrawals")
-def create_withdrawal(data: WithdrawalCreate, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
+def create_withdrawal(data: WithdrawalCreate, db: Session = Depends(get_db), user: models.User = Depends(require_admin)):
     withdrawal = models.Withdrawal(
         user_id=user.id,
         amount=data.amount, description=data.description, type="manual",
@@ -220,7 +221,7 @@ def create_withdrawal(data: WithdrawalCreate, db: Session = Depends(get_db), use
 
 
 @router.delete("/withdrawals/{withdrawal_id}")
-def delete_withdrawal(withdrawal_id: int, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
+def delete_withdrawal(withdrawal_id: int, db: Session = Depends(get_db), user: models.User = Depends(require_admin)):
     withdrawal = db.query(models.Withdrawal).filter(models.Withdrawal.id == withdrawal_id, models.Withdrawal.user_id == user.id).first()
     if not withdrawal:
         raise HTTPException(status_code=404, detail="Withdrawal not found")

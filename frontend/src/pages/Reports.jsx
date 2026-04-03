@@ -21,6 +21,8 @@ export default function Reports() {
   const [loading, setLoading] = useState(true);
   const [compare, setCompare] = useState(false);
   const [prevSummary, setPrevSummary] = useState(null);
+  const [prevTopProducts, setPrevTopProducts] = useState([]);
+  const [prevTopCities, setPrevTopCities] = useState([]);
 
   const getPrevPeriodParams = () => {
     const today = new Date();
@@ -80,13 +82,20 @@ export default function Reports() {
   useEffect(() => {
     if (!compare || period === 'custom' || !period) {
       setPrevSummary(null);
+      setPrevTopProducts([]);
+      setPrevTopCities([]);
       return;
     }
     const pp = getPrevPeriodParams();
-    if (!pp) { setPrevSummary(null); return; }
-    getReportSummary({ start: pp.start, end: pp.end })
+    if (!pp) { setPrevSummary(null); setPrevTopProducts([]); setPrevTopCities([]); return; }
+    const prevParams = { period: 'custom', start: pp.start, end: pp.end };
+    getReportSummary(prevParams)
       .then(r => setPrevSummary(r.data))
       .catch(() => setPrevSummary(null));
+    if (compare && pp) {
+      getTopProducts(prevParams).then(r => setPrevTopProducts(r.data));
+      getTopCities(prevParams).then(r => setPrevTopCities(r.data));
+    }
   }, [compare, period]);
 
   const f = summary?.financials || {};
@@ -95,6 +104,14 @@ export default function Reports() {
 
   return (
     <div>
+      <style>{`
+        @media print {
+          nav, aside, .sidebar, header, .topbar,
+          .no-print, button { display: none !important; }
+          body, * { background: white !important; color: black !important; }
+          .card, .section-card { border: 1px solid #ccc !important; box-shadow: none !important; }
+        }
+      `}</style>
       <div className="page-header">
         <h1 className="page-title">Reports</h1>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -222,16 +239,24 @@ export default function Reports() {
               ) : (
                 <div className="table-wrapper">
                   <table>
-                    <thead><tr><th>#</th><th>Product</th><th>Units Sold</th><th>Orders</th></tr></thead>
+                    <thead><tr><th>#</th><th>Product</th><th>Units Sold</th><th>Orders</th><th>Revenue</th></tr></thead>
                     <tbody>
-                      {topProducts.map((p, i) => (
-                        <tr key={p.product_name}>
-                          <td style={{ color: '#8892b0' }}>{i + 1}</td>
-                          <td style={{ fontWeight: 500 }}>{p.product_name}</td>
-                          <td style={{ fontWeight: 600, color: '#4ade80' }}>{p.total_qty}</td>
-                          <td>{p.order_count}</td>
-                        </tr>
-                      ))}
+                      {topProducts.map((p, i) => {
+                        const prev = prevTopProducts.find(x => x.product_name === p.product_name);
+                        const delta = compare && prev ? p.total_qty - prev.total_qty : null;
+                        return (
+                          <tr key={p.product_name}>
+                            <td style={{ color: '#8892b0' }}>{i + 1}</td>
+                            <td style={{ fontWeight: 500 }}>{p.product_name}</td>
+                            <td style={{ fontWeight: 600, color: '#4ade80' }}>
+                              {p.total_qty}
+                              {delta !== null && <span style={{ fontSize: 11, marginLeft: 4, color: delta >= 0 ? '#4ade80' : '#f87171' }}>{delta >= 0 ? '+' : ''}{delta}</span>}
+                            </td>
+                            <td>{p.order_count}</td>
+                            <td>{(p.revenue || 0).toLocaleString()} MAD</td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -248,14 +273,21 @@ export default function Reports() {
                   <table>
                     <thead><tr><th>#</th><th>City</th><th>Orders</th><th>Revenue</th></tr></thead>
                     <tbody>
-                      {topCities.map((c, i) => (
-                        <tr key={c.city}>
-                          <td style={{ color: '#8892b0' }}>{i + 1}</td>
-                          <td style={{ fontWeight: 500 }}>{c.city}</td>
-                          <td style={{ fontWeight: 600, color: '#60a5fa' }}>{c.order_count}</td>
-                          <td>{c.revenue?.toLocaleString()} MAD</td>
-                        </tr>
-                      ))}
+                      {topCities.map((c, i) => {
+                        const prev = prevTopCities.find(x => x.city === c.city);
+                        const delta = compare && prev ? c.order_count - prev.order_count : null;
+                        return (
+                          <tr key={c.city}>
+                            <td style={{ color: '#8892b0' }}>{i + 1}</td>
+                            <td style={{ fontWeight: 500 }}>{c.city}</td>
+                            <td style={{ fontWeight: 600, color: '#60a5fa' }}>
+                              {c.order_count}
+                              {delta !== null && <span style={{ fontSize: 11, marginLeft: 4, color: delta >= 0 ? '#4ade80' : '#f87171' }}>{delta >= 0 ? '+' : ''}{delta}</span>}
+                            </td>
+                            <td>{c.revenue?.toLocaleString()} MAD</td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

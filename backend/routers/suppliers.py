@@ -12,7 +12,7 @@ router = APIRouter(prefix="/suppliers", tags=["suppliers"])
 
 
 class SupplierCreate(BaseModel):
-    name: str
+    name: Optional[str] = None
     phone: Optional[str] = None
     platform: Optional[str] = None
     notes: Optional[str] = None
@@ -83,8 +83,10 @@ def update_supplier(supplier_id: int, data: SupplierCreate, db: Session = Depend
     s = db.query(models.Supplier).filter(models.Supplier.id == supplier_id, models.Supplier.user_id == get_store_id(user)).first()
     if not s:
         raise HTTPException(status_code=404, detail="Supplier not found")
-    for k, v in data.model_dump().items():
-        setattr(s, k, v)
+    if data.name is not None: s.name = data.name
+    if data.phone is not None: s.phone = data.phone
+    if data.platform is not None: s.platform = data.platform
+    if data.notes is not None: s.notes = data.notes
     db.commit()
     return {"success": True}
 
@@ -96,10 +98,9 @@ def delete_supplier(supplier_id: int, db: Session = Depends(get_db), user: model
     s = db.query(models.Supplier).filter(models.Supplier.id == supplier_id, models.Supplier.user_id == get_store_id(user)).first()
     if not s:
         raise HTTPException(status_code=404, detail="Supplier not found")
-    # Unlink products
+    # Unlink products, then soft-delete (preserves payment history)
     db.query(models.Product).filter(models.Product.supplier_id == supplier_id).update({"supplier_id": None})
-    db.query(models.SupplierPayment).filter(models.SupplierPayment.supplier_id == supplier_id).delete()
-    db.delete(s)
+    s.is_active = False
     db.commit()
     return {"success": True}
 
@@ -173,7 +174,13 @@ def add_payment(supplier_id: int, data: SupplierPaymentCreate, db: Session = Dep
 
 @router.delete("/payments/{payment_id}")
 def delete_payment(payment_id: int, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
-    payment = db.query(models.SupplierPayment).filter(models.SupplierPayment.id == payment_id).first()
+    store_id = get_store_id(user)
+    payment = db.query(models.SupplierPayment).join(
+        models.Supplier, models.Supplier.id == models.SupplierPayment.supplier_id
+    ).filter(
+        models.SupplierPayment.id == payment_id,
+        models.Supplier.user_id == store_id,
+    ).first()
     if not payment:
         raise HTTPException(status_code=404, detail="Payment not found")
     db.delete(payment)

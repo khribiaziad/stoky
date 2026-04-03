@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, Integer, String, Float, DateTime, ForeignKey, Text, Enum, JSON
+from sqlalchemy import Boolean, Column, Integer, String, Float, DateTime, ForeignKey, Text, Enum, JSON, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from database import Base
@@ -46,6 +46,7 @@ class User(Base):
 
 class Product(Base):
     __tablename__ = "products"
+    __table_args__ = (UniqueConstraint('user_id', 'name', name='uq_product_name_per_store'),)
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
@@ -54,7 +55,7 @@ class Product(Base):
     category = Column(String, default="caps")
     has_sizes = Column(Boolean, default=True)
     has_colors = Column(Boolean, default=True)
-    is_pack = Column(Boolean, default=False)
+    # is_pack removed (#98) — column still exists in DB but is ignored going forward
     under_1kg = Column(Boolean, default=False)
     supplier = Column(String, nullable=True)
     supplier_id = Column(Integer, ForeignKey("suppliers.id"), nullable=True)
@@ -82,6 +83,7 @@ class Variant(Base):
     order_items = relationship("OrderItem", back_populates="variant")
     stock_arrivals = relationship("StockArrival", back_populates="variant")
     broken_stock = relationship("BrokenStock", back_populates="variant")
+    warehouse_stock = relationship("VariantStock", back_populates="variant", cascade="all, delete-orphan")
 
 
 class Pack(Base):
@@ -153,6 +155,7 @@ class OfferItem(Base):
 
 class PromoCode(Base):
     __tablename__ = "promo_codes"
+    __table_args__ = (UniqueConstraint('user_id', 'code', name='uq_promocode_per_store'),)
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
@@ -167,6 +170,46 @@ class PromoCode(Base):
     target_ids = Column(JSON, nullable=True)        # list of product/pack IDs
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, server_default=func.now())
+
+
+class Warehouse(Base):
+    __tablename__ = "warehouses"
+
+    id         = Column(Integer, primary_key=True, index=True)
+    store_id   = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    name       = Column(String, nullable=False)
+    city       = Column(String, nullable=False)
+    is_default = Column(Boolean, default=False)
+    created_at = Column(DateTime, server_default=func.now())
+
+    stock_entries = relationship("VariantStock", back_populates="warehouse", cascade="all, delete-orphan")
+
+
+class VariantStock(Base):
+    __tablename__ = "variant_stock"
+    __table_args__ = (UniqueConstraint("variant_id", "warehouse_id", name="uq_variant_warehouse"),)
+
+    id           = Column(Integer, primary_key=True, index=True)
+    variant_id   = Column(Integer, ForeignKey("variants.id"), nullable=False, index=True)
+    warehouse_id = Column(Integer, ForeignKey("warehouses.id"), nullable=False, index=True)
+    quantity     = Column(Integer, default=0, nullable=False)
+
+    warehouse = relationship("Warehouse", back_populates="stock_entries")
+    variant   = relationship("Variant", back_populates="warehouse_stock")
+
+
+class DeliveryCompanyPrice(Base):
+    __tablename__ = "delivery_company_prices"
+    __table_args__ = (UniqueConstraint("store_id", "company", "from_city", "to_city", name="uq_delivery_price"),)
+
+    id           = Column(Integer, primary_key=True, index=True)
+    store_id     = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    company      = Column(String, nullable=False)   # "olivraison" | "forcelog"
+    from_city    = Column(String, nullable=False)   # warehouse city (lowercase)
+    to_city      = Column(String, nullable=False)   # destination city (lowercase)
+    national_fee = Column(Float, nullable=False)
+    local_fee    = Column(Float, nullable=True)     # same-city rate; NULL means use national_fee
+    updated_at   = Column(DateTime, server_default=func.now())
 
 
 class City(Base):
@@ -186,7 +229,7 @@ class Order(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     confirmed_by = Column(Integer, ForeignKey("team_members.id"), nullable=True)
     uploaded_by = Column(Integer, ForeignKey("users.id"), nullable=True)  # which user uploaded this order
-    caleo_id = Column(String, nullable=False, index=True)
+    caleo_id = Column(String, unique=True, nullable=True, index=True)
     customer_name = Column(String, nullable=False)
     customer_phone = Column(String, nullable=True)
     customer_address = Column(String, nullable=True)
@@ -200,9 +243,15 @@ class Order(Base):
     delivery_status = Column(String, nullable=True)
     pack_id = Column(Integer, ForeignKey("packs.id"), nullable=True)
     offer_id = Column(Integer, ForeignKey("offers.id"), nullable=True)
-    promo_code_used = Column(String, nullable=True)
-    discount_amount = Column(Float, default=0)
-    created_at = Column(DateTime, server_default=func.now())
+    promo_code_used   = Column(String, nullable=True)
+    discount_amount   = Column(Float, default=0)
+    warehouse_id      = Column(Integer, ForeignKey("warehouses.id"), nullable=True)
+    delivery_provider = Column(String, nullable=True)   # "olivraison" | "forcelog"
+    created_at        = Column(DateTime, server_default=func.now())
+    is_deleted        = Column(Boolean, default=False, nullable=False, server_default="0")
+    deleted_at        = Column(DateTime, nullable=True)
+    lead_id           = Column(Integer, ForeignKey("leads.id"), nullable=True)
+    callback_time     = Column(DateTime, nullable=True)
 
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
     expenses = relationship("OrderExpense", back_populates="order", uselist=False, cascade="all, delete-orphan")
@@ -255,7 +304,20 @@ class TeamMember(Base):
     start_date = Column(DateTime, nullable=True)
     end_date = Column(DateTime, nullable=True)
     is_active = Column(Boolean, default=True)
+    is_suspended = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime, server_default=func.now())
+
+
+class TeamMemberRateHistory(Base):
+    __tablename__ = "team_member_rate_history"
+
+    id             = Column(Integer, primary_key=True)
+    team_member_id = Column(Integer, ForeignKey("team_members.id"))
+    fixed_monthly  = Column(Float, nullable=True)
+    per_order_rate = Column(Float, nullable=True)
+    effective_from = Column(DateTime, nullable=False)
+    effective_to   = Column(DateTime, nullable=True)
+    created_at     = Column(DateTime, server_default=func.now())
 
 
 class FixedExpense(Base):
@@ -324,6 +386,8 @@ class StockArrival(Base):
     description = Column(Text, nullable=True)
     total_cost = Column(Float, nullable=False)
     date = Column(DateTime, nullable=False)
+    warehouse_id = Column(Integer, ForeignKey("warehouses.id"), nullable=True)
+    idempotency_key = Column(String, nullable=True, index=True)
     created_at = Column(DateTime, server_default=func.now())
 
     variant = relationship("Variant", back_populates="stock_arrivals")
@@ -348,6 +412,7 @@ class BrokenStock(Base):
 
 class AppSettings(Base):
     __tablename__ = "app_settings"
+    __table_args__ = (UniqueConstraint('user_id', 'key', name='uq_appsettings_user_key'),)
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
@@ -406,14 +471,39 @@ class PlatformExpense(Base):
 class StoreApiKey(Base):
     __tablename__ = "store_api_keys"
 
+    id                      = Column(Integer, primary_key=True)
+    store_id                = Column(Integer, ForeignKey("users.id"), nullable=False, unique=True)
+    key                     = Column(String, unique=True, nullable=False)
+    previous_key            = Column(String, nullable=True)
+    previous_key_expires_at = Column(DateTime, nullable=True)
+    created_at              = Column(DateTime, server_default=func.now())
+
+
+class ProductPriceHistory(Base):
+    __tablename__ = "product_price_history"
+
+    id                = Column(Integer, primary_key=True)
+    variant_id        = Column(Integer, ForeignKey("variants.id"))
+    old_selling_price = Column(Float)
+    new_selling_price = Column(Float)
+    old_buying_price  = Column(Float)
+    new_buying_price  = Column(Float)
+    changed_at        = Column(DateTime, server_default=func.now())
+    changed_by        = Column(Integer, ForeignKey("users.id"), nullable=True)
+
+
+class BotApiKey(Base):
+    __tablename__ = "bot_api_keys"
+
     id         = Column(Integer, primary_key=True)
-    store_id   = Column(Integer, ForeignKey("users.id"), nullable=False, unique=True)
+    store_id   = Column(Integer, ForeignKey("users.id"), unique=True)
     key        = Column(String, unique=True, nullable=False)
     created_at = Column(DateTime, server_default=func.now())
 
 
 class Supplier(Base):
     __tablename__ = "suppliers"
+    __table_args__ = (UniqueConstraint('user_id', 'name', name='uq_supplier_name_per_store'),)
 
     id         = Column(Integer, primary_key=True)
     user_id    = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
@@ -421,6 +511,7 @@ class Supplier(Base):
     phone      = Column(String, nullable=True)
     platform   = Column(String, nullable=True)
     notes      = Column(Text, nullable=True)
+    is_active  = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, server_default=func.now())
 
 
@@ -450,9 +541,9 @@ class Lead(Base):
     total_amount     = Column(Float, nullable=True)
     notes            = Column(Text, nullable=True)
     status           = Column(String, default="pending")  # pending|confirmed|cancelled|unresponsive|reported
+    source           = Column(String, nullable=True, default="website")
     order_id         = Column(Integer, ForeignKey("orders.id"), nullable=True)
     reported_date    = Column(DateTime, nullable=True)
-    message_count    = Column(Integer, default=0)
     last_message_at  = Column(DateTime, nullable=True)
     created_at       = Column(DateTime, server_default=func.now())
 
@@ -467,5 +558,5 @@ class CampaignConnection(Base):
     campaign_name    = Column(String, nullable=True)
     item_type        = Column(String, nullable=False)                  # "product", "pack", "offer"
     item_id          = Column(Integer, nullable=False)
-    delivery_cost    = Column(Float, default=25)
+    delivery_cost    = Column(Float, nullable=True, default=None)
     created_at       = Column(DateTime, server_default=func.now())

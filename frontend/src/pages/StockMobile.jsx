@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getProducts, getStockArrivals, addBulkStockArrival, getBrokenStock, addBrokenStock, updateBrokenStock, deleteBrokenStock, deleteArrival, adjustStock, addSupplierPayment } from '../api';
+import { getProducts, getStockArrivals, addBulkStockArrival, getBrokenStock, addBrokenStock, updateBrokenStock, deleteBrokenStock, deleteArrival, adjustStock, addSupplierPayment, getWarehouses, getWarehouseStock } from '../api';
 
 const emptyItem = () => ({ product_id: '', variant_ids: [], quantity: 1 });
 
@@ -23,11 +23,18 @@ export default function StockMobile({ readOnly = false }) {
   const [description, setDescription] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [paid, setPaid] = useState(false);
+  const [arrivalWarehouseId, setArrivalWarehouseId] = useState(null);
 
   const [brokenForm, setBrokenForm] = useState({ product_id: '', variant_id: '', quantity: 1, source: 'storage', returnable_to_supplier: false });
 
   // Overview tab accordion state — independent from other tabs
   const [expandedStock, setExpandedStock] = useState(null);
+
+  // Warehouse stock
+  const [warehouses,     setWarehouses]     = useState([]);
+  const [selectedWhId,   setSelectedWhId]   = useState(null);
+  const [warehouseStock, setWarehouseStock] = useState(null);
+  const [whStockLoading, setWhStockLoading] = useState(false);
 
   const load = () => {
     getProducts().then(r => setProducts(r.data));
@@ -36,6 +43,30 @@ export default function StockMobile({ readOnly = false }) {
   };
 
   useEffect(() => { load(); }, []);
+
+  useEffect(() => {
+    getWarehouses().then(r => {
+      setWarehouses(r.data);
+      if (r.data.length > 0) {
+        const def = r.data.find(w => w.is_default) || r.data[0];
+        setSelectedWhId(def.id);
+        setArrivalWarehouseId(def.id);
+      }
+    }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!selectedWhId) { setWarehouseStock(null); return; }
+    setWhStockLoading(true);
+    getWarehouseStock(selectedWhId)
+      .then(r => {
+        const map = {};
+        r.data.stock.forEach(s => { map[s.variant_id] = s.quantity; });
+        setWarehouseStock(map);
+      })
+      .catch(() => setWarehouseStock(null))
+      .finally(() => setWhStockLoading(false));
+  }, [selectedWhId]);
 
   // Get variants for a given product_id
   const getVariants = (product_id) => {
@@ -94,6 +125,7 @@ export default function StockMobile({ readOnly = false }) {
         additional_fees: parseFloat(additionalFees) || 0,
         description: description || null,
         date,
+        warehouse_id: arrivalWarehouseId || null,
       });
 
       // If paid, auto-create a payment per supplier based on their variants' cost
@@ -329,13 +361,36 @@ export default function StockMobile({ readOnly = false }) {
       {/* ── Current Stock (overview) tab — accordion by product ── */}
       {tab === 'overview' && (
         <div>
+          {/* Warehouse selector */}
+          {warehouses.length > 0 && (
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
+              {warehouses.map(wh => (
+                <button key={wh.id}
+                  onClick={() => setSelectedWhId(wh.id)}
+                  style={{
+                    padding: '5px 14px', borderRadius: 20, fontSize: 12, fontWeight: selectedWhId === wh.id ? 700 : 400, cursor: 'pointer',
+                    border: `1.5px solid ${selectedWhId === wh.id ? 'var(--accent)' : 'var(--border)'}`,
+                    background: selectedWhId === wh.id ? 'var(--accent-b)' : 'var(--card-2)',
+                    color: selectedWhId === wh.id ? 'var(--accent)' : 'var(--t2)',
+                  }}>
+                  {wh.name}{wh.is_default ? ' ★' : ''}
+                </button>
+              ))}
+            </div>
+          )}
+
           {products.length === 0 ? (
             <div className="empty-state"><h3>No products yet</h3><p>Add products first from the Products page</p></div>
+          ) : whStockLoading ? (
+            <div style={{ textAlign: 'center', padding: 32, color: 'var(--t2)' }}>Loading…</div>
           ) : (
             products.map(p => {
-              const totalStock = p.variants.reduce((s, v) => s + v.stock, 0);
-              const hasLow = p.variants.some(v => v.stock > 0 && v.stock <= v.low_stock_threshold);
-              const hasOut = p.variants.some(v => v.stock === 0);
+              const getQty = v => warehouses.length > 0 && warehouseStock !== null
+                ? (warehouseStock[v.id] ?? 0)
+                : v.stock;
+              const totalStock = p.variants.reduce((s, v) => s + getQty(v), 0);
+              const hasLow = p.variants.some(v => getQty(v) > 0 && getQty(v) <= v.low_stock_threshold);
+              const hasOut = p.variants.some(v => getQty(v) === 0);
               const isOpen = expandedStock === p.id;
               const stockColor = totalStock === 0 ? '#f87171' : hasLow ? '#fbbf24' : '#4ade80';
 
@@ -360,15 +415,16 @@ export default function StockMobile({ readOnly = false }) {
                         <div style={{ color: '#8892b0', fontSize: 13, padding: '6px 0' }}>No variants</div>
                       ) : (
                         p.variants.map(v => {
+                          const qty = getQty(v);
                           const label = [v.size, v.color].filter(Boolean).join(' / ') || 'Default';
-                          const vColor = v.stock === 0 ? '#f87171' : v.stock <= v.low_stock_threshold ? '#fbbf24' : '#4ade80';
+                          const vColor = qty === 0 ? '#f87171' : qty <= v.low_stock_threshold ? '#fbbf24' : '#4ade80';
                           return (
                             <div
                               key={v.id}
                               style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: 8, paddingBottom: 8, borderBottom: '1px solid var(--border)' }}
                             >
                               <span style={{ flex: 1, fontSize: 14, fontWeight: 500 }}>{label}</span>
-                              <span style={{ fontWeight: 700, fontSize: 16, color: vColor }}>{v.stock}</span>
+                              <span style={{ fontWeight: 700, fontSize: 16, color: vColor }}>{qty}</span>
                               {!readOnly && (
                                 <button
                                   className="btn btn-secondary btn-sm"
@@ -477,6 +533,18 @@ export default function StockMobile({ readOnly = false }) {
               </div>
 
               <hr className="divider" />
+
+              {/* Warehouse selector */}
+              {warehouses.length > 0 && (
+                <div className="form-group">
+                  <label className="form-label">Destination Warehouse</label>
+                  <select className="form-input" value={arrivalWarehouseId || ''} onChange={e => setArrivalWarehouseId(parseInt(e.target.value) || null)}>
+                    {warehouses.map(wh => (
+                      <option key={wh.id} value={wh.id}>{wh.name} — {wh.city}{wh.is_default ? ' (default)' : ''}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               {/* Shared fees */}
               <div className="form-grid-2">

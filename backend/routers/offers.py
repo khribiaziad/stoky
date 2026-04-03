@@ -105,7 +105,7 @@ def update_offer(offer_id: int, data: OfferCreate, db: Session = Depends(get_db)
 
 @router.patch("/{offer_id}/toggle")
 def toggle_offer(offer_id: int, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
-    offer = db.query(models.Offer).filter(models.Offer.id == offer_id, models.Offer.user_id == user.id).first()
+    offer = db.query(models.Offer).filter(models.Offer.id == offer_id, models.Offer.user_id == get_store_id(user)).first()
     if not offer:
         raise HTTPException(status_code=404, detail="Offer not found")
     offer.is_active = not offer.is_active

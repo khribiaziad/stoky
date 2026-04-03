@@ -21,7 +21,6 @@ export default function CampaignConnectModal({
 }) {
   const [itemType,     setItemType]     = useState(existingConn?.item_type || 'product');
   const [itemId,       setItemId]       = useState(existingConn?.item_id?.toString() || '');
-  const [deliveryCost, setDeliveryCost] = useState(String(existingConn?.delivery_cost ?? 25));
   const [stats,        setStats]        = useState(null);
   const [statsLoading, setStatsLoading] = useState(false);
   const [copied,       setCopied]       = useState(false);
@@ -64,16 +63,21 @@ export default function CampaignConnectModal({
     if (!itemId) { setStats(null); return; }
     setStatsLoading(true);
     getCampaignItemStats(itemType, parseInt(itemId), dateFrom, dateTo)
-      .then(r => setStats(r.data))
+      .then(r => {
+        setStats(r.data);
+      })
       .catch(() => setStats(null))
       .finally(() => setStatsLoading(false));
   }, [itemType, itemId, dateFrom, dateTo]);
 
-  const delivery       = parseFloat(deliveryCost) || 0;
+  const hasRealData    = (stats?.delivered_orders || 0) > 0;
+  const buyPrice       = hasRealData ? (stats.avg_buy_price ?? prices?.buy_price ?? 0) : (prices?.buy_price ?? 0);
+  const packaging      = hasRealData ? (stats.avg_packaging_cost ?? prices?.packaging_cost ?? 0) : (prices?.packaging_cost ?? 0);
+  const delivery       = stats?.avg_delivery_cost ?? 0;
   const delivered      = stats?.delivered_orders || 0;
   const adCostPerOrder = delivered > 0 ? campaignSpend / delivered : 0;
   const realProfit     = prices
-    ? prices.selling_price - prices.buy_price - prices.packaging_cost - delivery - adCostPerOrder
+    ? prices.selling_price - buyPrice - packaging - delivery - adCostPerOrder
     : null;
 
   const utmRef      = campaign && itemId ? `?ref=${campaign.id}-${itemId}` : '';
@@ -96,7 +100,6 @@ export default function CampaignConnectModal({
         campaign_name: campaign.name || '',
         item_type: itemType,
         item_id: parseInt(itemId),
-        delivery_cost: delivery,
       });
       onClose();
     } catch (e) {
@@ -199,24 +202,23 @@ export default function CampaignConnectModal({
                 Step 2 — Cost Breakdown
               </div>
               <div style={{ background: '#13151e', borderRadius: 10, padding: '12px 14px' }}>
+                {/* Fixed product costs */}
                 <div style={row}><span style={muted}>Selling price</span><span style={bold}>{fmt(prices.selling_price)} MAD</span></div>
-                <div style={row}><span style={muted}>Buy price</span><span style={{ ...bold, color: '#f87171' }}>− {fmt(prices.buy_price)} MAD</span></div>
-                <div style={row}><span style={muted}>Packaging cost</span><span style={{ ...bold, color: '#f87171' }}>− {fmt(prices.packaging_cost)} MAD</span></div>
+                <div style={row}><span style={muted}>Buy price</span><span style={{ ...bold, color: '#f87171' }}>− {fmt(buyPrice)} MAD</span></div>
+                <div style={row}>
+                  <span style={muted}>Packaging cost</span>
+                  <span style={{ ...bold, color: '#f87171' }}>− {fmt(packaging)} MAD</span>
+                </div>
 
                 <div style={{ borderTop: '1px solid #222733', margin: '6px 0' }} />
 
-                <div style={{ ...row, alignItems: 'center' }}>
+                {/* Delivery cost — from real order data */}
+                <div style={row}>
                   <span style={muted}>Delivery cost</span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{ color: '#f87171', fontWeight: 600 }}>−</span>
-                    <input
-                      type="number" min="0" step="0.5" value={deliveryCost}
-                      onChange={e => setDeliveryCost(e.target.value)}
-                      placeholder="e.g. 25"
-                      style={{ width: 72, padding: '4px 8px', borderRadius: 6, border: '1px solid #2d3248', background: '#1d1d27', color: '#fff', fontSize: 13, textAlign: 'right' }}
-                    />
-                    <span style={{ fontSize: 11, color: '#8892b0' }}>MAD</span>
-                  </div>
+                  {delivery > 0
+                    ? <span style={{ ...bold, color: '#f87171' }}>− {fmt(delivery)} MAD</span>
+                    : <span style={{ fontSize: 11, color: '#8892b0' }}>No data yet</span>
+                  }
                 </div>
 
                 <div style={row}>
@@ -247,6 +249,13 @@ export default function CampaignConnectModal({
                     </span>
                   </div>
                 )}
+
+                {/* Data source note */}
+                <div style={{ marginTop: 10, fontSize: 11, color: hasRealData ? '#00d48f' : '#8892b0', opacity: 0.85, textAlign: 'center' }}>
+                  {hasRealData
+                    ? 'All costs calculated from your real order data'
+                    : 'Estimated — no orders yet for this period'}
+                </div>
               </div>
             </div>
           )}

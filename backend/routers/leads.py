@@ -3,78 +3,18 @@ import secrets
 from datetime import datetime, timedelta
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import PlainTextResponse
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from auth import get_current_user, get_store_id
+from core.permissions import require_admin
 from database import get_db
+from services import expense_service
 import models
 
 router = APIRouter(prefix="/leads", tags=["leads"])
-
-# ── Twilio helpers ────────────────────────────────────────────────────────────
-
-def _twilio_client():
-    """Return a Twilio Client or None if credentials are not configured."""
-    account_sid = os.environ.get("TWILIO_ACCOUNT_SID")
-    auth_token  = os.environ.get("TWILIO_AUTH_TOKEN")
-    if not account_sid or not auth_token:
-        return None
-    try:
-        from twilio.rest import Client
-        return Client(account_sid, auth_token)
-    except Exception:
-        return None
-
-
-def _whatsapp_from() -> str:
-    return os.environ.get("TWILIO_WHATSAPP_FROM", "whatsapp:+14155238886")
-
-
-def _format_phone(phone: str) -> str:
-    """Normalize a phone number to E.164 whatsapp: format."""
-    phone = phone.strip().replace(" ", "").replace("-", "")
-    if not phone.startswith("+"):
-        phone = "+" + phone
-    return f"whatsapp:{phone}"
-
-
-def _send_whatsapp(to: str, body: str) -> bool:
-    client = _twilio_client()
-    if not client:
-        return False
-    try:
-        client.messages.create(
-            from_=_whatsapp_from(),
-            to=_format_phone(to),
-            body=body,
-        )
-        return True
-    except Exception:
-        return False
-
-
-def _confirmation_message(lead: models.Lead, store_name: str) -> str:
-    lines = [f"Hi {lead.customer_name}! 👋", f"You placed an order at {store_name}:", ""]
-    items = lead.matched_items or []
-    for item in items:
-        price = item.get("unit_price") or 0
-        qty   = item.get("quantity", 1)
-        name  = item.get("product_name", "Product")
-        lines.append(f"• {name} x{qty} — {price * qty:.0f} MAD")
-    amount = lead.total_amount or 0
-    lines += ["", f"Total: {amount:.0f} MAD", "", "Reply YES to confirm or NO to cancel."]
-    return "\n".join(lines)
-
-
-def _followup_message(store_name: str) -> str:
-    return (
-        f"Your order at {store_name} was automatically cancelled (no reply received).\n"
-        "Reply RECONFIRM if you'd like to restart."
-    )
 
 
 # ── Product matching ──────────────────────────────────────────────────────────
@@ -265,6 +205,12 @@ def inbound_lead(
         models.StoreApiKey.key == api_key
     ).first()
     if not api_key_record:
+        # Check if this matches a previous key still within its grace period
+        api_key_record = db.query(models.StoreApiKey).filter(
+            models.StoreApiKey.previous_key == api_key,
+            models.StoreApiKey.previous_key_expires_at > datetime.now(),
+        ).first()
+    if not api_key_record:
         raise HTTPException(status_code=401, detail="Invalid API key")
 
     store_id = api_key_record.store_id
@@ -306,7 +252,7 @@ def inbound_lead(
         total_amount=data.total_amount or (total if total > 0 else None),
         notes=data.notes,
         status="pending",
-        message_count=1,
+        source="website",
         last_message_at=datetime.utcnow(),
     )
     db.add(lead)
@@ -316,116 +262,29 @@ def inbound_lead(
     return {"status": "lead_created", "id": lead.id}
 
 
-# ── Public: Twilio webhook ────────────────────────────────────────────────────
-
-@router.post("/whatsapp/webhook", response_class=PlainTextResponse, include_in_schema=False)
-async def whatsapp_webhook(request: Request, db: Session = Depends(get_db)):
-    form = await request.form()
-    raw_from = str(form.get("From", ""))
-    body_raw  = str(form.get("Body", "")).strip()
-    body      = body_raw.upper()
-
-    # Extract plain phone from "whatsapp:+212..."
-    phone = raw_from.replace("whatsapp:", "").strip()
-
-    # Find most recent pending or cancelled lead for this phone
-    lead = (
-        db.query(models.Lead)
-        .filter(
-            models.Lead.customer_phone.contains(phone.lstrip("+")),
-            models.Lead.status.in_(["pending", "cancelled"]),
-        )
-        .order_by(models.Lead.created_at.desc())
-        .first()
-    )
-
-    if not lead:
-        reply = "No active order found for your number."
-        return _twiml(reply)
-
-    store = db.query(models.User).filter(models.User.id == lead.store_id).first()
-    store_name = store.store_name if store else "the store"
-
-    if body in ("YES", "OUI", "نعم"):
-        order = _create_order_from_lead(lead, db)
-        if order is None:
-            lead.status = "cancelled"
-            db.commit()
-            reply = "Sorry, we could not process your order (stock issue). Please contact us directly."
-        else:
-            lead.status   = "confirmed"
-            lead.order_id = order.id
-            db.commit()
-            reply = f"✅ Your order has been confirmed! We'll process it shortly. Thank you!"
-
-    elif body in ("NO", "NON", "لا"):
-        lead.status = "cancelled"
-        db.commit()
-        reply = "Your order has been cancelled. If this was a mistake, reply RECONFIRM to restart."
-
-    elif body in ("RECONFIRM", "RECOMMENCER"):
-        if lead.status == "cancelled":
-            lead.status         = "pending"
-            lead.message_count  = 1
-            lead.last_message_at = datetime.utcnow()
-            db.commit()
-            db.refresh(lead)
-            msg = _confirmation_message(lead, store_name)
-            _send_whatsapp(phone, msg)
-            reply = "No problem! We've re-sent your order confirmation. Please reply YES or NO."
-        else:
-            reply = "Your order is already active. Reply YES to confirm or NO to cancel."
-
-    else:
-        reply = "Please reply YES to confirm your order, NO to cancel, or RECONFIRM to restart a cancelled order."
-
-    return _twiml(reply)
-
-
-def _twiml(message: str) -> str:
-    safe = message.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-    return f'<?xml version="1.0" encoding="UTF-8"?><Response><Message>{safe}</Message></Response>'
-
-
-# ── Twilio test endpoint ──────────────────────────────────────────────────────
-
-@router.post("/test-whatsapp")
-def test_whatsapp(
-    phone: str,
-    db: Session = Depends(get_db),
-    user: models.User = Depends(get_current_user),
-):
-    """Send a test WhatsApp message to verify Twilio credentials."""
-    import os
-    sid   = os.environ.get("TWILIO_ACCOUNT_SID", "NOT SET")
-    token = os.environ.get("TWILIO_AUTH_TOKEN", "NOT SET")
-    frm   = os.environ.get("TWILIO_WHATSAPP_FROM", "NOT SET")
-
-    if "NOT SET" in (sid, token, frm):
-        return {"ok": False, "error": f"Missing env vars — SID:{sid[:6]}... TOKEN:{'set' if token != 'NOT SET' else 'NOT SET'} FROM:{frm}"}
-
-    ok = _send_whatsapp(phone, "Test message from Stocky ✅ — WhatsApp is connected!")
-    return {"ok": ok, "from": frm, "to": phone}
-
 
 # ── Authenticated endpoints ───────────────────────────────────────────────────
 
 @router.get("")
 def list_leads(
+    page: int = 1,
+    page_size: int = 50,
     db: Session = Depends(get_db),
     user: models.User = Depends(get_current_user),
 ):
     sid = get_store_id(user)
-    leads = (
+    base = (
         db.query(models.Lead)
         .filter(
             models.Lead.store_id == sid,
             models.Lead.status != "confirmed",
         )
         .order_by(models.Lead.created_at.desc())
-        .all()
     )
-    return [_serialize_lead(l) for l in leads]
+    total_count = base.count()
+    offset = (page - 1) * page_size
+    leads = base.offset(offset).limit(page_size).all()
+    return {"leads": [_serialize_lead(l) for l in leads], "page": page, "total": total_count}
 
 
 @router.delete("/{lead_id}")
@@ -438,6 +297,8 @@ def delete_lead(
     lead = db.query(models.Lead).filter(models.Lead.id == lead_id, models.Lead.store_id == sid).first()
     if not lead:
         raise HTTPException(status_code=404, detail="Lead not found")
+    if lead.order_id:
+        raise HTTPException(status_code=400, detail="Cannot delete a lead that has a confirmed order. Delete the order first.")
     db.delete(lead)
     db.commit()
     return {"success": True}
@@ -461,6 +322,12 @@ def confirm_lead(
     order = _create_order_from_lead(lead, db)
     if order is None:
         raise HTTPException(status_code=400, detail="Could not confirm order — stock may be insufficient")
+
+    order.lead_id    = lead.id        # Fix #62: link order back to its lead
+    order.notes      = lead.notes    # Fix #72: carry customer notes forward
+    order.confirmed_by = user.id
+
+    expense_service.get_or_create_expense(db, order)  # Bug #194: lead-confirmed orders always have an expense row
 
     lead.status   = "confirmed"
     lead.order_id = order.id
@@ -546,12 +413,14 @@ def get_api_key(
 @router.post("/api-key/rotate")
 def rotate_api_key(
     db: Session = Depends(get_db),
-    user: models.User = Depends(get_current_user),
+    user: models.User = Depends(require_admin),
 ):
     sid = get_store_id(user)
     record = db.query(models.StoreApiKey).filter(models.StoreApiKey.store_id == sid).first()
     new_key = secrets.token_urlsafe(32)
     if record:
+        record.previous_key = record.key
+        record.previous_key_expires_at = datetime.now() + timedelta(hours=24)
         record.key = new_key
     else:
         record = models.StoreApiKey(store_id=sid, key=new_key)
@@ -574,17 +443,7 @@ def run_follow_up_job(db: Session):
     ).all()
 
     for lead in pending:
-        store = db.query(models.User).filter(models.User.id == lead.store_id).first()
-        store_name = store.store_name if store else "the store"
-
-        if lead.message_count == 1:
-            # Send follow-up
-            msg = _followup_message(store_name)
-            _send_whatsapp(lead.customer_phone, msg)
-            lead.message_count   = 2
-            lead.last_message_at = datetime.utcnow()
-        elif lead.message_count >= 2:
-            lead.status = "unresponsive"
+        lead.status = "unresponsive"
 
     db.commit()
 
@@ -605,7 +464,6 @@ def _serialize_lead(lead: models.Lead) -> dict:
         "notes":            lead.notes,
         "status":           lead.status,
         "order_id":         lead.order_id,
-        "message_count":    lead.message_count,
         "reported_date":    lead.reported_date.isoformat() if lead.reported_date else None,
         "last_message_at":  lead.last_message_at.isoformat() if lead.last_message_at else None,
         "created_at":       lead.created_at.isoformat() if lead.created_at else None,

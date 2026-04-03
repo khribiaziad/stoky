@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getProducts, getStockArrivals, addBulkStockArrival, getBrokenStock, addBrokenStock, updateBrokenStock, deleteBrokenStock, deleteArrival, adjustStock, addSupplierPayment } from '../api';
+import { getProducts, getStockArrivals, addBulkStockArrival, getBrokenStock, addBrokenStock, updateBrokenStock, deleteBrokenStock, deleteArrival, adjustStock, addSupplierPayment, getWarehouses, getWarehouseStock } from '../api';
 import StockMobile from './StockMobile';
 
 const emptyItem = () => ({ product_id: '', variant_ids: [], quantity: 1 });
@@ -25,8 +25,15 @@ export default function Stock({ readOnly = false }) {
   const [description, setDescription] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [paid, setPaid] = useState(false);
+  const [arrivalWarehouseId, setArrivalWarehouseId] = useState(null);
 
   const [brokenForm, setBrokenForm] = useState({ product_id: '', variant_id: '', quantity: 1, source: 'storage', returnable_to_supplier: false });
+
+  // Warehouse stock
+  const [warehouses,       setWarehouses]       = useState([]);
+  const [selectedWhId,     setSelectedWhId]     = useState(null);
+  const [warehouseStock,   setWarehouseStock]   = useState(null); // { variant_id -> quantity }
+  const [whStockLoading,   setWhStockLoading]   = useState(false);
 
   const load = () => {
     getProducts().then(r => setProducts(r.data));
@@ -35,6 +42,30 @@ export default function Stock({ readOnly = false }) {
   };
 
   useEffect(() => { load(); }, []);
+
+  useEffect(() => {
+    getWarehouses().then(r => {
+      setWarehouses(r.data);
+      if (r.data.length > 0) {
+        const def = r.data.find(w => w.is_default) || r.data[0];
+        setSelectedWhId(def.id);
+        setArrivalWarehouseId(def.id);
+      }
+    }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!selectedWhId) { setWarehouseStock(null); return; }
+    setWhStockLoading(true);
+    getWarehouseStock(selectedWhId)
+      .then(r => {
+        const map = {};
+        r.data.stock.forEach(s => { map[s.variant_id] = s.quantity; });
+        setWarehouseStock(map);
+      })
+      .catch(() => setWarehouseStock(null))
+      .finally(() => setWhStockLoading(false));
+  }, [selectedWhId]);
 
   // Get variants for a given product_id
   const getVariants = (product_id) => {
@@ -93,6 +124,7 @@ export default function Stock({ readOnly = false }) {
         additional_fees: parseFloat(additionalFees) || 0,
         description: description || null,
         date,
+        warehouse_id: arrivalWarehouseId || null,
       });
 
       // If paid, auto-create a payment per supplier based on their variants' cost
@@ -201,8 +233,32 @@ export default function Stock({ readOnly = false }) {
       {/* Current Stock Overview */}
       {tab === 'overview' && (
         <div className="card">
+          {/* Warehouse selector — only when warehouses exist */}
+          {warehouses.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+              <span style={{ fontSize: 13, color: 'var(--t2)', flexShrink: 0 }}>Warehouse:</span>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {warehouses.map(wh => (
+                  <button key={wh.id}
+                    onClick={() => setSelectedWhId(wh.id)}
+                    style={{
+                      padding: '5px 14px', borderRadius: 20, fontSize: 12, fontWeight: selectedWhId === wh.id ? 700 : 400, cursor: 'pointer',
+                      border: `1.5px solid ${selectedWhId === wh.id ? 'var(--accent)' : 'var(--border)'}`,
+                      background: selectedWhId === wh.id ? 'var(--accent-b)' : 'var(--card-2)',
+                      color: selectedWhId === wh.id ? 'var(--accent)' : 'var(--t2)',
+                    }}>
+                    {wh.name} <span style={{ opacity: 0.6, fontSize: 11 }}>({wh.city})</span>
+                    {wh.is_default && <span style={{ marginLeft: 4, opacity: 0.6 }}>★</span>}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {products.length === 0 ? (
             <div className="empty-state"><h3>No products yet</h3><p>Add products first from the Products page</p></div>
+          ) : whStockLoading ? (
+            <div style={{ textAlign: 'center', padding: 32, color: 'var(--t2)' }}>Loading stock…</div>
           ) : (
             <div className="table-wrapper">
               <table>
@@ -211,29 +267,34 @@ export default function Stock({ readOnly = false }) {
                 </thead>
                 <tbody>
                   {products.flatMap(p =>
-                    p.variants.map(v => (
-                      <tr key={v.id}>
-                        <td style={{ fontWeight: 600 }}>{p.name}</td>
-                        <td>{v.size || '—'}</td>
-                        <td>{v.color || '—'}</td>
-                        <td>{v.buying_price} MAD</td>
-                        <td style={{ fontWeight: 700, color: v.stock <= v.low_stock_threshold ? '#fbbf24' : '#4ade80' }}>
-                          {v.stock}
-                        </td>
-                        <td style={{ color: v.broken_stock > 0 ? '#f87171' : '#8892b0' }}>
-                          {v.broken_stock || 0}
-                        </td>
-                        <td>
-                          {v.stock === 0
-                            ? <span className="badge badge-red">Out of Stock</span>
-                            : v.stock <= v.low_stock_threshold
-                              ? <span className="badge badge-yellow">Low Stock</span>
-                              : <span className="badge badge-green">OK</span>
-                          }
-                        </td>
-                        <td><button className="btn btn-secondary btn-sm" onClick={() => { setAdjustVariant({ id: v.id, name: p.name, size: v.size, color: v.color }); setAdjustValue(v.stock); }}>Adjust</button></td>
-                      </tr>
-                    ))
+                    p.variants.map(v => {
+                      const qty = warehouses.length > 0 && warehouseStock !== null
+                        ? (warehouseStock[v.id] ?? 0)
+                        : v.stock;
+                      return (
+                        <tr key={v.id}>
+                          <td style={{ fontWeight: 600 }}>{p.name}</td>
+                          <td>{v.size || '—'}</td>
+                          <td>{v.color || '—'}</td>
+                          <td>{v.buying_price} MAD</td>
+                          <td style={{ fontWeight: 700, color: qty <= v.low_stock_threshold ? '#fbbf24' : '#4ade80' }}>
+                            {qty}
+                          </td>
+                          <td style={{ color: v.broken_stock > 0 ? '#f87171' : '#8892b0' }}>
+                            {v.broken_stock || 0}
+                          </td>
+                          <td>
+                            {qty === 0
+                              ? <span className="badge badge-red">Out of Stock</span>
+                              : qty <= v.low_stock_threshold
+                                ? <span className="badge badge-yellow">Low Stock</span>
+                                : <span className="badge badge-green">OK</span>
+                            }
+                          </td>
+                          <td><button className="btn btn-secondary btn-sm" onClick={() => { setAdjustVariant({ id: v.id, name: p.name, size: v.size, color: v.color }); setAdjustValue(v.stock); }}>Adjust</button></td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>
@@ -416,6 +477,18 @@ export default function Stock({ readOnly = false }) {
               </div>
 
               <hr className="divider" />
+
+              {/* Warehouse selector */}
+              {warehouses.length > 0 && (
+                <div className="form-group">
+                  <label className="form-label">Destination Warehouse</label>
+                  <select className="form-input" value={arrivalWarehouseId || ''} onChange={e => setArrivalWarehouseId(parseInt(e.target.value) || null)}>
+                    {warehouses.map(wh => (
+                      <option key={wh.id} value={wh.id}>{wh.name} — {wh.city}{wh.is_default ? ' (default)' : ''}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               {/* Shared fees */}
               <div className="form-grid-2">

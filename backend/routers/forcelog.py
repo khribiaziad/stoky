@@ -2,9 +2,16 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from database import get_db
 from auth import get_current_user
+from core.webhook_auth import hmac_auth
+from integrations.couriers.forcelog.integration import ForcelogIntegration
 import models, httpx, unicodedata, re, hmac, hashlib
 
 router = APIRouter(prefix="/forcelog", tags=["forcelog"])
+
+def _get_warehouse(order: models.Order, db) -> "models.Warehouse | None":
+    if not order.warehouse_id:
+        return None
+    return db.query(models.Warehouse).filter_by(id=order.warehouse_id).first()
 
 FORCELOG_BASE = "https://api.forcelog.ma"
 
@@ -81,32 +88,6 @@ def _normalize_phone_for_forcelog(phone: str) -> str:
     return p[:14]
 
 
-DELIVERED_KEYWORDS  = ["livré", "livre", "delivered", "confirmé par livreur", "livraison effectuée"]
-CANCELLED_KEYWORDS  = ["annulé", "annule", "retour", "refusé", "refuse", "cancelled", "retourné", "retourne", "echec", "échoué"]
-IN_DELIVERY_KEYWORDS = ["appel", "call", "en route", "enroute", "route", "transit", "ramassage",
-                         "pickup", "tentative", "expédié", "expedie", "injoignable", "vocal",
-                         "sms", "whatsapp", "réponse", "reponse", "reporté", "reporte"]
-
-# Forcelog-specific uppercase statuses
-FORCELOG_DELIVERED = {"DELIVERED"}
-FORCELOG_CANCELLED = {"RETURNED", "CANCELLED", "REFUSED", "LOST"}
-
-
-def _map_status(raw: str) -> str | None:
-    """Map a raw delivery-company status string to Stocky's order status."""
-    if raw in FORCELOG_DELIVERED:
-        return "delivered"
-    if raw in FORCELOG_CANCELLED:
-        return "cancelled"
-    s = raw.lower()
-    if any(k in s for k in DELIVERED_KEYWORDS):
-        return "delivered"
-    if any(k in s for k in CANCELLED_KEYWORDS):
-        return "cancelled"
-    if any(k in s for k in IN_DELIVERY_KEYWORDS):
-        return "in_delivery"
-    return None  # unknown → don't change
-
 
 def _get_store_id(user: models.User) -> int:
     return user.store_id if user.role == "confirmer" else user.id
@@ -152,6 +133,13 @@ def send_to_forcelog(
         raise HTTPException(404, "Order not found")
     if order.tracking_id:
         raise HTTPException(400, "Order already sent to a delivery service")
+
+    # Determine pickup city from warehouse
+    pickup_city = _get_setting(db, "forcelog_pickup_city", sid) or ""
+    if order.warehouse_id:
+        wh = db.query(models.Warehouse).filter_by(id=order.warehouse_id).first()
+        if wh and wh.city:
+            pickup_city = wh.city
 
     # Build product description
     if order.items:
@@ -201,7 +189,31 @@ def send_to_forcelog(
     order.tracking_id = tracking_number
     order.delivery_status = "Envoyé"
     order.delivery_provider = "forcelog"
+
+    # Write actual delivery fees from Forcelog price list
+    if order.expenses:
+        try:
+            from services.warehouse_routing import _norm
+            wh = _get_warehouse(order, db)
+            from_city = _norm(wh.city if wh else (pickup_city or ""))
+            to_city   = _norm(order.city or "")
+            price_row = db.query(models.DeliveryCompanyPrice).filter_by(
+                store_id=sid, company="forcelog", from_city=from_city, to_city=to_city
+            ).first()
+            if price_row:
+                use_local = (from_city == to_city and price_row.local_fee is not None)
+                order.expenses.delivery_fee = price_row.local_fee if use_local else price_row.national_fee
+        except Exception:
+            pass
+
     db.commit()
+
+    # Trigger price sync to keep prices fresh
+    try:
+        from services.delivery_prices import sync_forcelog_prices
+        sync_forcelog_prices(sid, db, api_key, pickup_city)
+    except Exception:
+        pass
 
     return {"success": True, "tracking_id": tracking_number}
 
@@ -240,7 +252,7 @@ def get_forcelog_status(
 
     if status_raw:
         order.delivery_status = status_raw
-        mapped = _map_status(status_raw)
+        mapped = ForcelogIntegration().map_status(status_raw)
         if mapped:
             order.status = mapped
         db.commit()
@@ -324,7 +336,7 @@ def sync_all_forcelog(
                 status_raw = r.json().get("PARCEL", {}).get("STATUS", "")
                 if status_raw:
                     order.delivery_status = status_raw
-                    mapped = _map_status(status_raw)
+                    mapped = ForcelogIntegration().map_status(status_raw)
                     if mapped:
                         order.status = mapped
                     updated.append({"id": order.id, "caleo_id": order.caleo_id, "delivery_status": status_raw, "status": order.status})
@@ -336,67 +348,8 @@ def sync_all_forcelog(
 
 
 @router.post("/webhook")
-async def forcelog_webhook(request: Request, db: Session = Depends(get_db)):
+async def forcelog_webhook(request: Request, db: Session = Depends(get_db), _: None = Depends(hmac_auth("forcelog"))):
     """Public webhook — Forcelog calls this when a parcel status changes."""
-    body = await request.body()
-
-    # Validate HMAC signature if a secret is configured for any store
-    # Forcelog sends one global webhook URL; we validate against the signature header
-    sig_header = request.headers.get("X-Forcelog-Signature", "")
-    if sig_header:
-        # Find the first store that has a webhook secret and matches
-        secrets = db.query(models.AppSettings).filter_by(key="forcelog_webhook_secret").all()
-        valid = False
-        for s in secrets:
-            if not s.value:
-                continue
-            expected = "sha256=" + hmac.new(s.value.encode(), body, hashlib.sha256).hexdigest()
-            if hmac.compare_digest(expected, sig_header):
-                valid = True
-                break
-        if secrets and not valid:
-            raise HTTPException(401, "Invalid webhook signature")
-
-    try:
-        import json
-        payload = json.loads(body)
-    except Exception:
-        return {"ok": True}
-
-    event = payload.get("event", "")
-    if event not in ("parcel.updated", "parcel.history", "parcel.created"):
-        return {"ok": True}
-
-    data = payload.get("data", {})
-    parcel_code = data.get("parcel_code")
-    status_raw = str(data.get("status") or "").strip()
-    secondary = str(data.get("secondary_status") or "").strip()
-
-    if not parcel_code:
-        return {"ok": True}
-
-    order = db.query(models.Order).filter(
-        models.Order.tracking_id == parcel_code
-    ).first()
-    if not order:
-        return {"ok": True}
-
-    if status_raw:
-        # Store combined status for display (e.g. "IN_PROGRESS — NO_ANSWER")
-        display = f"{status_raw} — {secondary}" if secondary else status_raw
-        order.delivery_status = display
-        mapped = _map_status(status_raw)
-        if mapped:
-            order.status = mapped
-
-        # Create in-app notification for meaningful events
-        from routers.notifications import _create_notification
-        if status_raw in FORCELOG_DELIVERED or mapped == "delivered":
-            _create_notification(db, order.user_id, order, f"Livré — {display}", "delivered")
-        elif status_raw in FORCELOG_CANCELLED or mapped == "cancelled":
-            _create_notification(db, order.user_id, order, f"Retour — {display}", "returned")
-        elif secondary.upper() in ("NO_ANSWER", "ABSENT", "FAILED_ATTEMPT"):
-            _create_notification(db, order.user_id, order, f"Tentative échouée — {display}", "failed")
-
-    db.commit()
-    return {"ok": True}
+    from integrations.couriers.forcelog.integration import ForcelogIntegration
+    payload = await request.json()
+    return ForcelogIntegration().process_webhook(db, payload)

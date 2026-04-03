@@ -5,6 +5,7 @@ from typing import Optional
 from datetime import datetime, timedelta
 from database import get_db
 from auth import get_current_user, get_store_id, hash_password
+from core.permissions import require_admin
 from services.calculations import calculate_months_in_range
 import models
 
@@ -35,7 +36,6 @@ class TeamMemberUpdate(BaseModel):
 class ConfirmerAccountCreate(BaseModel):
     username: str
     password: str
-    role: str = "confirmer"
 
 
 @router.get("")
@@ -70,7 +70,7 @@ def list_team(db: Session = Depends(get_db), user: models.User = Depends(get_cur
 
 
 @router.post("")
-def create_team_member(data: TeamMemberCreate, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
+def create_team_member(data: TeamMemberCreate, db: Session = Depends(get_db), user: models.User = Depends(require_admin)):
     if data.payment_type not in ("monthly", "per_order", "both"):
         raise HTTPException(status_code=400, detail="payment_type must be monthly, per_order, or both")
     member = models.TeamMember(
@@ -90,10 +90,32 @@ def create_team_member(data: TeamMemberCreate, db: Session = Depends(get_db), us
 
 
 @router.put("/{member_id}")
-def update_team_member(member_id: int, data: TeamMemberUpdate, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
+def update_team_member(member_id: int, data: TeamMemberUpdate, db: Session = Depends(get_db), user: models.User = Depends(require_admin)):
     member = db.query(models.TeamMember).filter(models.TeamMember.id == member_id, models.TeamMember.user_id == user.id).first()
     if not member:
         raise HTTPException(status_code=404, detail="Team member not found")
+
+    rate_changed = (
+        (data.fixed_monthly is not None and data.fixed_monthly != member.fixed_monthly) or
+        (data.per_order_rate is not None and data.per_order_rate != member.per_order_rate)
+    )
+    if rate_changed:
+        now = datetime.now()
+        # Close the previous open record
+        prev = db.query(models.TeamMemberRateHistory).filter(
+            models.TeamMemberRateHistory.team_member_id == member.id,
+            models.TeamMemberRateHistory.effective_to == None,
+        ).first()
+        if prev:
+            prev.effective_to = now
+        # Create new history record
+        db.add(models.TeamMemberRateHistory(
+            team_member_id=member.id,
+            fixed_monthly=data.fixed_monthly if data.fixed_monthly is not None else member.fixed_monthly,
+            per_order_rate=data.per_order_rate if data.per_order_rate is not None else member.per_order_rate,
+            effective_from=now,
+        ))
+
     if data.name is not None: member.name = data.name
     if data.role is not None: member.role = data.role
     if data.payment_type is not None: member.payment_type = data.payment_type
@@ -107,12 +129,16 @@ def update_team_member(member_id: int, data: TeamMemberUpdate, db: Session = Dep
 
 
 @router.delete("/{member_id}")
-def delete_team_member(member_id: int, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
-    if user.role == "confirmer":
-        raise HTTPException(status_code=403, detail="Confirmers cannot delete team members")
+def delete_team_member(member_id: int, db: Session = Depends(get_db), user: models.User = Depends(require_admin)):
     member = db.query(models.TeamMember).filter(models.TeamMember.id == member_id, models.TeamMember.user_id == user.id).first()
     if not member:
         raise HTTPException(status_code=404, detail="Team member not found")
+    user_account = db.query(models.User).filter(
+        models.User.team_member_id == member.id
+    ).first()
+    if user_account:
+        user_account.is_approved = False
+        user_account.is_active = False
     db.delete(member)
     db.commit()
     return {"success": True}
@@ -136,8 +162,6 @@ def create_confirmer_account(
     if not member:
         raise HTTPException(status_code=404, detail="Team member not found")
 
-    if data.role not in ("confirmer", "admin"):
-        raise HTTPException(status_code=400, detail="role must be confirmer or admin")
     if len(data.username) < 3:
         raise HTTPException(status_code=400, detail="Username must be at least 3 characters")
     if len(data.password) < 6:
@@ -159,7 +183,7 @@ def create_confirmer_account(
         store_name=user.store_name,
         password_hash=hash_password(data.password),
         is_approved=True,
-        role=data.role,
+        role="confirmer",
         store_id=user.id,
         team_member_id=member_id,
     )

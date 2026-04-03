@@ -28,12 +28,18 @@ def _create_initial_arrival(db, user_id: int, variant: models.Variant):
     db.add(arrival)
 
 
+ALLOWED_MIME_TYPES = {"image/jpeg", "image/png", "image/webp"}
+
+
 @router.post("/upload-image")
 async def upload_product_image(file: UploadFile = File(...), user: models.User = Depends(get_current_user)):
+    if file.content_type not in ALLOWED_MIME_TYPES:
+        raise HTTPException(status_code=400, detail="Only JPEG, PNG, and WebP images are allowed")
+    if file.size and file.size > 5 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Image must be under 5MB")
     ext = os.path.splitext(file.filename)[1].lower()
-    if ext not in (".jpg", ".jpeg", ".png", ".webp", ".gif"):
-        raise HTTPException(status_code=400, detail="Only jpg, png, webp, gif allowed")
     filename = f"{uuid.uuid4()}{ext}"
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
     path = os.path.join(UPLOAD_DIR, filename)
     with open(path, "wb") as f:
         shutil.copyfileobj(file.file, f)
@@ -56,7 +62,6 @@ class ProductCreate(BaseModel):
     category: str = "caps"
     has_sizes: bool = True
     has_colors: bool = True
-    is_pack: bool = False
     under_1kg: bool = False
     supplier: Optional[str] = None
     supplier_id: Optional[int] = None
@@ -105,7 +110,6 @@ def list_products(db: Session = Depends(get_db), user: models.User = Depends(get
             "category": p.category,
             "has_sizes": p.has_sizes,
             "has_colors": p.has_colors,
-            "is_pack": p.is_pack,
             "under_1kg": p.under_1kg,
             "supplier": p.supplier,
             "supplier_id": p.supplier_id,
@@ -126,12 +130,16 @@ def create_product(data: ProductCreate, db: Session = Depends(get_db), user: mod
         category=data.category,
         has_sizes=data.has_sizes,
         has_colors=data.has_colors,
-        is_pack=data.is_pack,
         under_1kg=data.under_1kg,
         supplier=data.supplier,
         supplier_id=data.supplier_id,
         image_url=data.image_url,
     )
+    if not data.has_sizes and any(v.size for v in data.variants):
+        raise HTTPException(status_code=400, detail="This product does not support sizes")
+    if not data.has_colors and any(v.color for v in data.variants):
+        raise HTTPException(status_code=400, detail="This product does not support colors")
+
     db.add(product)
     db.flush()
 
@@ -154,12 +162,15 @@ def update_product(product_id: int, data: ProductCreate, db: Session = Depends(g
     product = db.query(models.Product).filter(models.Product.id == product_id, models.Product.user_id == user.id).first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
+    if data.image_url != product.image_url and product.image_url:
+        old_path = os.path.join(UPLOAD_DIR, os.path.basename(product.image_url))
+        if os.path.exists(old_path):
+            os.remove(old_path)
     product.name = data.name
     product.short_name = data.short_name
     product.category = data.category
     product.has_sizes = data.has_sizes
     product.has_colors = data.has_colors
-    product.is_pack = data.is_pack
     product.under_1kg = data.under_1kg
     product.supplier = data.supplier
     product.supplier_id = data.supplier_id
@@ -175,6 +186,14 @@ def delete_product(product_id: int, db: Session = Depends(get_db), user: models.
     product = db.query(models.Product).filter(models.Product.id == product_id, models.Product.user_id == user.id).first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
+    variant_ids = [v.id for v in product.variants]
+    if variant_ids:
+        db.query(models.StockArrival).filter(
+            models.StockArrival.variant_id.in_(variant_ids)
+        ).update({"variant_id": None}, synchronize_session=False)
+        db.query(models.BrokenStock).filter(
+            models.BrokenStock.variant_id.in_(variant_ids)
+        ).delete(synchronize_session=False)
     db.delete(product)
     db.commit()
     return {"success": True}
@@ -185,6 +204,11 @@ def add_variant(product_id: int, data: VariantCreate, db: Session = Depends(get_
     product = db.query(models.Product).filter(models.Product.id == product_id, models.Product.user_id == user.id).first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
+
+    if not product.has_sizes and data.size:
+        raise HTTPException(status_code=400, detail="This product does not support sizes")
+    if not product.has_colors and data.color:
+        raise HTTPException(status_code=400, detail="This product does not support colors")
 
     existing = db.query(models.Variant).filter(
         models.Variant.product_id == product_id,
@@ -209,19 +233,42 @@ def add_variant(product_id: int, data: VariantCreate, db: Session = Depends(get_
 
 
 @router.put("/variants/{variant_id}")
-def update_variant(variant_id: int, data: VariantUpdate, db: Session = Depends(get_db)):
-    variant = db.query(models.Variant).filter(models.Variant.id == variant_id).first()
+def update_variant(variant_id: int, data: VariantUpdate, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
+    store_id = get_store_id(user)
+    variant = db.query(models.Variant).filter(
+        models.Variant.id == variant_id,
+        models.Variant.product_id.in_(
+            db.query(models.Product.id).filter(models.Product.user_id == store_id)
+        ),
+    ).first()
     if not variant:
         raise HTTPException(status_code=404, detail="Variant not found")
-    for field, value in data.model_dump(exclude_none=True).items():
+    updates = data.model_dump(exclude_none=True)
+    price_changed = "selling_price" in updates or "buying_price" in updates
+    if price_changed:
+        db.add(models.ProductPriceHistory(
+            variant_id=variant.id,
+            old_selling_price=variant.selling_price,
+            new_selling_price=updates.get("selling_price", variant.selling_price),
+            old_buying_price=variant.buying_price,
+            new_buying_price=updates.get("buying_price", variant.buying_price),
+            changed_by=user.id,
+        ))
+    for field, value in updates.items():
         setattr(variant, field, value)
     db.commit()
     return {"success": True}
 
 
 @router.delete("/variants/{variant_id}")
-def delete_variant(variant_id: int, db: Session = Depends(get_db)):
-    variant = db.query(models.Variant).filter(models.Variant.id == variant_id).first()
+def delete_variant(variant_id: int, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
+    store_id = get_store_id(user)
+    variant = db.query(models.Variant).filter(
+        models.Variant.id == variant_id,
+        models.Variant.product_id.in_(
+            db.query(models.Product.id).filter(models.Product.user_id == store_id)
+        ),
+    ).first()
     if not variant:
         raise HTTPException(status_code=404, detail="Variant not found")
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   LayoutDashboard, Package, Tag, Gift, Warehouse,
   Users, BarChart2, Megaphone, Receipt, LogOut, Menu, X, Settings as SettingsIcon, UserCheck, Truck,
@@ -17,6 +17,7 @@ import Leads from './pages/Leads';
 import Suppliers from './pages/Suppliers';
 import Login from './pages/Login';
 import PlatformLayout from './pages/platform/PlatformLayout';
+import { getSetting, setSetting } from './api';
 
 // ── Nav label translations ───────────────────────────────────
 const T = {
@@ -64,7 +65,25 @@ const CONFIRMER_NAV = [
   { id: 'settings',  Icon: SettingsIcon },
 ];
 
+// Reload if tab was hidden/inactive for more than 10 minutes (keeps Render server warm on return)
+const INACTIVE_LIMIT = 10 * 60 * 1000;
+function useReloadOnInactivity() {
+  useEffect(() => {
+    let hiddenAt = null;
+    const onVisibility = () => {
+      if (document.hidden) {
+        hiddenAt = Date.now();
+      } else if (hiddenAt && Date.now() - hiddenAt > INACTIVE_LIMIT) {
+        window.location.reload();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, []);
+}
+
 export default function App() {
+  useReloadOnInactivity();
   const [page, setPage] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [user, setUser] = useState(() => {
@@ -75,6 +94,7 @@ export default function App() {
   const [theme,  setTheme]  = useState(() => localStorage.getItem('app_theme')  || 'dark');
   const [lang,   setLang]   = useState(() => localStorage.getItem('app_lang')   || 'en');
   const [accent, setAccent] = useState(() => localStorage.getItem('app_accent') || '#00d48f');
+  const langInitialized = useRef(false);
   const [logo,   setLogo]   = useState(() => localStorage.getItem('store_logo') || null);
   const [storeName, setStoreName] = useState(() => {
     try { return JSON.parse(localStorage.getItem('user'))?.store_name || ''; } catch { return ''; }
@@ -104,6 +124,25 @@ export default function App() {
   useEffect(() => {
     document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
   }, [lang]);
+
+  // On mount (after login), load language preference from backend
+  useEffect(() => {
+    if (!user || langInitialized.current) return;
+    langInitialized.current = true;
+    getSetting('app_language').then(res => {
+      const saved = res?.data?.value;
+      if (saved && ['en', 'fr', 'ar'].includes(saved)) {
+        setLang(saved);
+        localStorage.setItem('app_lang', saved);
+      }
+    }).catch(() => {});
+  }, [user]);
+
+  const handleSetLang = useCallback((newLang) => {
+    setLang(newLang);
+    localStorage.setItem('app_lang', newLang);
+    setSetting('app_language', newLang).catch(() => {});
+  }, []);
 
   const handleAuth = (userData) => setUser(userData);
 
@@ -135,7 +174,7 @@ export default function App() {
 
   const initial = (user.username || 'U')[0].toUpperCase();
 
-  const settingsProps = { user, theme, setTheme, lang, setLang, accent, setAccent, logo, setLogo, onStoreName: handleStoreName, onLogout: handleLogout };
+  const settingsProps = { user, theme, setTheme, lang, setLang: handleSetLang, accent, setAccent, logo, setLogo, onStoreName: handleStoreName, onLogout: handleLogout };
 
   const pages = {
     dashboard: <Dashboard onNavigate={navigate} user={user} />,

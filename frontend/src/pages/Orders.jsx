@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { getOrders, getProducts, getPacks, getOffers, getPromoCodes, uploadPickupPDF, bulkCreateOrders, uploadReturnPDF, processReturns, updateOrderStatus, updateOrder, deleteOrder, bulkUpdateOrderStatus, sendToOlivraison, sendToForcelog, getForcelogStatus, syncAllForcelog, syncAllOlivraison, requestOlivRamassage, requestForcelogRamassage, confirmPickup, errorMessage } from '../api';
+import { getOrders, getProducts, getPacks, getOffers, getPromoCodes, uploadPickupPDF, bulkCreateOrders, uploadReturnPDF, processReturns, updateOrderStatus, updateOrder, deleteOrder, bulkUpdateOrderStatus, sendToOlivraison, sendToForcelog, getForcelogStatus, syncAllForcelog, syncAllOlivraison, requestOlivRamassage, requestForcelogRamassage, confirmPickup, errorMessage, getSetting } from '../api';
 import ErrorExplain from '../components/ErrorExplain';
 import { validatePhone, validateAmount, numericOnly, fieldErrorStyle } from '../utils/validate';
 
@@ -281,6 +281,19 @@ export default function Orders() {
     Promise.allSettled([syncAllForcelog(), syncAllOlivraison()])
       .then(() => load({ p: 1, f: 'all', t: 'orders', dr: 'all' }))
       .catch(() => {});
+    // Pre-fill order form defaults from store settings
+    Promise.all([
+      getSetting('default_packaging'),
+      getSetting('default_sticker'),
+      getSetting('default_seal_bag'),
+    ]).then(([pkg, sticker, sealBag]) => {
+      setManualExpenses(prev => ({
+        ...prev,
+        packaging: parseFloat(pkg?.data?.value) || prev.packaging,
+        sticker: parseFloat(sticker?.data?.value) || prev.sticker,
+        seal_bag: parseFloat(sealBag?.data?.value) || prev.seal_bag,
+      }));
+    });
   }, []);
 
   // Auto-focus name field when manual order form opens (mobile UX)

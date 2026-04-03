@@ -572,7 +572,7 @@ export default function Ads() {
     const delivered = stats.delivered_orders || 0;
     const prices = getItemPrices(conn.item_type, conn.item_id);
     const adCost = delivered > 0 ? spend / delivered : 0;
-    const profit = prices ? prices.selling_price - prices.buy_price - prices.packaging_cost - conn.delivery_cost - adCost : null;
+    const profit = prices ? prices.selling_price - prices.buy_price - prices.packaging_cost - (stats.avg_delivery_cost ?? 0) - adCost : null;
     return { delivered, returnRate: stats.return_rate || 0, profit, totalProfit: profit !== null ? profit * delivered : null };
   });
   const totalDelivered  = summaryRows.reduce((s, r) => s + r.delivered, 0);
@@ -703,7 +703,7 @@ export default function Ads() {
           const delivered   = stats.delivered_orders || 0;
           const adCost      = delivered > 0 ? spend / delivered : 0;
           const prices      = getItemPrices(conn.item_type, conn.item_id);
-          const profit      = prices ? prices.selling_price - prices.buy_price - prices.packaging_cost - conn.delivery_cost - adCost : null;
+          const profit      = prices ? prices.selling_price - prices.buy_price - prices.packaging_cost - (stats.avg_delivery_cost ?? 0) - adCost : null;
           const totalProfit = profit !== null ? profit * delivered : null;
           const platformColor = PLATFORM_COLORS[conn.platform] || '#8892b0';
           return { conn, campaign, spend, delivered, stats, profit, totalProfit, platformColor };
@@ -818,8 +818,8 @@ export default function Ads() {
                 const delivered = stats?.delivered_orders || 0;
                 const adCostPerOrder = (periodSpendMAD != null && delivered > 0) ? periodSpendMAD / delivered : null;
                 const prices = conn ? getItemPrices(conn.item_type, conn.item_id) : null;
-                const profit = (prices && adCostPerOrder != null)
-                  ? prices.selling_price - prices.buy_price - prices.packaging_cost - conn.delivery_cost - adCostPerOrder
+                const profit = prices
+                  ? prices.selling_price - prices.buy_price - prices.packaging_cost - (stats?.avg_delivery_cost ?? 0) - (adCostPerOrder ?? 0)
                   : null;
                 const dot = getDotInfo(conn, delivered, periodSpendMAD, profit);
                 const displaySpend = periodSpendMAD ?? (c.spend_all_time_usd || 0) * usdRate;
@@ -890,8 +890,8 @@ export default function Ads() {
                 const delivered = stats?.delivered_orders || 0;
                 const adCostPerOrder = (periodSpendMAD != null && delivered > 0) ? periodSpendMAD / delivered : null;
                 const prices = conn ? getItemPrices(conn.item_type, conn.item_id) : null;
-                const profit = (prices && adCostPerOrder != null)
-                  ? prices.selling_price - prices.buy_price - prices.packaging_cost - conn.delivery_cost - adCostPerOrder
+                const profit = prices
+                  ? prices.selling_price - prices.buy_price - prices.packaging_cost - (stats?.avg_delivery_cost ?? 0) - (adCostPerOrder ?? 0)
                   : null;
                 const dot = getDotInfo(conn, delivered, periodSpendMAD, profit);
                 const rowBg = dot.color === '#22c55e' ? '#0d2a1e22' : dot.color === '#f59e0b' ? '#1e1a0022' : dot.color === '#ef4444' ? '#2a0d0d22' : 'var(--bg)';
@@ -956,8 +956,8 @@ export default function Ads() {
                 const delivered = stats?.delivered_orders || 0;
                 const adCostPerOrder = (periodSpendMAD != null && delivered > 0) ? periodSpendMAD / delivered : null;
                 const prices = conn ? getItemPrices(conn.item_type, conn.item_id) : null;
-                const profit = (prices && adCostPerOrder != null)
-                  ? prices.selling_price - prices.buy_price - prices.packaging_cost - conn.delivery_cost - adCostPerOrder
+                const profit = prices
+                  ? prices.selling_price - prices.buy_price - prices.packaging_cost - (stats?.avg_delivery_cost ?? 0) - (adCostPerOrder ?? 0)
                   : null;
                 const dot = getDotInfo(conn, delivered, periodSpendMAD, profit);
                 const rowBg = dot.color === '#22c55e' ? '#0d2a1e22' : dot.color === '#f59e0b' ? '#1e1a0022' : dot.color === '#ef4444' ? '#2a0d0d22' : 'var(--bg)';
@@ -1021,8 +1021,8 @@ export default function Ads() {
                 const delivered = stats?.delivered_orders || 0;
                 const adCostPerOrder = (periodSpendMAD != null && delivered > 0) ? periodSpendMAD / delivered : null;
                 const prices = conn ? getItemPrices(conn.item_type, conn.item_id) : null;
-                const profit = (prices && adCostPerOrder != null)
-                  ? prices.selling_price - prices.buy_price - prices.packaging_cost - conn.delivery_cost - adCostPerOrder
+                const profit = prices
+                  ? prices.selling_price - prices.buy_price - prices.packaging_cost - (stats?.avg_delivery_cost ?? 0) - (adCostPerOrder ?? 0)
                   : null;
                 const dot = getDotInfo(conn, delivered, periodSpendMAD, profit);
                 const rowBg = dot.color === '#22c55e' ? '#0d2a1e22' : dot.color === '#f59e0b' ? '#1e1a0022' : dot.color === '#ef4444' ? '#2a0d0d22' : 'var(--bg)';
@@ -1086,8 +1086,8 @@ export default function Ads() {
                 const delivered = stats?.delivered_orders || 0;
                 const adCostPerOrder = (periodSpendMAD != null && delivered > 0) ? periodSpendMAD / delivered : null;
                 const prices = conn ? getItemPrices(conn.item_type, conn.item_id) : null;
-                const profit = (prices && adCostPerOrder != null)
-                  ? prices.selling_price - prices.buy_price - prices.packaging_cost - conn.delivery_cost - adCostPerOrder
+                const profit = prices
+                  ? prices.selling_price - prices.buy_price - prices.packaging_cost - (stats?.avg_delivery_cost ?? 0) - (adCostPerOrder ?? 0)
                   : null;
                 const dot = getDotInfo(conn, delivered, periodSpendMAD, profit);
                 const displaySpend = periodSpendMAD ?? (c.spend_all_time_usd || 0) * usdRate;

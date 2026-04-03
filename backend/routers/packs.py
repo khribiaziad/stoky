@@ -161,8 +161,14 @@ def add_preset(pack_id: int, data: PackPresetInput, db: Session = Depends(get_db
 
 
 @router.delete("/presets/{preset_id}")
-def delete_preset(preset_id: int, db: Session = Depends(get_db)):
-    preset = db.query(models.PackPreset).filter(models.PackPreset.id == preset_id).first()
+def delete_preset(preset_id: int, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
+    store_id = get_store_id(user)
+    preset = db.query(models.PackPreset).join(
+        models.Pack, models.Pack.id == models.PackPreset.pack_id
+    ).filter(
+        models.PackPreset.id == preset_id,
+        models.Pack.user_id == store_id,
+    ).first()
     if not preset:
         raise HTTPException(status_code=404, detail="Preset not found")
     db.delete(preset)
