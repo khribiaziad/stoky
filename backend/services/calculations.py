@@ -261,24 +261,31 @@ def calculate_ads_costs(
     end: Optional[datetime],
     user_id: int,
 ) -> float:
-    """Hamza feeds Hassan the real spend numbers.
-    Tries real Meta API spend first. Falls back to manual daily_rate if not connected.
+    """Hamza feeds Hassan the real spend numbers from every connected platform.
+    Falls back to manual daily_rate entries only if no platform returns spend.
     """
     from integrations.platforms.meta.integration import MetaIntegration
+    from integrations.platforms.tiktok.integration import TikTokIntegration
+    from integrations.platforms.snapchat.integration import SnapchatIntegration
+    from integrations.platforms.pinterest.integration import PinterestIntegration
+    from integrations.platforms.google.integration import GoogleIntegration
 
-    total = 0.0
-
-    # Convert datetime bounds to ISO date strings for Hamza's API call
     start_str = start.strftime("%Y-%m-%d") if start else "2000-01-01"
     end_str   = end.strftime("%Y-%m-%d")   if end   else _now().strftime("%Y-%m-%d")
 
-    # Real Meta API spend
-    meta_spend = MetaIntegration().get_spend_safe(db, user_id, start_str, end_str)
-    if meta_spend > 0:
-        total += meta_spend
-    else:
-        # Fallback: manual FacebookAd daily rate entries
-        total += _calculate_manual_ad_spend(db, start, end, user_id)
+    platforms = [
+        MetaIntegration(),
+        TikTokIntegration(),
+        SnapchatIntegration(),
+        PinterestIntegration(),
+        GoogleIntegration(),
+    ]
+
+    total = sum(p.get_spend_safe(db, user_id, start_str, end_str) for p in platforms)
+
+    # Fall back to manual entries only if no platform is connected / returned data
+    if total == 0:
+        total = _calculate_manual_ad_spend(db, start, end, user_id)
 
     return total
 
