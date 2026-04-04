@@ -91,6 +91,7 @@ with engine.connect() as conn:
         "CREATE TABLE IF NOT EXISTS product_price_history (id INTEGER PRIMARY KEY, variant_id INTEGER REFERENCES variants(id), old_selling_price FLOAT, new_selling_price FLOAT, old_buying_price FLOAT, new_buying_price FLOAT, changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, changed_by INTEGER REFERENCES users(id))",
         "ALTER TABLE orders ADD COLUMN callback_time TIMESTAMP",
         "CREATE UNIQUE INDEX IF NOT EXISTS uq_promocode_per_store ON promo_codes (user_id, code)",
+        "ALTER TABLE products ADD COLUMN needs_salt_bag BOOLEAN DEFAULT false",
     ]:
         try:
             conn.execute(text(stmt))

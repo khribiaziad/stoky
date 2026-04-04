@@ -94,7 +94,6 @@ def calculate_order_profit(order: models.Order) -> float:
         total_costs = (
             product_cost
             + (expenses.delivery_fee or 0.0)
-            + (expenses.sticker or 0.0)
             + (expenses.seal_bag or 0.0)
             + (expenses.packaging or 0.0)
         )
@@ -105,13 +104,9 @@ def calculate_order_profit(order: models.Order) -> float:
             return -product_cost
         return_costs = (
             (expenses.return_fee or 0.0)
-            + (expenses.sticker or 0.0)
+            + (expenses.seal_bag or 0.0)
             + (expenses.packaging or 0.0)
         )
-        if expenses.seal_bag_returned:
-            return_costs += (expenses.seal_bag or 0.0) - 1
-        else:
-            return_costs += (expenses.seal_bag or 0.0)
         if expenses.product_broken:
             return_costs += product_cost
         return -return_costs

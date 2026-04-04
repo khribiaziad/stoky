@@ -96,6 +96,7 @@ def create_order(
 
     warehouse_id = order_data.get("warehouse_id")
     items_for_stock: list = []
+    has_salt_bag = False
 
     for item_data in order_data.get("items", []):
         variant_id = item_data["variant_id"]
@@ -111,6 +112,9 @@ def create_order(
             db.rollback()
             raise HTTPException(status_code=404, detail=f"Variant {variant_id} not found")
 
+        if variant.product and variant.product.needs_salt_bag:
+            has_salt_bag = True
+
         db.add(models.OrderItem(
             order_id=order.id,
             variant_id=variant.id,
@@ -124,7 +128,7 @@ def create_order(
         items_for_stock.append({"variant_id": variant_id, "quantity": quantity})
 
     stock_service.deduct_stock(db, items_for_stock, warehouse_id)
-    expense_service.create_order_expense(db, order, order.city, store_id)
+    expense_service.create_order_expense(db, order, order.city, store_id, has_salt_bag=has_salt_bag)
     return order
 
 

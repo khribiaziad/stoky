@@ -57,6 +57,7 @@ class Product(Base):
     has_colors = Column(Boolean, default=True)
     # is_pack removed (#98) — column still exists in DB but is ignored going forward
     under_1kg = Column(Boolean, default=False)
+    needs_salt_bag = Column(Boolean, default=False)
     supplier = Column(String, nullable=True)
     supplier_id = Column(Integer, ForeignKey("suppliers.id"), nullable=True)
     image_url = Column(String, nullable=True)

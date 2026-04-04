@@ -6,7 +6,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from auth import get_current_user, get_store_id
 from core.permissions import require_admin
@@ -92,8 +92,11 @@ def _create_order_from_lead(lead: models.Lead, db: Session) -> Optional[models.O
     db.add(order)
     db.flush()
 
+    has_salt_bag = False
     for item in (lead.matched_items or []):
-        variant = db.query(models.Variant).filter(models.Variant.id == item["variant_id"]).first()
+        variant = db.query(models.Variant).options(
+            joinedload(models.Variant.product)
+        ).filter(models.Variant.id == item["variant_id"]).first()
         if not variant:
             db.rollback()
             return None
@@ -102,6 +105,8 @@ def _create_order_from_lead(lead: models.Lead, db: Session) -> Optional[models.O
             db.rollback()
             return None
         variant.stock -= qty
+        if variant.product and variant.product.needs_salt_bag:
+            has_salt_bag = True
         db.add(models.OrderItem(
             order_id=order.id,
             variant_id=variant.id,
@@ -115,8 +120,7 @@ def _create_order_from_lead(lead: models.Lead, db: Session) -> Optional[models.O
 
     db.add(models.OrderExpense(
         order_id=order.id,
-        sticker=0,
-        seal_bag=0,
+        seal_bag=1.0 if has_salt_bag else 0.0,
         packaging=1,
         delivery_fee=35.0,
         return_fee=7.0,

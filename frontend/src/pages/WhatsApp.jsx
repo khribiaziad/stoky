@@ -49,7 +49,7 @@ export default function WhatsApp() {
         total_amount:     total,
         order_date:       new Date().toISOString(),
         items:            [{ variant_id: Number(form.variantId), quantity: Number(form.quantity) }],
-        expenses:         { sticker: 0, seal_bag: 0, packaging: 0 },
+        expenses:         { packaging: 0 },
       }]);
       setSuccess(true);
     } catch (e) {

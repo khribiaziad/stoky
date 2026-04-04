@@ -97,7 +97,7 @@ export default function Orders() {
   const emptyManualOrder = () => ({ caleo_id: generateManualId(), customer_name: '', customer_phone: '', customer_address: '', city: '', total_amount: '' });
   const [manualOrder, setManualOrder] = useState(emptyManualOrder());
   const [manualItems, setManualItems] = useState([{ variant_id: '', quantity: 1 }]);
-  const [manualExpenses, setManualExpenses] = useState({ sticker: 0, seal_bag: 0, packaging: 1 });
+  const [manualExpenses, setManualExpenses] = useState({ packaging: 1 });
   const [manualOrderType, setManualOrderType] = useState('single'); // 'single' | 'pack' | 'offer'
   const [showExtraOptions, setShowExtraOptions] = useState(false);
   const nameInputRef = useRef(null);
@@ -111,7 +111,7 @@ export default function Orders() {
   const [showManualReturn, setShowManualReturn] = useState(false);
   const [returnSearch, setReturnSearch] = useState('');
   const [selectedReturn, setSelectedReturn] = useState(null);
-  const [manualReturnChoice, setManualReturnChoice] = useState({ seal_bag_returned: false, product_broken: false });
+  const [manualReturnChoice, setManualReturnChoice] = useState({ product_broken: false });
 
   // Tab
   const [activeTab, setActiveTab] = useState('orders');
@@ -127,14 +127,14 @@ export default function Orders() {
   const [editOrder, setEditOrder] = useState(null);
   const [editForm, setEditForm] = useState({});
   const [editItems, setEditItems] = useState([]);
-  const [editExpenses, setEditExpenses] = useState({ sticker: 0, seal_bag: 0, packaging: 1 });
+  const [editExpenses, setEditExpenses] = useState({ packaging: 1 });
 
   // Exchange flow
   const [exchangeOrder, setExchangeOrder] = useState(null);
   const [exchangeStep, setExchangeStep] = useState(1); // 1 = return, 2 = new order
-  const [exchangeReturnChoice, setExchangeReturnChoice] = useState({ seal_bag_returned: false, product_broken: false });
+  const [exchangeReturnChoice, setExchangeReturnChoice] = useState({ product_broken: false });
   const [exchangeItems, setExchangeItems] = useState([{ variant_id: '', quantity: 1 }]);
-  const [exchangeExpenses, setExchangeExpenses] = useState({ sticker: 0, seal_bag: 0, packaging: 1 });
+  const [exchangeExpenses, setExchangeExpenses] = useState({ packaging: 1 });
   const [exchangeTotal, setExchangeTotal] = useState('');
 
   const [error, setError] = useState('');
@@ -196,27 +196,6 @@ export default function Orders() {
       return sum + (v?.selling_price || 0) * (parseInt(item.quantity) || 1);
     }, 0);
     return total > 0 ? String(total) : '';
-  };
-
-  // Auto-set seal_bag based on whether any selected product is under 1kg
-  const autoSealBag = (items) => {
-    return items.some(item => {
-      if (!item.isPack && item.variant_id) {
-        return allVariants.find(v => v.id === parseInt(item.variant_id))?.under_1kg;
-      }
-      if (item.isPack && item.customItems) {
-        return item.customItems.some(ci => allVariants.find(v => v.id === parseInt(ci.variant_id))?.under_1kg);
-      }
-      return false;
-    }) ? 1 : 0;
-  };
-
-  const updateItemsAndSealBag = (orderIndex, newItems) => {
-    setOrderItems(prev => ({ ...prev, [orderIndex]: newItems }));
-    setOrderExpenses(prev => ({
-      ...prev,
-      [orderIndex]: { ...prev[orderIndex], seal_bag: autoSealBag(newItems) },
-    }));
   };
 
   const getDateBounds = (range, future = false) => {
@@ -282,16 +261,10 @@ export default function Orders() {
       .then(() => load({ p: 1, f: 'all', t: 'orders', dr: 'all' }))
       .catch(() => {});
     // Pre-fill order form defaults from store settings
-    Promise.all([
-      getSetting('default_packaging'),
-      getSetting('default_sticker'),
-      getSetting('default_seal_bag'),
-    ]).then(([pkg, sticker, sealBag]) => {
+    getSetting('default_packaging').then(pkg => {
       setManualExpenses(prev => ({
         ...prev,
         packaging: parseFloat(pkg?.data?.value) || prev.packaging,
-        sticker: parseFloat(sticker?.data?.value) || prev.sticker,
-        seal_bag: parseFloat(sealBag?.data?.value) || prev.seal_bag,
       }));
     });
   }, []);
@@ -348,7 +321,7 @@ export default function Orders() {
       setSuccess('Order created successfully!');
       setManualOrder(emptyManualOrder());
       setManualItems([{ variant_id: '', quantity: 1 }]);
-      setManualExpenses({ sticker: 0, seal_bag: 0, packaging: 1 });
+      setManualExpenses({ packaging: 1 });
       setManualOrderType('single');
       setSelectedPackId(''); setSelectedPresetId(''); setSelectedOfferId('');
       setPromoCode(''); setPromoResult(null);
@@ -371,7 +344,7 @@ export default function Orders() {
       setShowManualReturn(false);
       setSelectedReturn(null);
       setReturnSearch('');
-      setManualReturnChoice({ seal_bag_returned: false, product_broken: false });
+      setManualReturnChoice({ product_broken: false });
       load();
     } catch (e) { setError(errorMessage(e)); }
   };
@@ -391,7 +364,7 @@ export default function Orders() {
       const expenses = {};
       extracted.forEach((_, i) => {
         items[i] = [{ variant_id: '', quantity: 1 }];
-        expenses[i] = { sticker: 0, seal_bag: 0, packaging: 1 };
+        expenses[i] = { packaging: 1 };
       });
       setOrderItems(items);
       setOrderExpenses(expenses);
@@ -413,7 +386,7 @@ export default function Orders() {
       setReturnOrders(res.data);
       const choices = {};
       res.data.matched_orders.forEach(o => {
-        choices[o.id] = { seal_bag_returned: false, product_broken: false };
+        choices[o.id] = { product_broken: false };
       });
       setReturnChoices(choices);
     } catch (e) {
@@ -455,7 +428,7 @@ export default function Orders() {
       return {
         ...order,
         items: flatItems,
-        expenses: orderExpenses[i] || { sticker: 0, seal_bag: 0, packaging: 1 },
+        expenses: orderExpenses[i] || { packaging: 1 },
       };
     }).filter(o => o.items.length > 0);
 
@@ -688,8 +661,6 @@ export default function Orders() {
         : [{ variant_id: '', quantity: 1 }]
     );
     setEditExpenses({
-      sticker: order.expenses?.sticker ?? 0,
-      seal_bag: order.expenses?.seal_bag ?? 0,
       packaging: order.expenses?.packaging ?? 1,
     });
     setError('');
@@ -730,9 +701,9 @@ export default function Orders() {
   const openExchange = (order) => {
     setExchangeOrder(order);
     setExchangeStep(1);
-    setExchangeReturnChoice({ seal_bag_returned: false, product_broken: false });
+    setExchangeReturnChoice({ product_broken: false });
     setExchangeItems([{ variant_id: '', quantity: 1 }]);
-    setExchangeExpenses({ sticker: 0, seal_bag: 0, packaging: 1 });
+    setExchangeExpenses({ packaging: 1 });
     // Pre-fill total with the delivery fee from the original order
     setExchangeTotal(order.expenses?.delivery_fee || 35);
     setError('');
@@ -1365,7 +1336,6 @@ export default function Orders() {
                         const updated = [...editItems];
                         updated[j] = { ...updated[j], variant_id: e.target.value };
                         setEditItems(updated);
-                        setEditExpenses(prev => ({ ...prev, seal_bag: autoSealBag(updated) }));
                       }}>
                       <option value="">Select product...</option>
                       {allVariants.map(v => (
@@ -1385,7 +1355,6 @@ export default function Orders() {
                       <button className="btn btn-danger btn-sm" onClick={() => {
                         const updated = editItems.filter((_, idx) => idx !== j);
                         setEditItems(updated);
-                        setEditExpenses(prev => ({ ...prev, seal_bag: autoSealBag(updated) }));
                       }}>✕</button>
                     )}
                   </div>
@@ -1397,16 +1366,6 @@ export default function Orders() {
               </div>
 
               <div style={{ display: 'flex', gap: 16, padding: 12, background: '#0f1117', borderRadius: 8, flexWrap: 'wrap' }}>
-                <label className="checkbox-label">
-                  <input type="checkbox" checked={editExpenses.sticker === 1}
-                    onChange={e => setEditExpenses({ ...editExpenses, sticker: e.target.checked ? 1 : 0 })} />
-                  Sticker (1 MAD)
-                </label>
-                <label className="checkbox-label">
-                  <input type="checkbox" checked={editExpenses.seal_bag === 1}
-                    onChange={e => setEditExpenses({ ...editExpenses, seal_bag: e.target.checked ? 1 : 0 })} />
-                  Sell Bag (1 MAD)
-                </label>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <span style={{ color: 'var(--t2)', fontSize: 13 }}>Packaging:</span>
                   <input className="form-input" type="number" min="0" style={{ width: 60, padding: '4px 8px' }}
@@ -1492,7 +1451,7 @@ export default function Orders() {
                             onChange={e => {
                               const updated = [...orderItems[i]];
                               updated[j] = { ...updated[j], variant_id: e.target.value };
-                              updateItemsAndSealBag(i, updated);
+                              setOrderItems({ ...orderItems, [i]: updated });
                             }}
                           >
                             <option value="">Select product...</option>
@@ -1585,7 +1544,7 @@ export default function Orders() {
                                         const newCustom = [...updated[j].customItems];
                                         newCustom[k] = { ...newCustom[k], variant_id: e.target.value };
                                         updated[j] = { ...updated[j], customItems: newCustom, presetId: '' };
-                                        updateItemsAndSealBag(i, updated);
+                                        setOrderItems({ ...orderItems, [i]: updated });
                                       }}
                                     >
                                       <option value="">Select product...</option>
@@ -1634,14 +1593,6 @@ export default function Orders() {
 
                   {/* Expenses */}
                   <div style={{ display: 'flex', gap: 16, marginTop: 12, padding: 10, background: '#0f1117', borderRadius: 8 }}>
-                    <label className="checkbox-label">
-                      <input type="checkbox" checked={orderExpenses[i]?.sticker === 1} onChange={e => setOrderExpenses({ ...orderExpenses, [i]: { ...orderExpenses[i], sticker: e.target.checked ? 1 : 0 } })} />
-                      Sticker (1 MAD)
-                    </label>
-                    <label className="checkbox-label">
-                      <input type="checkbox" checked={orderExpenses[i]?.seal_bag === 1} onChange={e => setOrderExpenses({ ...orderExpenses, [i]: { ...orderExpenses[i], seal_bag: e.target.checked ? 1 : 0 } })} />
-                      Sell Bag (1 MAD)
-                    </label>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <span style={{ color: 'var(--t2)', fontSize: 13 }}>Packaging:</span>
                       <input
@@ -1688,7 +1639,7 @@ export default function Orders() {
                         setSelectedPackId(''); setSelectedPresetId(''); setSelectedOfferId('');
                         setManualItems([{ variant_id: '', quantity: 1 }]);
                         setManualOrder(prev => ({ ...prev, total_amount: '' }));
-                        setManualExpenses({ sticker: 0, seal_bag: 0, packaging: 1 });
+                        setManualExpenses({ packaging: 1 });
                         setPromoCode(''); setPromoResult(null);
                       }} style={{
                         flex: 1, padding: isMobile ? '10px 0' : '7px 0', borderRadius: 6, border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: 13,
@@ -1755,14 +1706,6 @@ export default function Orders() {
                 // Shared: expenses row (sticker, seal bag, packaging)
                 const expensesRow = (
                   <div style={{ display: 'flex', gap: 16, padding: 12, background: '#0f1117', borderRadius: 8, flexWrap: 'wrap', marginBottom: 16 }}>
-                    <label className="checkbox-label">
-                      <input type="checkbox" checked={manualExpenses.sticker === 1} onChange={e => setManualExpenses({ ...manualExpenses, sticker: e.target.checked ? 1 : 0 })} />
-                      Sticker (1 MAD)
-                    </label>
-                    <label className="checkbox-label">
-                      <input type="checkbox" checked={manualExpenses.seal_bag === 1} onChange={e => setManualExpenses({ ...manualExpenses, seal_bag: e.target.checked ? 1 : 0 })} />
-                      Seal Bag (1 MAD)
-                    </label>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <span style={{ color: 'var(--t2)', fontSize: 13 }}>Packaging:</span>
                       <input className="form-input" type="number" min="0" style={{ width: 60, padding: '4px 8px' }} value={manualExpenses.packaging} onChange={e => setManualExpenses({ ...manualExpenses, packaging: parseFloat(e.target.value) || 0 })} />
@@ -1838,7 +1781,6 @@ export default function Orders() {
                               if (isReadOnly) return;
                               const newItems = [...manualItems]; newItems[j] = { ...newItems[j], variant_id: e.target.value };
                               setManualItems(newItems);
-                              setManualExpenses(prev => ({ ...prev, seal_bag: autoSealBag(newItems) }));
                               if (manualOrderType === 'single') setManualOrder(prev => ({ ...prev, total_amount: calcManualTotal(newItems) }));
                             }}>
                             <option value="">Select product...</option>
@@ -1861,7 +1803,6 @@ export default function Orders() {
                             <button type="button" className="btn btn-danger btn-sm" style={{ minHeight: 48, padding: '0 12px' }} onClick={() => {
                               const newItems = manualItems.filter((_, idx) => idx !== j);
                               setManualItems(newItems);
-                              setManualExpenses(prev => ({ ...prev, seal_bag: autoSealBag(newItems) }));
                               setManualOrder(prev => ({ ...prev, total_amount: calcManualTotal(newItems) }));
                             }}>✕</button>
                           )}
@@ -1956,7 +1897,7 @@ export default function Orders() {
                               onChange={e => {
                                 if (isReadOnly) return;
                                 const newItems = [...manualItems]; newItems[j] = { ...newItems[j], variant_id: e.target.value };
-                                setManualItems(newItems); setManualExpenses(prev => ({ ...prev, seal_bag: autoSealBag(newItems) }));
+                                setManualItems(newItems);
                                 if (manualOrderType === 'single') setManualOrder(prev => ({ ...prev, total_amount: calcManualTotal(newItems) }));
                               }}>
                               <option value="">Select product...</option>
@@ -1976,7 +1917,7 @@ export default function Orders() {
                             {manualItems.length > 1 && manualOrderType === 'single' && (
                               <button className="btn btn-danger btn-sm" type="button" onClick={() => {
                                 const newItems = manualItems.filter((_, idx) => idx !== j);
-                                setManualItems(newItems); setManualExpenses(prev => ({ ...prev, seal_bag: autoSealBag(newItems) }));
+                                setManualItems(newItems);
                                 setManualOrder(prev => ({ ...prev, total_amount: calcManualTotal(newItems) }));
                               }}>✕</button>
                             )}
@@ -2039,11 +1980,6 @@ export default function Orders() {
                   </div>
                   <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
                     <label className="checkbox-label">
-                      <input type="checkbox" checked={manualReturnChoice.seal_bag_returned}
-                        onChange={e => setManualReturnChoice({ ...manualReturnChoice, seal_bag_returned: e.target.checked })} />
-                      Sell Bag Returned (+1 MAD)
-                    </label>
-                    <label className="checkbox-label">
                       <input type="checkbox" checked={manualReturnChoice.product_broken}
                         onChange={e => setManualReturnChoice({ ...manualReturnChoice, product_broken: e.target.checked })} />
                       Product Broken (broken stock)
@@ -2102,11 +2038,6 @@ export default function Orders() {
                   </div>
                   <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
                     <label className="checkbox-label">
-                      <input type="checkbox" checked={exchangeReturnChoice.seal_bag_returned}
-                        onChange={e => setExchangeReturnChoice({ ...exchangeReturnChoice, seal_bag_returned: e.target.checked })} />
-                      Sell Bag Returned (+1 MAD)
-                    </label>
-                    <label className="checkbox-label">
                       <input type="checkbox" checked={exchangeReturnChoice.product_broken}
                         onChange={e => setExchangeReturnChoice({ ...exchangeReturnChoice, product_broken: e.target.checked })} />
                       Product Broken (goes to broken stock)
@@ -2141,7 +2072,6 @@ export default function Orders() {
                             const updated = [...exchangeItems];
                             updated[j] = { ...updated[j], variant_id: e.target.value };
                             setExchangeItems(updated);
-                            setExchangeExpenses(prev => ({ ...prev, seal_bag: autoSealBag(updated) }));
                           }}>
                           <option value="">Select product...</option>
                           {allVariants.map(v => (
@@ -2172,16 +2102,6 @@ export default function Orders() {
                   </div>
 
                   <div style={{ display: 'flex', gap: 16, padding: 12, background: '#0f1117', borderRadius: 8, flexWrap: 'wrap' }}>
-                    <label className="checkbox-label">
-                      <input type="checkbox" checked={exchangeExpenses.sticker === 1}
-                        onChange={e => setExchangeExpenses({ ...exchangeExpenses, sticker: e.target.checked ? 1 : 0 })} />
-                      Sticker (1 MAD)
-                    </label>
-                    <label className="checkbox-label">
-                      <input type="checkbox" checked={exchangeExpenses.seal_bag === 1}
-                        onChange={e => setExchangeExpenses({ ...exchangeExpenses, seal_bag: e.target.checked ? 1 : 0 })} />
-                      Sell Bag (1 MAD)
-                    </label>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <span style={{ color: 'var(--t2)', fontSize: 13 }}>Packaging:</span>
                       <input className="form-input" type="number" min="0" style={{ width: 60, padding: '4px 8px' }}
@@ -2225,11 +2145,6 @@ export default function Orders() {
                   <div style={{ fontWeight: 600, fontFamily: 'monospace', color: '#7c6ef5' }}>{order.caleo_id}</div>
                   <div style={{ marginTop: 4 }}>{order.customer_name} · {order.city} · {order.total_amount} MAD</div>
                   <div style={{ display: 'flex', gap: 20, marginTop: 12 }}>
-                    <label className="checkbox-label">
-                      <input type="checkbox" checked={returnChoices[order.id]?.seal_bag_returned || false}
-                        onChange={e => setReturnChoices({ ...returnChoices, [order.id]: { ...returnChoices[order.id], seal_bag_returned: e.target.checked } })} />
-                      Sell Bag Returned (+1 MAD)
-                    </label>
                     <label className="checkbox-label">
                       <input type="checkbox" checked={returnChoices[order.id]?.product_broken || false}
                         onChange={e => setReturnChoices({ ...returnChoices, [order.id]: { ...returnChoices[order.id], product_broken: e.target.checked } })} />

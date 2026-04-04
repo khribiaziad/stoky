@@ -27,8 +27,6 @@ class OrderItemInput(BaseModel):
 
 
 class OrderExpenseInput(BaseModel):
-    sticker: float = 0
-    seal_bag: float = 0
     packaging: float = 1
 
 
@@ -55,7 +53,6 @@ class BulkOrderCreate(BaseModel):
 
 class ReturnInput(BaseModel):
     order_id: int
-    seal_bag_returned: bool = False
     product_broken: bool = False
 
 
@@ -110,12 +107,10 @@ def serialize_order(order: models.Order, user_map: dict = None, member_map: dict
     expenses = None
     if order.expenses:
         expenses = {
-            "sticker": order.expenses.sticker,
             "seal_bag": order.expenses.seal_bag,
             "packaging": order.expenses.packaging,
             "delivery_fee": order.expenses.delivery_fee,
             "return_fee": order.expenses.return_fee,
-            "seal_bag_returned": order.expenses.seal_bag_returned,
             "product_broken": order.expenses.product_broken,
         }
 
@@ -440,8 +435,11 @@ def bulk_create_orders(data: BulkOrderCreate, db: Session = Depends(get_db), use
             db.flush()
 
             # Add items and reduce stock
+            has_salt_bag = False
             for item_data in order_data.items:
-                variant = db.query(models.Variant).filter(
+                variant = db.query(models.Variant).options(
+                    joinedload(models.Variant.product)
+                ).filter(
                     models.Variant.id == item_data.variant_id
                 ).first()
                 if not variant:
@@ -454,6 +452,9 @@ def bulk_create_orders(data: BulkOrderCreate, db: Session = Depends(get_db), use
                                f"Available: {variant.stock}, requested: {item_data.quantity}"
                     )
                 variant.stock -= item_data.quantity
+
+                if variant.product and variant.product.needs_salt_bag:
+                    has_salt_bag = True
 
                 # Also deduct from warehouse-specific stock
                 if best_wh:
@@ -475,11 +476,10 @@ def bulk_create_orders(data: BulkOrderCreate, db: Session = Depends(get_db), use
                 )
                 db.add(order_item)
 
-            # Add expenses
+            # Add expenses (salt bag auto-computed from product flags)
             expense = models.OrderExpense(
                 order_id=order.id,
-                sticker=order_data.expenses.sticker,
-                seal_bag=order_data.expenses.seal_bag,
+                seal_bag=1.0 if has_salt_bag else 0.0,
                 packaging=packaging,
                 delivery_fee=delivery_fee,
                 return_fee=return_fee,
@@ -527,7 +527,6 @@ def process_returns(data: ProcessReturnsInput, db: Session = Depends(get_db), us
         order.status = "cancelled"
 
         if order.expenses:
-            order.expenses.seal_bag_returned = ret.seal_bag_returned
             order.expenses.product_broken = ret.product_broken
 
         for item in order.items:
@@ -609,10 +608,8 @@ def update_order(order_id: int, data: OrderUpdateInput, db: Session = Depends(ge
         if best_wh:
             order.warehouse_id = best_wh.id
 
-    # Update expenses (sticker, seal_bag, packaging)
+    # Update packaging only — seal_bag is auto-computed, sticker no longer exists
     if data.expenses is not None and order.expenses:
-        order.expenses.sticker = data.expenses.sticker
-        order.expenses.seal_bag = data.expenses.seal_bag
         order.expenses.packaging = data.expenses.packaging
 
     # Update items (only adjust stock for pending orders)

@@ -63,6 +63,7 @@ class ProductCreate(BaseModel):
     has_sizes: bool = True
     has_colors: bool = True
     under_1kg: bool = False
+    needs_salt_bag: bool = False
     supplier: Optional[str] = None
     supplier_id: Optional[int] = None
     image_url: Optional[str] = None
@@ -111,6 +112,7 @@ def list_products(db: Session = Depends(get_db), user: models.User = Depends(get
             "has_sizes": p.has_sizes,
             "has_colors": p.has_colors,
             "under_1kg": p.under_1kg,
+            "needs_salt_bag": p.needs_salt_bag,
             "supplier": p.supplier,
             "supplier_id": p.supplier_id,
             "image_url": p.image_url,
@@ -131,6 +133,7 @@ def create_product(data: ProductCreate, db: Session = Depends(get_db), user: mod
         has_sizes=data.has_sizes,
         has_colors=data.has_colors,
         under_1kg=data.under_1kg,
+        needs_salt_bag=data.needs_salt_bag,
         supplier=data.supplier,
         supplier_id=data.supplier_id,
         image_url=data.image_url,
@@ -172,6 +175,7 @@ def update_product(product_id: int, data: ProductCreate, db: Session = Depends(g
     product.has_sizes = data.has_sizes
     product.has_colors = data.has_colors
     product.under_1kg = data.under_1kg
+    product.needs_salt_bag = data.needs_salt_bag
     product.supplier = data.supplier
     product.supplier_id = data.supplier_id
     product.image_url = data.image_url

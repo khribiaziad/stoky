@@ -16,7 +16,7 @@ export default function Products({ readOnly = false }) {
 
   const CATEGORIES = ['caps', 'clothing', 'pants', 'shoes', 'bags', 'accessories', 'electronics', 'beauty', 'home', 'other'];
 
-  const [newProduct, setNewProduct] = useState({ name: '', short_name: '', category: 'caps', has_sizes: true, has_colors: true, under_1kg: false, supplier_id: '', image_url: '' });
+  const [newProduct, setNewProduct] = useState({ name: '', short_name: '', category: 'caps', has_sizes: true, has_colors: true, under_1kg: false, needs_salt_bag: false, supplier_id: '', image_url: '' });
   const [newVariant, setNewVariant] = useState({ sku: '', size: '', color: '', buying_price: '', selling_price: '', stock: 0, low_stock_threshold: 5 });
   const [editForm, setEditForm] = useState({});
   const [editingProduct, setEditingProduct] = useState(null);
@@ -102,7 +102,7 @@ export default function Products({ readOnly = false }) {
     try {
       await createProduct({ ...newProduct, is_pack: false, supplier_id: newProduct.supplier_id ? parseInt(newProduct.supplier_id) : null });
       setShowAddProduct(false);
-      setNewProduct({ name: '', short_name: '', category: 'caps', has_sizes: true, has_colors: true, under_1kg: false, supplier_id: '', image_url: '' });
+      setNewProduct({ name: '', short_name: '', category: 'caps', has_sizes: true, has_colors: true, under_1kg: false, needs_salt_bag: false, supplier_id: '', image_url: '' });
       setError('');
       load();
     } catch (e) { setError(e.response?.data?.detail || 'Error creating product'); }
@@ -167,6 +167,7 @@ export default function Products({ readOnly = false }) {
         has_sizes: editingProduct.has_sizes,
         has_colors: editingProduct.has_colors,
         under_1kg: editingProduct.under_1kg,
+        needs_salt_bag: editingProduct.needs_salt_bag || false,
         supplier_id: editingProduct.supplier_id ? parseInt(editingProduct.supplier_id) : null,
         image_url: editingProduct.image_url || null,
         variants: [],
@@ -385,9 +386,15 @@ export default function Products({ readOnly = false }) {
                   Has Colors
                 </label>
                 <label className="checkbox-label">
-                  <input type="checkbox" checked={editingProduct.under_1kg || false} onChange={e => setEditingProduct({...editingProduct, under_1kg: e.target.checked})} />
-                  Under 1 KG <span style={{ fontSize: 11, color: 'var(--accent)', marginLeft: 4 }}>(sell bag required)</span>
+                  <input type="checkbox" checked={editingProduct.under_1kg || false} onChange={e => setEditingProduct({...editingProduct, under_1kg: e.target.checked, needs_salt_bag: e.target.checked ? editingProduct.needs_salt_bag : false})} />
+                  Under 1 KG
                 </label>
+                {editingProduct.under_1kg && (
+                  <label className="checkbox-label">
+                    <input type="checkbox" checked={editingProduct.needs_salt_bag || false} onChange={e => setEditingProduct({...editingProduct, needs_salt_bag: e.target.checked})} />
+                    Needs salt bag <span style={{ fontSize: 11, color: 'var(--accent)', marginLeft: 4 }}>(+1 MAD/order)</span>
+                  </label>
+                )}
               </div>
             </div>
             <div className="modal-footer">
@@ -454,9 +461,15 @@ export default function Products({ readOnly = false }) {
                   Has Colors
                 </label>
                 <label className="checkbox-label">
-                  <input type="checkbox" checked={newProduct.under_1kg} onChange={e => setNewProduct({...newProduct, under_1kg: e.target.checked})} />
-                  Under 1 KG <span style={{ fontSize: 11, color: 'var(--accent)', marginLeft: 4 }}>(sell bag required)</span>
+                  <input type="checkbox" checked={newProduct.under_1kg} onChange={e => setNewProduct({...newProduct, under_1kg: e.target.checked, needs_salt_bag: e.target.checked ? newProduct.needs_salt_bag : false})} />
+                  Under 1 KG
                 </label>
+                {newProduct.under_1kg && (
+                  <label className="checkbox-label">
+                    <input type="checkbox" checked={newProduct.needs_salt_bag} onChange={e => setNewProduct({...newProduct, needs_salt_bag: e.target.checked})} />
+                    Needs salt bag <span style={{ fontSize: 11, color: 'var(--accent)', marginLeft: 4 }}>(+1 MAD/order)</span>
+                  </label>
+                )}
               </div>
             </div>
             <div className="modal-footer">

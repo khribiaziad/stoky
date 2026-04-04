@@ -32,6 +32,7 @@ def create_order_expense(
     order: models.Order,
     city: Optional[str],
     store_id: int,
+    has_salt_bag: bool = False,
 ) -> models.OrderExpense:
     """Create an OrderExpense row for an order. Never returns None.
 
@@ -40,9 +41,10 @@ def create_order_expense(
       2. Store AppSettings — keys: default_delivery_fee, default_return_fee.
       3. Hardcoded defaults — delivery: 35 MAD, return: 7 MAD.
 
-    Packaging, sticker, and seal_bag defaults are read from AppSettings keys
-    default_packaging, default_sticker, and default_seal_bag respectively,
-    falling back to 1.0, 0.0, and 0.0.
+    Packaging default is read from AppSettings key default_packaging (fallback 1.0).
+    Salt bag (seal_bag) is 1.0 MAD if has_salt_bag is True, otherwise 0.0.
+    Sticker is no longer a per-order cost — store owners record printer/paper
+    rolls as fixed expenses under the Packaging category.
 
     The returned expense is db.add()'d but not yet committed — the caller commits.
 
@@ -51,6 +53,7 @@ def create_order_expense(
         order: Order model instance. Must have a valid id (call db.flush() first).
         city: Destination city name used for fee lookup. May be None.
         store_id: Store owner's user_id for AppSettings lookup.
+        has_salt_bag: True if any item in the order has needs_salt_bag set on its product.
 
     Returns:
         The newly created OrderExpense instance.
@@ -73,16 +76,13 @@ def create_order_expense(
         )
 
     default_packaging = _safe_float(_get_setting(db, "default_packaging", store_id), 1.0)
-    default_sticker   = _safe_float(_get_setting(db, "default_sticker",   store_id), 0.0)
-    default_seal_bag  = _safe_float(_get_setting(db, "default_seal_bag",  store_id), 0.0)
 
     expense = models.OrderExpense(
         order_id=order.id,
         delivery_fee=delivery_fee,
         return_fee=return_fee,
         packaging=default_packaging,
-        sticker=default_sticker,
-        seal_bag=default_seal_bag,
+        seal_bag=1.0 if has_salt_bag else 0.0,
     )
     db.add(expense)
     return expense
@@ -103,7 +103,20 @@ def get_or_create_expense(db: Session, order: models.Order) -> models.OrderExpen
     """
     if order.expenses:
         return order.expenses
-    return create_order_expense(db, order, order.city, order.user_id)
+    has_salt_bag = False
+    if order.items:
+        variant_ids = [item.variant_id for item in order.items if item.variant_id]
+        if variant_ids:
+            has_salt_bag = (
+                db.query(models.Variant)
+                .join(models.Product, models.Variant.product_id == models.Product.id)
+                .filter(
+                    models.Variant.id.in_(variant_ids),
+                    models.Product.needs_salt_bag == True,
+                )
+                .first()
+            ) is not None
+    return create_order_expense(db, order, order.city, order.user_id, has_salt_bag=has_salt_bag)
 
 
 def update_delivery_fees(
