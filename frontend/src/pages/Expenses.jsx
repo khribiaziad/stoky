@@ -9,7 +9,7 @@ import {
   getAdPlatforms, getSetting, getTeam,
   getProducts, getPacks, getOffers,
   getCampaignConnections, saveCampaignConnection, deleteCampaignConnection,
-  getCampaignBulkStats,
+  getCampaignBulkStats, getAdsSpendSummary,
 } from '../api';
 
 // ── Catalogues ───────────────────────────────────────────────
@@ -86,6 +86,9 @@ export default function Expenses() {
   const [team,        setTeam]        = useState([]);
   const [usdRate,     setUsdRate]     = useState(10);
 
+  // Real API ad spend summary
+  const [adsSummary, setAdsSummary] = useState(null);
+
   // Campaign connections
   const [connections,  setConnections]  = useState([]);
   const [connStats,    setConnStats]    = useState({});
@@ -129,6 +132,11 @@ export default function Expenses() {
   };
 
   useEffect(() => { load(); }, []);
+
+  // Re-fetch real ad spend whenever date range changes
+  useEffect(() => {
+    getAdsSpendSummary(adsFrom, adsTo).then(r => setAdsSummary(r.data)).catch(() => {});
+  }, [adsFrom, adsTo]);
 
   // Reload bulk stats whenever connections or date range changes
   useEffect(() => {
@@ -203,8 +211,9 @@ export default function Expenses() {
   const teamMonthly  = team.filter(m => m.payment_type === 'monthly' || m.payment_type === 'both').reduce((s,m) => s + (m.fixed_monthly || 0), 0);
   const teamPerOrder = team.filter(m => m.payment_type === 'per_order' || m.payment_type === 'both').reduce((s,m) => s + (m.per_order_rate || 0), 0);
 
-  const adsThisMonth = platforms.reduce((s,p) => s + platformSpend(p, usdRate, monthStart, monthEnd), 0);
+  const adsThisMonth = adsSummary?.total_mad ?? platforms.reduce((s,p) => s + platformSpend(p, usdRate, monthStart, monthEnd), 0);
   const adsAllTime   = platforms.reduce((s,p) => s + platformAllTime(p, usdRate), 0);
+  const connectedPlatformCount = adsSummary?.platforms.filter(p => p.connected).length ?? platforms.length;
 
   const totalMonthlyBurn = fixedMonthly + fixedAnnual + teamMonthly + adsThisMonth;
   const totalPerOrder    = fixedPerOrder + teamPerOrder;
@@ -298,7 +307,7 @@ export default function Expenses() {
         <div className="stat-card">
           <div className="stat-label">Ad Spend (This Month)</div>
           <div className="stat-value" style={{ color: '#a78bfa' }}>{fmt(adsThisMonth)} <span style={{ fontSize: 14, color: '#8892b0' }}>MAD</span></div>
-          <div className="stat-sub">{platforms.length} platform{platforms.length !== 1 ? 's' : ''} · {fmt(adsAllTime)} all time</div>
+          <div className="stat-sub">{connectedPlatformCount} connected · {fmt(adsAllTime)} manual all time</div>
         </div>
         <div className="stat-card">
           <div className="stat-label">Total Withdrawals</div>
@@ -365,20 +374,16 @@ export default function Expenses() {
                 </div>
               ))}
 
-              {/* Ad platforms this month */}
-              {platforms.map(p => {
-                const spend = platformSpend(p, usdRate, monthStart, monthEnd);
-                if (spend === 0) return null;
-                return (
-                  <div key={`ad-${p.id}`} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: p.color, flexShrink: 0 }} />
-                    <span style={{ flex: 1, fontSize: 14 }}>{p.label}</span>
-                    <span style={{ fontSize: 11, color: '#8892b0' }}>Ads</span>
-                    <span className="badge badge-purple" style={{ fontSize: 11 }}>This month</span>
-                    <span style={{ fontWeight: 600, minWidth: 110, textAlign: 'right' }}>{fmt(spend)} MAD</span>
-                  </div>
-                );
-              })}
+              {/* Ad spend per platform (real API) */}
+              {adsSummary?.platforms.filter(p => p.connected && p.spend_mad > 0).map(p => (
+                <div key={`ad-${p.platform}`} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: p.color, flexShrink: 0 }} />
+                  <span style={{ flex: 1, fontSize: 14 }}>{p.label}</span>
+                  <span style={{ fontSize: 11, color: '#8892b0' }}>Ads</span>
+                  <span className="badge badge-purple" style={{ fontSize: 11 }}>This month</span>
+                  <span style={{ fontWeight: 600, minWidth: 110, textAlign: 'right' }}>{fmt(p.spend_mad)} MAD</span>
+                </div>
+              ))}
 
               {/* Total */}
               <div style={{ borderTop: '1px solid #2d3248', paddingTop: 10, marginTop: 4, display: 'flex', justifyContent: 'flex-end' }}>
@@ -537,11 +542,44 @@ export default function Expenses() {
             <input type="date" className="form-input" style={{ width: 'auto' }} value={adsTo} onChange={e => setAdsTo(e.target.value)} />
           </div>
 
+          {/* ── Real API spend per platform ── */}
+          {adsSummary && (
+            <div className="card">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                <div className="card-title" style={{ margin: 0 }}>Ad Spend by Platform</div>
+                <div style={{ fontWeight: 700, fontSize: 18, color: '#a78bfa' }}>{fmt(adsSummary.total_mad)} MAD</div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {adsSummary.platforms.map(p => (
+                  <div key={p.platform} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <span style={{ width: 10, height: 10, borderRadius: '50%', background: p.color, flexShrink: 0 }} />
+                    <span style={{ flex: 1, fontSize: 14 }}>{p.label}</span>
+                    {p.connected ? (
+                      p.error ? (
+                        <span style={{ fontSize: 12, color: '#f87171' }}>Error fetching</span>
+                      ) : (
+                        <>
+                          <span style={{ fontSize: 12, color: '#8892b0' }}>${fmt(p.spend_usd)} USD</span>
+                          <span style={{ fontWeight: 700, fontSize: 15, minWidth: 120, textAlign: 'right', color: p.spend_mad > 0 ? '#f59e0b' : '#8892b0' }}>
+                            {fmt(p.spend_mad)} MAD
+                          </span>
+                        </>
+                      )
+                    ) : (
+                      <span style={{ fontSize: 12, color: '#8892b0', fontStyle: 'italic' }}>Not connected</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ── Manual platform campaigns (legacy / campaign table) ── */}
           {platforms.length === 0 ? (
             <div className="card"><div className="empty-state">
               <Megaphone size={36} strokeWidth={1} style={{ margin: '0 auto 12px', color: '#8892b0' }} />
-              <h3>No platforms added</h3>
-              <p>Go to the Ads page to add your ad platforms</p>
+              <h3>No manual platforms added</h3>
+              <p>Go to the Ads page to connect your ad platforms</p>
             </div></div>
           ) : platforms.map(p => {
             const thisRange = platformSpend(p, usdRate, new Date(adsFrom), new Date(adsTo));

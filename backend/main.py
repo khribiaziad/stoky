@@ -10,7 +10,7 @@ from database import engine, get_db
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 import models
-from routers import products, stock, orders, team, expenses, reports, packs, auth as auth_router, cities as cities_router, platform as platform_router, leads as leads_router, suppliers as suppliers_router, olivraison as olivraison_router, youcan as youcan_router, woocommerce as woocommerce_router, shopify as shopify_router, meta_ads as meta_ads_router, tiktok_ads as tiktok_ads_router, snapchat_ads as snapchat_ads_router, pinterest_ads as pinterest_ads_router, google_ads as google_ads_router, offers as offers_router, promo_codes as promo_codes_router, bot as bot_router, campaign_connections as campaign_connections_router, warehouses as warehouses_router, forcelog as forcelog_router
+from routers import products, stock, orders, team, expenses, reports, packs, auth as auth_router, cities as cities_router, platform as platform_router, leads as leads_router, suppliers as suppliers_router, olivraison as olivraison_router, youcan as youcan_router, woocommerce as woocommerce_router, shopify as shopify_router, meta_ads as meta_ads_router, tiktok_ads as tiktok_ads_router, snapchat_ads as snapchat_ads_router, pinterest_ads as pinterest_ads_router, google_ads as google_ads_router, offers as offers_router, promo_codes as promo_codes_router, bot as bot_router, campaign_connections as campaign_connections_router, warehouses as warehouses_router, forcelog as forcelog_router, ads_summary as ads_summary_router
 from routers.rex import router as rex_router
 from auth import get_current_user
 from seed_cities import seed
@@ -195,6 +195,7 @@ app.include_router(bot_router.router, prefix="/api")
 app.include_router(campaign_connections_router.router, prefix="/api")
 app.include_router(warehouses_router.router, prefix="/api")
 app.include_router(forcelog_router.router, prefix="/api")
+app.include_router(ads_summary_router.router, prefix="/api")
 app.include_router(rex_router)  # Rex sets its own /api/rex prefix
 
 

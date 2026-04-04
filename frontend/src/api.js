@@ -181,6 +181,7 @@ export const getPinterestCampaigns = () => api.get('/pinterest/campaigns');
 export const pausePinterestCampaign = (id) => api.post(`/pinterest/campaigns/${id}/pause`);
 export const resumePinterestCampaign = (id) => api.post(`/pinterest/campaigns/${id}/resume`);
 export const getPinterestSpend = (start, end) => api.get('/pinterest/spend', { params: { start, end } });
+export const getAdsSpendSummary = (start, end) => api.get('/ads/spend-summary', { params: { start, end } });
 
 // Reports
 export const getReportSummary = (params) => api.get('/reports/summary', { params });
