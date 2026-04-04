@@ -97,6 +97,7 @@ export default function Expenses() {
   const [packs,        setPacks]        = useState([]);
   const [offers,       setOffers]       = useState([]);
   // Ads date range
+  const [adsPreset, setAdsPreset] = useState('month');
   const [adsFrom, setAdsFrom] = useState(monthStart.toISOString().slice(0, 10));
   const [adsTo,   setAdsTo]   = useState(monthEnd.toISOString().slice(0, 10));
   // Sidebar
@@ -276,6 +277,22 @@ export default function Expenses() {
       return { selling_price: of.selling_price, buy_price: of.items?.reduce((s, i) => s + (i.buying_price || 0) * i.quantity, 0) || 0, packaging_cost: of.packaging_cost || 0 };
     }
     return null;
+  };
+
+  const applyPreset = (preset) => {
+    const today = new Date();
+    const toStr = today.toISOString().slice(0, 10);
+    if (preset === 'today') {
+      setAdsFrom(toStr); setAdsTo(toStr);
+    } else if (preset === 'week') {
+      const start = new Date(today);
+      start.setDate(today.getDate() - ((today.getDay() + 6) % 7)); // Monday
+      setAdsFrom(start.toISOString().slice(0, 10)); setAdsTo(toStr);
+    } else if (preset === 'month') {
+      setAdsFrom(new Date(today.getFullYear(), today.getMonth(), 1).toISOString().slice(0, 10));
+      setAdsTo(toStr);
+    }
+    setAdsPreset(preset);
   };
 
   // ── Render ────────────────────────────────────────────────
@@ -534,54 +551,86 @@ export default function Expenses() {
       {tab === 'ads' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
-          {/* Date range picker */}
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 13, color: '#8892b0' }}>Date range:</span>
-            <input type="date" className="form-input" style={{ width: 'auto' }} value={adsFrom} onChange={e => setAdsFrom(e.target.value)} />
-            <span style={{ color: '#8892b0' }}>—</span>
-            <input type="date" className="form-input" style={{ width: 'auto' }} value={adsTo} onChange={e => setAdsTo(e.target.value)} />
+          {/* ── Timeframe selector ── */}
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+            {[
+              { key: 'today', label: 'Today' },
+              { key: 'week',  label: 'This Week' },
+              { key: 'month', label: 'This Month' },
+              { key: 'custom', label: 'Custom Range' },
+            ].map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => applyPreset(key)}
+                style={{
+                  padding: '6px 14px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 500,
+                  background: adsPreset === key ? '#a78bfa22' : '#1d1d27',
+                  color: adsPreset === key ? '#a78bfa' : '#8892b0',
+                  outline: adsPreset === key ? '1px solid #a78bfa55' : '1px solid #2d3248',
+                  transition: 'all 0.15s',
+                }}
+              >{label}</button>
+            ))}
+            {adsPreset === 'custom' && (
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginLeft: 4 }}>
+                <input type="date" className="form-input" style={{ width: 'auto' }} value={adsFrom} onChange={e => setAdsFrom(e.target.value)} />
+                <span style={{ color: '#8892b0' }}>→</span>
+                <input type="date" className="form-input" style={{ width: 'auto' }} value={adsTo} onChange={e => setAdsTo(e.target.value)} />
+              </div>
+            )}
           </div>
 
-          {/* ── Real API spend per platform ── */}
-          {adsSummary && (
-            <div className="card">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-                <div className="card-title" style={{ margin: 0 }}>Ad Spend by Platform</div>
-                <div style={{ fontWeight: 700, fontSize: 18, color: '#a78bfa' }}>{fmt(adsSummary.total_mad)} MAD</div>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {adsSummary.platforms.map(p => (
-                  <div key={p.platform} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <span style={{ width: 10, height: 10, borderRadius: '50%', background: p.color, flexShrink: 0 }} />
-                    <span style={{ flex: 1, fontSize: 14 }}>{p.label}</span>
-                    {p.connected ? (
-                      p.error ? (
-                        <span style={{ fontSize: 12, color: '#f87171' }}>Error fetching</span>
+          {/* ── Per-platform blocks (connected only) ── */}
+          {adsSummary && (() => {
+            const connected = adsSummary.platforms.filter(p => p.connected);
+            if (connected.length === 0) return (
+              <div className="card"><div className="empty-state">
+                <Megaphone size={36} strokeWidth={1} style={{ margin: '0 auto 12px', color: '#8892b0' }} />
+                <h3>No ad platforms connected</h3>
+                <p>Go to the Ads page to connect your platforms</p>
+              </div></div>
+            );
+            return (
+              <>
+                {/* Total bar */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', background: '#1d1d27', borderRadius: 10, border: '1px solid #2d3248' }}>
+                  <span style={{ fontSize: 13, color: '#8892b0' }}>Total ad spend · {connected.length} platform{connected.length !== 1 ? 's' : ''}</span>
+                  <span style={{ fontWeight: 700, fontSize: 18, color: '#a78bfa' }}>{fmt(adsSummary.total_mad)} MAD</span>
+                </div>
+                {/* One card per connected platform */}
+                {connected.map(p => (
+                  <div key={p.platform} className="card" style={{ borderTop: `3px solid ${p.color}` }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                      <div style={{ width: 38, height: 38, borderRadius: 10, background: p.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <span style={{ color: p.color === '#FFFC00' ? '#000' : '#fff', fontWeight: 800, fontSize: 14 }}>{p.label[0]}</span>
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 700, fontSize: 16 }}>{p.label}</div>
+                        <div style={{ fontSize: 12, color: '#00d48f', marginTop: 2 }}>● Connected</div>
+                      </div>
+                      {p.error ? (
+                        <span style={{ fontSize: 12, color: '#f87171' }}>Error fetching data</span>
                       ) : (
                         <>
-                          <span style={{ fontSize: 12, color: '#8892b0' }}>${fmt(p.spend_usd)} USD</span>
-                          <span style={{ fontWeight: 700, fontSize: 15, minWidth: 120, textAlign: 'right', color: p.spend_mad > 0 ? '#f59e0b' : '#8892b0' }}>
-                            {fmt(p.spend_mad)} MAD
-                          </span>
+                          <div style={{ textAlign: 'right' }}>
+                            <div style={{ fontSize: 11, color: '#8892b0' }}>Spend (USD)</div>
+                            <div style={{ fontWeight: 600, fontSize: 15, color: '#60a5fa' }}>${fmt(p.spend_usd)}</div>
+                          </div>
+                          <div style={{ textAlign: 'right', paddingLeft: 20, borderLeft: '1px solid #2d3248' }}>
+                            <div style={{ fontSize: 11, color: '#8892b0' }}>Spend (MAD)</div>
+                            <div style={{ fontWeight: 700, fontSize: 20, color: p.spend_mad > 0 ? '#f59e0b' : '#8892b0' }}>{fmt(p.spend_mad)}</div>
+                          </div>
                         </>
-                      )
-                    ) : (
-                      <span style={{ fontSize: 12, color: '#8892b0', fontStyle: 'italic' }}>Not connected</span>
-                    )}
+                      )}
+                    </div>
                   </div>
                 ))}
-              </div>
-            </div>
-          )}
+              </>
+            );
+          })()}
 
           {/* ── Manual platform campaigns (legacy / campaign table) ── */}
-          {platforms.length === 0 ? (
-            <div className="card"><div className="empty-state">
-              <Megaphone size={36} strokeWidth={1} style={{ margin: '0 auto 12px', color: '#8892b0' }} />
-              <h3>No manual platforms added</h3>
-              <p>Go to the Ads page to connect your ad platforms</p>
-            </div></div>
-          ) : platforms.map(p => {
+          {platforms.length > 0 && platforms.map(p => {
             const thisRange = platformSpend(p, usdRate, new Date(adsFrom), new Date(adsTo));
             const allTime   = platformAllTime(p, usdRate);
             const running   = p.campaigns.find(c => !c.end_date);
