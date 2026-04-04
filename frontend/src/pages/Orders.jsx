@@ -1703,7 +1703,7 @@ export default function Orders() {
                   </div>
                 );
 
-                // Shared: expenses row (sticker, seal bag, packaging)
+                // Shared: expenses row (packaging)
                 const expensesRow = (
                   <div style={{ display: 'flex', gap: 16, padding: 12, background: '#0f1117', borderRadius: 8, flexWrap: 'wrap', marginBottom: 16 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>

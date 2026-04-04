@@ -313,8 +313,6 @@ export default function Settings({ user, theme, setTheme, lang, setLang, accent,
     usd_rate: '10',
     base_capital: '0',
     default_packaging: '1',
-    default_sticker: '0',
-    default_seal_bag: '0',
     default_low_stock: '5',
     default_delivery_fee: '35',
     default_return_fee: '7',
@@ -1132,9 +1130,7 @@ export default function Settings({ user, theme, setTheme, lang, setLang, accent,
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               {[
-                { key: 'default_packaging', label: 'Packaging',   unit: 'MAD' },
-                { key: 'default_sticker',   label: 'Sticker',     unit: 'MAD' },
-                { key: 'default_seal_bag',  label: 'Sell Bag',    unit: 'MAD' },
+                { key: 'default_packaging', label: 'Packaging', unit: 'MAD' },
               ].map(({ key, label, unit }) => (
                 <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                   <span style={{ width: 100, fontSize: 13, color: 'var(--t2)', flexShrink: 0 }}>{label}</span>
