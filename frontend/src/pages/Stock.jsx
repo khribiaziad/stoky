@@ -234,13 +234,14 @@ export default function Stock({ readOnly = false, highlight = null }) {
         warehouse_id: arrivalWarehouseId || null,
       });
 
+      let paymentNote = paid ? ' — recorded as debt (no supplier assigned)' : ' — recorded as debt';
       if (paid) {
-        // Find product + supplier for this variant
         for (const p of products) {
           const v = p.variants.find(v => v.id === variantId);
           if (v && p.supplier_id) {
             const amount = parseFloat((v.buying_price * qty).toFixed(2));
-            await addSupplierPayment(p.supplier_id, { amount, date: today, note: 'Quick arrival payment' }).catch(() => {});
+            await addSupplierPayment(p.supplier_id, { amount, date: today, note: 'Quick arrival payment' });
+            paymentNote = ' — supplier payment recorded';
             break;
           }
         }
@@ -248,7 +249,7 @@ export default function Stock({ readOnly = false, highlight = null }) {
 
       setQuickQty(prev => ({ ...prev, [variantId]: '' }));
       setQuickPaid(prev => ({ ...prev, [variantId]: false }));
-      setSuccess(`Added ${qty} unit(s) to stock${paid ? ' — supplier payment recorded' : ' — recorded as debt'}`);
+      setSuccess(`Added ${qty} unit(s) to stock${paymentNote}`);
       load();
     } catch (e) {
       setError(e.response?.data?.detail || 'Error adding stock');
