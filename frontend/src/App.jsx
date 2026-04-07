@@ -211,9 +211,15 @@ export default function App() {
   }
 
   const isConfirmer = user.role === 'confirmer';
-  const nav = isConfirmer ? CONFIRMER_NAV : ADMIN_NAV;
+  const perms = user.permissions || null; // null = admin (no restrictions)
+
+  const canView = (id) => !perms || perms[id]?.view !== false;
+  const canEdit = (id) => !perms || perms[id]?.edit !== false;
+
+  const baseNav = isConfirmer ? CONFIRMER_NAV : ADMIN_NAV;
+  const nav = perms ? baseNav.filter(n => n.id === 'dashboard' || n.id === 'settings' || canView(n.id)) : baseNav;
   const navSections = isConfirmer ? CONFIRMER_NAV_SECTIONS : ADMIN_NAV_SECTIONS;
-  const currentPage = isConfirmer && !nav.find(n => n.id === page) ? 'dashboard' : page;
+  const currentPage = !nav.find(n => n.id === page) ? 'dashboard' : page;
   const labels = T[lang] || T.en;
   // Bottom nav: first 4 items + Settings always pinned at the end
   const settingsNavItem = nav.find(n => n.id === 'settings');
@@ -231,16 +237,16 @@ export default function App() {
 
   const pages = {
     dashboard: <Dashboard onNavigate={navigate} user={user} />,
-    orders:    <Orders user={user} />,
-    leads:     <Leads />,
-    suppliers: <Suppliers />,
-    products:  <Products readOnly={isConfirmer} />,
-    packs:     <Packs readOnly={isConfirmer} />,
-    stock:     <Stock readOnly={isConfirmer} highlight={navParams.highlight} />,
-    team:      <Team />,
-    expenses:  <Expenses />,
-    ads:       <Ads />,
-    reports:   <Reports />,
+    orders:    <Orders user={user} readOnly={!canEdit('orders')} />,
+    leads:     <Leads readOnly={!canEdit('leads')} />,
+    suppliers: <Suppliers readOnly={!canEdit('suppliers')} />,
+    products:  <Products readOnly={!canEdit('products')} />,
+    packs:     <Packs readOnly={!canEdit('packs')} />,
+    stock:     <Stock readOnly={!canEdit('stock')} highlight={navParams.highlight} />,
+    team:      <Team readOnly={!canEdit('team')} />,
+    expenses:  <Expenses readOnly={!canEdit('expenses')} />,
+    ads:       <Ads readOnly={!canEdit('ads')} />,
+    reports:   <Reports readOnly={!canEdit('reports')} />,
     settings:  <Settings {...settingsProps} />,
   };
 

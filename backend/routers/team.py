@@ -11,6 +11,19 @@ import models
 
 router = APIRouter(prefix="/team", tags=["team"])
 
+DEFAULT_PERMISSIONS = {
+    "orders":    {"view": True,  "edit": True},
+    "leads":     {"view": True,  "edit": True},
+    "products":  {"view": True,  "edit": False},
+    "suppliers": {"view": True,  "edit": False},
+    "packs":     {"view": True,  "edit": False},
+    "stock":     {"view": True,  "edit": False},
+    "team":      {"view": False, "edit": False},
+    "expenses":  {"view": False, "edit": False},
+    "ads":       {"view": False, "edit": False},
+    "reports":   {"view": False, "edit": False},
+}
+
 
 class TeamMemberCreate(BaseModel):
     name: str
@@ -64,6 +77,7 @@ def list_team(db: Session = Depends(get_db), user: models.User = Depends(get_cur
             "start_date": m.start_date.isoformat() if m.start_date else None,
             "end_date": m.end_date.isoformat() if m.end_date else None,
             "is_active": m.is_active,
+            "permissions": m.permissions or DEFAULT_PERMISSIONS,
         }
         for m in members
     ]
@@ -218,6 +232,28 @@ def toggle_member_account(
     linked_user.is_approved = not linked_user.is_approved
     db.commit()
     return {"is_active": linked_user.is_approved, "username": linked_user.username}
+
+
+class PermissionsUpdate(BaseModel):
+    permissions: dict
+
+
+@router.patch("/{member_id}/permissions")
+def update_permissions(
+    member_id: int,
+    data: PermissionsUpdate,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(require_admin),
+):
+    member = db.query(models.TeamMember).filter(
+        models.TeamMember.id == member_id,
+        models.TeamMember.user_id == user.id,
+    ).first()
+    if not member:
+        raise HTTPException(status_code=404, detail="Team member not found")
+    member.permissions = data.permissions
+    db.commit()
+    return {"success": True}
 
 
 def _parse_period(period: Optional[str], start: Optional[str], end: Optional[str]):

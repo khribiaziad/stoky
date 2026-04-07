@@ -1,7 +1,33 @@
 import { useState, useEffect } from 'react';
 import { BarChart2, TrendingUp, TrendingDown, Clock, Package, X } from 'lucide-react';
-import { getTeam, createTeamMember, deleteTeamMember, createConfirmerAccount, getMemberStats, toggleMemberAccount } from '../api';
+import { getTeam, createTeamMember, deleteTeamMember, createConfirmerAccount, getMemberStats, toggleMemberAccount, updateMemberPermissions } from '../api';
 import TeamMobile from './TeamMobile';
+
+const PAGES = [
+  { key: 'orders',    label: 'Orders' },
+  { key: 'leads',     label: 'Leads' },
+  { key: 'products',  label: 'Products' },
+  { key: 'suppliers', label: 'Suppliers' },
+  { key: 'packs',     label: 'Packs' },
+  { key: 'stock',     label: 'Stock' },
+  { key: 'team',      label: 'Team' },
+  { key: 'expenses',  label: 'Expenses' },
+  { key: 'ads',       label: 'Ads' },
+  { key: 'reports',   label: 'Reports' },
+];
+
+const DEFAULT_PERMISSIONS = {
+  orders:    { view: true,  edit: true  },
+  leads:     { view: true,  edit: true  },
+  products:  { view: true,  edit: false },
+  suppliers: { view: true,  edit: false },
+  packs:     { view: true,  edit: false },
+  stock:     { view: true,  edit: false },
+  team:      { view: false, edit: false },
+  expenses:  { view: false, edit: false },
+  ads:       { view: false, edit: false },
+  reports:   { view: false, edit: false },
+};
 
 const PERIODS = [
   { value: 'this_month', label: 'This Month' },
@@ -19,6 +45,10 @@ export default function Team() {
   const [showAddMember, setShowAddMember] = useState(false);
   const [showCreateAccount, setShowCreateAccount] = useState(null);
   const [accountForm, setAccountForm] = useState({ username: '', password: '', role: 'confirmer' });
+
+  const [showPermissions, setShowPermissions] = useState(null); // team member object
+  const [permissionsForm, setPermissionsForm] = useState({});
+  const [permSaving, setPermSaving] = useState(false);
 
   const [showMemberStats, setShowMemberStats] = useState(null);
   const [statsPeriod, setStatsPeriod] = useState('this_month');
@@ -73,6 +103,35 @@ export default function Team() {
     } catch (e) { setError(e.response?.data?.detail || 'Error'); }
   };
 
+  const openPermissions = (m) => {
+    setShowPermissions(m);
+    setPermissionsForm(m.permissions || DEFAULT_PERMISSIONS);
+  };
+
+  const handleSavePermissions = async () => {
+    setPermSaving(true);
+    try {
+      await updateMemberPermissions(showPermissions.id, permissionsForm);
+      setShowPermissions(null);
+      load();
+    } catch (e) {
+      setError(e.response?.data?.detail || 'Error saving permissions');
+    } finally {
+      setPermSaving(false);
+    }
+  };
+
+  const togglePerm = (page, type) => {
+    setPermissionsForm(prev => {
+      const updated = { ...prev, [page]: { ...prev[page], [type]: !prev[page]?.[type] } };
+      // If disabling view, also disable edit
+      if (type === 'view' && !updated[page].view) updated[page].edit = false;
+      // If enabling edit, also enable view
+      if (type === 'edit' && updated[page].edit) updated[page].view = true;
+      return updated;
+    });
+  };
+
   return (
     <div>
       <div className="page-header">
@@ -123,6 +182,7 @@ export default function Team() {
                         <button className="btn btn-secondary btn-sm" onClick={() => openMemberStats(m)} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                           <BarChart2 size={12} strokeWidth={1.75} /> Stats
                         </button>
+                        <button className="btn btn-secondary btn-sm" onClick={() => openPermissions(m)}>Permissions</button>
                         <button className="btn btn-danger btn-sm" onClick={() => { if (confirm('Remove team member?')) deleteTeamMember(m.id).then(load); }}>✕</button>
                       </div>
                     </td>
@@ -205,6 +265,79 @@ export default function Team() {
             <div className="modal-footer">
               <button className="btn btn-secondary" onClick={() => setShowCreateAccount(null)}>Cancel</button>
               <button className="btn btn-primary" onClick={handleCreateAccount}>Create Account</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Permissions Modal */}
+      {showPermissions && (
+        <div className="modal-overlay" onClick={() => setShowPermissions(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <h2>Permissions — {showPermissions.name}</h2>
+                <div style={{ fontSize: 12, color: 'var(--t2)', marginTop: 3 }}>Controls what this member can see and modify</div>
+              </div>
+              <button className="btn-icon" onClick={() => setShowPermissions(null)}><X size={16} strokeWidth={1.75} /></button>
+            </div>
+            <div className="modal-body">
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: '10px 16px', alignItems: 'center' }}>
+                <div style={{ fontSize: 11, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Page</div>
+                <div style={{ fontSize: 11, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'center' }}>Access</div>
+                <div style={{ fontSize: 11, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'center' }}>Modify</div>
+                {PAGES.map(p => {
+                  const perm = permissionsForm[p.key] || { view: false, edit: false };
+                  return (
+                    <>
+                      <div key={`${p.key}-label`} style={{ fontWeight: 500, fontSize: 14 }}>{p.label}</div>
+                      <div key={`${p.key}-view`} style={{ display: 'flex', justifyContent: 'center' }}>
+                        <button
+                          onClick={() => togglePerm(p.key, 'view')}
+                          style={{
+                            width: 40, height: 22, borderRadius: 11, border: 'none', cursor: 'pointer',
+                            background: perm.view ? 'var(--accent)' : 'var(--card-3)',
+                            position: 'relative', transition: 'background 0.2s',
+                          }}
+                        >
+                          <span style={{
+                            position: 'absolute', top: 3, left: perm.view ? 21 : 3,
+                            width: 16, height: 16, borderRadius: '50%', background: '#fff',
+                            transition: 'left 0.2s', display: 'block',
+                          }} />
+                        </button>
+                      </div>
+                      <div key={`${p.key}-edit`} style={{ display: 'flex', justifyContent: 'center' }}>
+                        <button
+                          onClick={() => togglePerm(p.key, 'edit')}
+                          style={{
+                            width: 40, height: 22, borderRadius: 11, border: 'none', cursor: 'pointer',
+                            background: perm.edit ? 'var(--green)' : 'var(--card-3)',
+                            position: 'relative', transition: 'background 0.2s',
+                            opacity: !perm.view ? 0.35 : 1,
+                          }}
+                        >
+                          <span style={{
+                            position: 'absolute', top: 3, left: perm.edit ? 21 : 3,
+                            width: 16, height: 16, borderRadius: '50%', background: '#fff',
+                            transition: 'left 0.2s', display: 'block',
+                          }} />
+                        </button>
+                      </div>
+                    </>
+                  );
+                })}
+              </div>
+              <div style={{ marginTop: 16, padding: '10px 12px', background: 'var(--card-2)', borderRadius: 8, fontSize: 12, color: 'var(--t2)' }}>
+                <strong style={{ color: 'var(--accent)' }}>Access</strong> — can see the page &nbsp;·&nbsp;
+                <strong style={{ color: 'var(--green)' }}>Modify</strong> — can create, edit, delete
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setShowPermissions(null)}>Cancel</button>
+              <button className="btn btn-primary" onClick={handleSavePermissions} disabled={permSaving}>
+                {permSaving ? 'Saving…' : 'Save Permissions'}
+              </button>
             </div>
           </div>
         </div>

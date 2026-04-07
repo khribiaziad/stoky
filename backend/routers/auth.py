@@ -110,6 +110,14 @@ def login(
         raise HTTPException(status_code=403, detail="Your account is pending approval")
 
     token = create_token(user.id)
+
+    permissions = None
+    if user.team_member_id:
+        member = db.query(models.TeamMember).filter(models.TeamMember.id == user.team_member_id).first()
+        if member:
+            from routers.team import DEFAULT_PERMISSIONS
+            permissions = member.permissions or DEFAULT_PERMISSIONS
+
     return {
         "token": token,
         "user": {
@@ -119,12 +127,19 @@ def login(
             "role": user.role or "admin",
             "store_id": user.store_id,
             "team_member_id": user.team_member_id,
+            "permissions": permissions,
         },
     }
 
 
 @router.get("/me")
-def me(current_user: models.User = Depends(get_current_user)):
+def me(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    permissions = None
+    if current_user.team_member_id:
+        member = db.query(models.TeamMember).filter(models.TeamMember.id == current_user.team_member_id).first()
+        if member:
+            from routers.team import DEFAULT_PERMISSIONS
+            permissions = member.permissions or DEFAULT_PERMISSIONS
     return {
         "id": current_user.id,
         "username": current_user.username,
@@ -132,6 +147,7 @@ def me(current_user: models.User = Depends(get_current_user)):
         "role": current_user.role or "admin",
         "store_id": current_user.store_id,
         "team_member_id": current_user.team_member_id,
+        "permissions": permissions,
     }
 
 

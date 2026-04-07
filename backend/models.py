@@ -306,6 +306,7 @@ class TeamMember(Base):
     end_date = Column(DateTime, nullable=True)
     is_active = Column(Boolean, default=True)
     is_suspended = Column(Boolean, default=False, nullable=False)
+    permissions = Column(JSON, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
 
 

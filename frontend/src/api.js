@@ -108,7 +108,8 @@ export const updateTeamMember = (id, data) => api.put(`/team/${id}`, data);
 export const deleteTeamMember = (id) => api.delete(`/team/${id}`);
 export const createConfirmerAccount = (memberId, data) => api.post(`/team/${memberId}/create-account`, data);
 export const getMemberStats = (memberId, params) => api.get(`/team/${memberId}/stats`, { params });
-export const toggleMemberAccount = (memberId) => api.post(`/team/${memberId}/toggle-account`);
+export const toggleMemberAccount     = (memberId) => api.post(`/team/${memberId}/toggle-account`);
+export const updateMemberPermissions = (memberId, permissions) => api.patch(`/team/${memberId}/permissions`, { permissions });
 
 // Expenses
 export const getFixedExpenses = () => api.get('/expenses/fixed');
