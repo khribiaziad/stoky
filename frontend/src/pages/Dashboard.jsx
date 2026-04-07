@@ -386,7 +386,7 @@ export default function Dashboard({ onNavigate, user, lang = 'en' }) {
           { key: 'newLeads',         label: 'New Leads',      count: attention.newLeads,         color: 'var(--green)', nav: 'leads'  },
           { key: 'pendingOrders',    label: 'To Confirm',     count: attention.pendingOrders,    color: 'var(--yellow)', nav: 'orders' },
           { key: 'reportedDueToday', label: 'Due Today',      count: attention.reportedDueToday, color: 'var(--blue)',  nav: 'orders' },
-          { key: 'lowStockItems',    label: 'Low Stock',      count: attention.lowStockItems,    color: 'var(--red)',   nav: 'stock'  },
+          { key: 'lowStockItems',    label: 'Low Stock',      count: attention.lowStockItems,    color: 'var(--red)',   nav: 'stock', navParams: { highlight: 'lowstock' }  },
         ];
         const hasAlert = alerts.some(a => a.count > 0);
         return hasAlert ? (
@@ -396,7 +396,7 @@ export default function Dashboard({ onNavigate, user, lang = 'en' }) {
               {alerts.filter(a => a.count > 0).map((a, i) => (
                 <span key={a.key}>
                   {i > 0 && ' · '}
-                  <em style={{ color: a.color, cursor: 'pointer' }} onClick={() => onNavigate(a.nav)}>
+                  <em style={{ color: a.color, cursor: 'pointer' }} onClick={() => onNavigate(a.nav, a.navParams || {})}>
                     {a.count} {a.label}
                   </em>
                 </span>
@@ -642,7 +642,7 @@ export default function Dashboard({ onNavigate, user, lang = 'en' }) {
                   <div className="card-label">{t.lowStock}</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 7px', background: 'var(--red-a)', color: 'var(--red)', borderRadius: 5 }}>{lowStockItems.length} items</span>
-                    <span className="card-link" onClick={() => onNavigate('stock')}>{t.addStock} →</span>
+                    <span className="card-link" onClick={() => onNavigate('stock', { highlight: 'lowstock' })}>{t.addStock} →</span>
                   </div>
                 </div>
                 <div>

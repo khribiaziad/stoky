@@ -1,12 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { getProducts, getStockArrivals, addBulkStockArrival, getBrokenStock, addBrokenStock, updateBrokenStock, deleteBrokenStock, deleteArrival, adjustStock, addSupplierPayment, getWarehouses, getWarehouseStock } from '../api';
 import StockMobile from './StockMobile';
 
 const emptyItem = () => ({ product_id: '', variant_ids: [], quantity: 1 });
 
-export default function Stock({ readOnly = false }) {
+export default function Stock({ readOnly = false, highlight = null }) {
   if (window.innerWidth < 768) return <StockMobile readOnly={readOnly} />;
   const [tab, setTab] = useState('arrivals');
+  const lowStockRef = useRef(null);
   const [products, setProducts] = useState([]);
   const [arrivals, setArrivals] = useState([]);
   const [broken, setBroken] = useState([]);
@@ -29,6 +30,10 @@ export default function Stock({ readOnly = false }) {
 
   const [brokenForm, setBrokenForm] = useState({ product_id: '', variant_id: '', quantity: 1, source: 'storage', returnable_to_supplier: false });
 
+  // Quick arrival (inline, per variant on low stock tab)
+  const [quickQty, setQuickQty] = useState({}); // { variantId: qty }
+  const [quickLoading, setQuickLoading] = useState({});
+
   // Warehouse stock
   const [warehouses,       setWarehouses]       = useState([]);
   const [selectedWhId,     setSelectedWhId]     = useState(null);
@@ -42,6 +47,14 @@ export default function Stock({ readOnly = false }) {
   };
 
   useEffect(() => { load(); }, []);
+
+  // Deep-link from Dashboard low stock alert
+  useEffect(() => {
+    if (highlight === 'lowstock') {
+      setTab('lowstock');
+      setTimeout(() => lowStockRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+    }
+  }, [highlight]);
 
   useEffect(() => {
     getWarehouses().then(r => {
@@ -205,6 +218,34 @@ export default function Stock({ readOnly = false }) {
     } catch (e) { setError(e.response?.data?.detail || 'Error'); }
   };
 
+  const handleQuickArrival = async (variantId) => {
+    const qty = parseInt(quickQty[variantId]) || 0;
+    if (qty <= 0) return;
+    setQuickLoading(prev => ({ ...prev, [variantId]: true }));
+    try {
+      await addBulkStockArrival({
+        items: [{ variant_id: variantId, quantity: qty }],
+        additional_fees: 0,
+        description: 'Quick arrival from low stock',
+        date: new Date().toISOString().split('T')[0],
+        warehouse_id: arrivalWarehouseId || null,
+      });
+      setQuickQty(prev => ({ ...prev, [variantId]: '' }));
+      setSuccess(`Added ${qty} unit(s) to stock`);
+      load();
+    } catch (e) {
+      setError(e.response?.data?.detail || 'Error adding stock');
+    } finally {
+      setQuickLoading(prev => ({ ...prev, [variantId]: false }));
+    }
+  };
+
+  const lowStockVariants = products.flatMap(p =>
+    p.variants
+      .filter(v => v.stock <= v.low_stock_threshold)
+      .map(v => ({ ...v, product_name: p.name, product_id: p.id }))
+  );
+
   return (
     <div>
       <div className="page-header">
@@ -228,6 +269,14 @@ export default function Stock({ readOnly = false }) {
         <div className={`tab ${tab === 'arrivals' ? 'active' : ''}`} onClick={() => setTab('arrivals')}>Stock Arrivals</div>
         <div className={`tab ${tab === 'broken' ? 'active' : ''}`} onClick={() => setTab('broken')}>Broken Stock</div>
         <div className={`tab ${tab === 'overview' ? 'active' : ''}`} onClick={() => setTab('overview')}>Current Stock</div>
+        <div className={`tab ${tab === 'lowstock' ? 'active' : ''}`} onClick={() => setTab('lowstock')} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          Low Stock
+          {lowStockVariants.length > 0 && (
+            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', background: 'var(--red-a)', color: 'var(--red)', borderRadius: 4 }}>
+              {lowStockVariants.length}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Current Stock Overview */}
@@ -382,6 +431,67 @@ export default function Stock({ readOnly = false }) {
                           <button className="btn btn-danger btn-sm" onClick={() => handleDeleteBroken(b.id)}>Delete</button>
                         </div>
                       </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Low Stock Section */}
+      {tab === 'lowstock' && (
+        <div className="card" ref={lowStockRef}>
+          {lowStockVariants.length === 0 ? (
+            <div className="empty-state">
+              <h3>All good!</h3>
+              <p>No variants are currently at or below their low stock threshold.</p>
+            </div>
+          ) : (
+            <div className="table-wrapper">
+              <table>
+                <thead>
+                  <tr><th>Product</th><th>Variant</th><th>Stock</th><th>Threshold</th><th>Status</th>{!readOnly && <th>Quick Arrival</th>}</tr>
+                </thead>
+                <tbody>
+                  {lowStockVariants.map(v => (
+                    <tr key={v.id}>
+                      <td style={{ fontWeight: 600 }}>{v.product_name}</td>
+                      <td>
+                        {(v.size || v.color)
+                          ? <span className="pill">{[v.size, v.color].filter(Boolean).join(' / ')}</span>
+                          : '—'}
+                      </td>
+                      <td style={{ fontWeight: 700, color: v.stock === 0 ? 'var(--red)' : '#fbbf24' }}>{v.stock}</td>
+                      <td style={{ color: 'var(--t2)' }}>{v.low_stock_threshold}</td>
+                      <td>
+                        {v.stock === 0
+                          ? <span className="badge badge-red">Out of Stock</span>
+                          : <span className="badge badge-yellow">Low Stock</span>}
+                      </td>
+                      {!readOnly && (
+                        <td>
+                          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                            <input
+                              className="form-input"
+                              type="number"
+                              min="1"
+                              placeholder="Qty"
+                              value={quickQty[v.id] || ''}
+                              onChange={e => setQuickQty(prev => ({ ...prev, [v.id]: e.target.value }))}
+                              style={{ width: 70, padding: '5px 8px', fontSize: 13 }}
+                            />
+                            <button
+                              className="btn btn-primary btn-sm"
+                              disabled={!quickQty[v.id] || quickLoading[v.id]}
+                              onClick={() => handleQuickArrival(v.id)}
+                            >
+                              {quickLoading[v.id] ? '…' : '+ Add'}
+                            </button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>

@@ -98,6 +98,7 @@ function useReloadOnInactivity() {
 export default function App() {
   useReloadOnInactivity();
   const [page, setPage] = useState('dashboard');
+  const [navParams, setNavParams] = useState({});
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [user, setUser] = useState(() => {
     try { return JSON.parse(localStorage.getItem('user')); } catch { return null; }
@@ -181,8 +182,9 @@ export default function App() {
   const settingsNavItem = nav.find(n => n.id === 'settings');
   const bottomNav = [...nav.slice(0, 4), settingsNavItem].filter(Boolean);
 
-  const navigate = (id) => {
+  const navigate = (id, params = {}) => {
     setPage(id);
+    setNavParams(params);
     setSidebarOpen(false);
   };
 
@@ -197,7 +199,7 @@ export default function App() {
     suppliers: <Suppliers />,
     products:  <Products readOnly={isConfirmer} />,
     packs:     <Packs readOnly={isConfirmer} />,
-    stock:     <Stock readOnly={isConfirmer} />,
+    stock:     <Stock readOnly={isConfirmer} highlight={navParams.highlight} />,
     team:      <Team />,
     expenses:  <Expenses />,
     ads:       <Ads />,
