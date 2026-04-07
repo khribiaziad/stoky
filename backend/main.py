@@ -92,6 +92,7 @@ with engine.connect() as conn:
         "ALTER TABLE orders ADD COLUMN callback_time TIMESTAMP",
         "CREATE UNIQUE INDEX IF NOT EXISTS uq_promocode_per_store ON promo_codes (user_id, code)",
         "ALTER TABLE products ADD COLUMN needs_salt_bag BOOLEAN DEFAULT false",
+        "ALTER TABLE team_members ADD COLUMN permissions JSON",
     ]:
         try:
             conn.execute(text(stmt))
