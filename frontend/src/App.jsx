@@ -56,6 +56,13 @@ const ADMIN_NAV = [
   { id: 'settings',  Icon: SettingsIcon },
 ];
 
+const ADMIN_NAV_SECTIONS = [
+  { label: 'General',   ids: ['dashboard','orders','leads','products','suppliers'] },
+  { label: 'Inventory', ids: ['packs','stock'] },
+  { label: 'Finance',   ids: ['expenses','ads','reports'] },
+  { label: 'Workspace', ids: ['team','settings'] },
+];
+
 const CONFIRMER_NAV = [
   { id: 'dashboard', Icon: LayoutDashboard },
   { id: 'orders',    Icon: Package },
@@ -63,6 +70,12 @@ const CONFIRMER_NAV = [
   { id: 'packs',     Icon: Gift },
   { id: 'stock',     Icon: Warehouse },
   { id: 'settings',  Icon: SettingsIcon },
+];
+
+const CONFIRMER_NAV_SECTIONS = [
+  { label: 'General',   ids: ['dashboard','orders'] },
+  { label: 'Inventory', ids: ['products','packs','stock'] },
+  { label: 'Workspace', ids: ['settings'] },
 ];
 
 // Reload if tab was hidden/inactive for more than 10 minutes (keeps Render server warm on return)
@@ -161,6 +174,7 @@ export default function App() {
 
   const isConfirmer = user.role === 'confirmer';
   const nav = isConfirmer ? CONFIRMER_NAV : ADMIN_NAV;
+  const navSections = isConfirmer ? CONFIRMER_NAV_SECTIONS : ADMIN_NAV_SECTIONS;
   const currentPage = isConfirmer && !nav.find(n => n.id === page) ? 'dashboard' : page;
   const labels = T[lang] || T.en;
   // Bottom nav: first 4 items + Settings always pinned at the end
@@ -213,23 +227,17 @@ export default function App() {
       <aside className={`sidebar${sidebarOpen ? ' sidebar-open' : ''}`}>
 
         <div className="sidebar-logo">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              {logo
-                ? <img src={logo} alt="logo" style={{ width: 32, height: 32, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
-                : null
-              }
-              <div className="sidebar-logo-text">STOCKY</div>
-            </div>
-            <button
-              className="btn-icon sidebar-close"
-              onClick={() => setSidebarOpen(false)}
-              aria-label="Close menu"
-            >
-              <X size={16} strokeWidth={1.75} />
-            </button>
+          {logo
+            ? <img src={logo} alt="logo" style={{ width: 32, height: 32, borderRadius: 9, objectFit: 'cover', flexShrink: 0 }} />
+            : <div className="sidebar-logo-icon">S</div>
+          }
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="sidebar-logo-text">Stocky</div>
+            <div className="sidebar-logo-store">{storeName || user.store_name}</div>
           </div>
-          <div className="sidebar-logo-store">{storeName || user.store_name}</div>
+          <button className="btn-icon sidebar-close" onClick={() => setSidebarOpen(false)} aria-label="Close menu">
+            <X size={16} strokeWidth={1.75} />
+          </button>
         </div>
 
         <div className="sidebar-user">
@@ -244,14 +252,19 @@ export default function App() {
         </div>
 
         <nav>
-          {nav.map(({ id, Icon }) => (
-            <div
-              key={id}
-              className={`nav-item${currentPage === id ? ' active' : ''}`}
-              onClick={() => navigate(id)}
-            >
-              <Icon size={16} strokeWidth={1.75} className="nav-icon" />
-              <span>{labels[id] || id}</span>
+          {navSections.map(section => (
+            <div key={section.label}>
+              <div className="nav-section-label">{section.label}</div>
+              {nav.filter(n => section.ids.includes(n.id)).map(({ id, Icon }) => (
+                <div
+                  key={id}
+                  className={`nav-item${currentPage === id ? ' active' : ''}`}
+                  onClick={() => navigate(id)}
+                >
+                  <Icon size={15} strokeWidth={1.75} className="nav-icon" />
+                  <span>{labels[id] || id}</span>
+                </div>
+              ))}
             </div>
           ))}
         </nav>

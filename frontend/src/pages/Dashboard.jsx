@@ -297,114 +297,114 @@ export default function Dashboard({ onNavigate, user, lang = 'en' }) {
     { label: t.returned,       val: current.returned         ?? 0, color: '#EF4444' },
   ];
 
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+  const weekRevenue = weekSummary?.revenue ?? 0;
+
   return (
-    <div style={{ animation: 'fadeIn 0.25s ease' }}>
+    <div style={{ animation: 'fadeIn 0.3s ease' }}>
 
-      {/* ── Header ── */}
+      {/* ── Period Picker ── */}
       <div className="page-header" style={isMobile ? { flexDirection: 'column', alignItems: 'flex-start', gap: 12 } : {}}>
-        <h1 className="page-title">{t.title}</h1>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          <div className="period-pills">
-            {t.periods.map(p => (
-              <button key={p.value}
-                className={`period-pill${period === p.value ? ' active' : ''}`}
-                onClick={() => setPeriod(p.value)}>
-                {p.label}
-              </button>
-            ))}
-          </div>
-          {period === 'custom' && (
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <input className="form-input" type="date" style={{ width: 'auto' }}
-                value={customStart} onChange={e => setCustomStart(e.target.value)} />
-              <span style={{ color: 'var(--t2)', fontSize: 13 }}>{t.to}</span>
-              <input className="form-input" type="date" style={{ width: 'auto' }}
-                value={customEnd} onChange={e => setCustomEnd(e.target.value)} />
-              <button className="btn btn-primary btn-sm"
-                onClick={() => loadStats('custom', customStart, customEnd)}>
-                {t.apply}
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* ── Attention Strip ── */}
-      {attentionLoading ? (
-        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4,1fr)', gap: 12, marginBottom: 20 }}>
-          {[0,1,2,3].map(i => (
-            <div key={i} style={{ height: 88, borderRadius: 'var(--r)', background: 'var(--card)', border: '1px solid var(--border)', opacity: 0.5 }} />
+        <div className="period-pills">
+          {t.periods.map(p => (
+            <button key={p.value}
+              className={`period-pill${period === p.value ? ' active' : ''}`}
+              onClick={() => setPeriod(p.value)}>
+              {p.label}
+            </button>
           ))}
         </div>
-      ) : attention && (() => {
-        const cards = [
-          { key: 'newLeads',         label: 'New Leads',         count: attention.newLeads,         color: '#22C55E', nav: 'leads'   },
-          { key: 'pendingOrders',    label: 'Pending Orders',    count: attention.pendingOrders,    color: '#F97316', nav: 'orders'  },
-          { key: 'reportedDueToday', label: 'Reported Due Today',count: attention.reportedDueToday, color: '#3B82F6', nav: 'orders'  },
-          { key: 'lowStockItems',    label: 'Low Stock Items',   count: attention.lowStockItems,    color: '#EF4444', nav: 'stock'   },
-        ];
-        return (
-          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4,1fr)', gap: 12, marginBottom: 20 }}>
-            {cards.map(c => {
-              const active = c.count > 0;
-              return (
-                <div key={c.key} onClick={() => onNavigate(c.nav)} style={{
-                  background: 'var(--card)', borderRadius: 'var(--r)',
-                  padding: '18px 20px', cursor: 'pointer',
-                  border: `1px solid ${active ? c.color + '40' : 'var(--border)'}`,
-                  boxShadow: active ? `0 4px 16px ${c.color}18` : 'var(--shadow)',
-                  transition: 'all 0.2s', opacity: active ? 1 : 0.55,
-                }}>
-                  <div style={{
-                    fontSize: 32, fontWeight: 800, lineHeight: 1,
-                    color: active ? c.color : 'var(--t3)',
-                    letterSpacing: '-1px',
-                  }}>{c.count}</div>
-                  <div style={{ fontSize: 12, color: 'var(--t2)', marginTop: 6, fontWeight: 500 }}>{c.label}</div>
-                  {active && <div style={{ fontSize: 11, color: c.color, marginTop: 6, fontWeight: 600 }}>View →</div>}
-                </div>
-              );
-            })}
+        {period === 'custom' && (
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <input className="form-input" type="date" style={{ width: 'auto' }}
+              value={customStart} onChange={e => setCustomStart(e.target.value)} />
+            <span style={{ color: 'var(--t2)', fontSize: 13 }}>{t.to}</span>
+            <input className="form-input" type="date" style={{ width: 'auto' }}
+              value={customEnd} onChange={e => setCustomEnd(e.target.value)} />
+            <button className="btn btn-primary btn-sm"
+              onClick={() => loadStats('custom', customStart, customEnd)}>
+              {t.apply}
+            </button>
           </div>
-        );
-      })()}
+        )}
+      </div>
 
-      {/* ── Week Summary Bar ── */}
-      {weekSummary && !attentionLoading && (() => {
-        const items = [
-          { label: 'Revenue This Week',  value: `${weekSummary.revenue?.toLocaleString() ?? 0} MAD`, delta: weekSummary.revenueDelta },
-          { label: 'Orders Confirmed',   value: weekSummary.ordersConfirmed ?? 0,                    delta: weekSummary.ordersDelta  },
-          { label: 'Leads Converted',    value: weekSummary.leadsConverted ?? 0,                     delta: weekSummary.leadsDelta   },
-        ];
-        return (
-          <div style={{
-            display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3,1fr)',
-            background: 'var(--card)', border: '1px solid var(--border)',
-            borderRadius: 'var(--r)', overflow: 'hidden',
-            marginBottom: 20, boxShadow: 'var(--shadow)',
-          }}>
-            {items.map((item, i) => (
-              <div key={i} style={{
-                padding: '18px 22px',
-                borderRight: !isMobile && i < 2 ? '1px solid var(--border)' : 'none',
-                borderBottom: isMobile && i < 2 ? '1px solid var(--border)' : 'none',
-              }}>
-                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.1em', color: 'var(--t3)', textTransform: 'uppercase', marginBottom: 6 }}>{item.label}</div>
-                <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--t1)', letterSpacing: '-0.5px' }}>{item.value}</div>
-                {item.delta != null ? (
-                  <div style={{ marginTop: 5 }}>
-                    <DeltaBadge now={item.delta} prev={0} label="vs last week" />
-                    <span style={{ marginLeft: 4, fontSize: 11, color: item.delta >= 0 ? '#22C55E' : '#EF4444', fontWeight: 700 }}>
-                      {item.delta >= 0 ? '▲' : '▼'} {Math.abs(item.delta)}% vs last week
-                    </span>
-                  </div>
-                ) : (
-                  <div style={{ fontSize: 11, color: 'var(--t3)', marginTop: 5 }}>— vs last week</div>
-                )}
-              </div>
-            ))}
+      {/* ── HERO ── */}
+      <div className="dash-hero">
+        <div className="dash-hero-bg" />
+        <div className="dash-hero-grid" />
+        <div className="dash-hero-glow1" />
+        <div className="dash-hero-glow2" />
+        <div className="dash-hero-left">
+          <div className="dash-hero-eyebrow">{new Date().toLocaleDateString(lang === 'fr' ? 'fr-FR' : lang === 'ar' ? 'ar-MA' : 'en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</div>
+          <div className="dash-hero-title">{greeting}, <span>{user?.username}</span></div>
+          <div className="dash-hero-sub">
+            {attention && <>
+              <strong style={{ color: 'var(--green)' }}>{attention.pendingOrders ?? 0} to confirm</strong>
+              &nbsp;·&nbsp;
+              <strong style={{ color: 'var(--yellow)' }}>{attention.lowStockItems ?? 0} low stock</strong>
+              {attention.reportedDueToday > 0 && <>&nbsp;·&nbsp;<strong style={{ color: 'var(--blue)' }}>{attention.reportedDueToday} due today</strong></>}
+            </>}
           </div>
-        );
+        </div>
+        {!isMobile && (
+          <div className="dash-hero-right">
+            <div className="dash-hero-kpi">
+              <div className="dash-hero-kpi-val" style={{ color: 'var(--accent-soft)' }}>
+                {loading ? '—' : cleanProfit.toLocaleString()}
+              </div>
+              <div className="dash-hero-kpi-label">{t.cleanProfit} · MAD</div>
+              {hasPrev && !loading && (
+                <div className="dash-hero-kpi-delta" style={{ color: cleanProfit >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                  {cleanProfit >= 0 ? '↑' : '↓'} vs prev period
+                </div>
+              )}
+            </div>
+            <div className="dash-hero-kpi">
+              <div className="dash-hero-kpi-val" style={{ color: 'var(--t1)' }}>
+                {attentionLoading ? '—' : weekRevenue.toLocaleString()}
+              </div>
+              <div className="dash-hero-kpi-label">Week Revenue · MAD</div>
+              {weekSummary?.revenueDelta != null && (
+                <div className="dash-hero-kpi-delta" style={{ color: weekSummary.revenueDelta >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                  {weekSummary.revenueDelta >= 0 ? '↑' : '↓'} {Math.abs(weekSummary.revenueDelta)}% vs last week
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── ALERT (attention strip) ── */}
+      {attentionLoading ? (
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4,1fr)', gap: 10, marginBottom: 6 }}>
+          {[0,1,2,3].map(i => <div key={i} style={{ height: 60, borderRadius: 'var(--r)', background: 'var(--card)', border: '1px solid var(--border)', opacity: 0.4 }} />)}
+        </div>
+      ) : attention && (() => {
+        const alerts = [
+          { key: 'newLeads',         label: 'New Leads',      count: attention.newLeads,         color: 'var(--green)', nav: 'leads'  },
+          { key: 'pendingOrders',    label: 'To Confirm',     count: attention.pendingOrders,    color: 'var(--yellow)', nav: 'orders' },
+          { key: 'reportedDueToday', label: 'Due Today',      count: attention.reportedDueToday, color: 'var(--blue)',  nav: 'orders' },
+          { key: 'lowStockItems',    label: 'Low Stock',      count: attention.lowStockItems,    color: 'var(--red)',   nav: 'stock'  },
+        ];
+        const hasAlert = alerts.some(a => a.count > 0);
+        return hasAlert ? (
+          <div className="dash-alert">
+            <svg fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <div className="dash-alert-text">
+              {alerts.filter(a => a.count > 0).map((a, i) => (
+                <span key={a.key}>
+                  {i > 0 && ' · '}
+                  <em style={{ color: a.color, cursor: 'pointer' }} onClick={() => onNavigate(a.nav)}>
+                    {a.count} {a.label}
+                  </em>
+                </span>
+              ))}
+              {returnAlert && <span> · <em style={{ color: 'var(--red)' }}>Return rate {returnRate}% is high</em></span>}
+            </div>
+          </div>
+        ) : null;
       })()}
 
       {loadError && <ErrorExplain message={loadError} page="Dashboard" />}
@@ -413,198 +413,95 @@ export default function Dashboard({ onNavigate, user, lang = 'en' }) {
         <div className="loading">Loading...</div>
       ) : (
         <>
-          {/* ── Return Rate Alert ── */}
-          {returnAlert && (
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20,
-              padding: '14px 18px', borderRadius: 'var(--r)',
-              background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.25)',
-            }}>
-              <span style={{ fontSize: 18 }}>⚠️</span>
-              <div>
-                <span style={{ fontWeight: 700, color: '#EF4444' }}>High return rate — {returnRate}%</span>
-                <span style={{ color: 'var(--t2)', fontSize: 13, marginLeft: 8 }}>for the selected period</span>
-              </div>
-            </div>
-          )}
-
-          {/* ── KPI Pipeline Cards ── */}
-          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(5,1fr)', gap: 12, marginBottom: 20 }}>
-            {kpiCards.map(card => (
-              <div key={card.key} className="stat-card" style={{ gap: 6 }}>
-                <div className="stat-label">{card.label}</div>
-                <div style={{ fontSize: 30, fontWeight: 800, color: card.color, letterSpacing: '-1px', lineHeight: 1 }}>
-                  {current[card.key] ?? 0}
+          {/* ── PIPELINE ── */}
+          <div className="dash-pipeline">
+            {kpiCards.map((card, idx) => {
+              const colors = ['var(--yellow)','var(--blue)','var(--accent-soft)','var(--green)','var(--red)'];
+              const glows  = ['#FBBF24','#60A5FA','#9B8DF9','#34D399','#F87171'];
+              const val    = current[card.key] ?? 0;
+              const prevVal = previous[card.key] ?? 0;
+              const delta  = hasPrev ? val - prevVal : null;
+              return (
+                <div key={card.key} className="dash-pipe" style={{ animationDelay: `${0.1 + idx * 0.05}s` }}>
+                  <div className="dash-pipe-glow" style={{ background: glows[idx] }} />
+                  <div className="dash-pipe-label">{card.label}</div>
+                  <div className="dash-pipe-val" style={{ color: colors[idx] }}>{val}</div>
+                  {card.key === 'in_delivery' && inDeliveryAmount > 0 && (
+                    <div style={{ fontSize: 10, color: 'var(--blue)', fontWeight: 500 }}>{inDeliveryAmount.toLocaleString()} MAD</div>
+                  )}
+                  {delta !== null && (
+                    <div className="dash-pipe-delta" style={{ color: delta >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                      {delta >= 0 ? '↑' : '↓'} {Math.abs(delta)} {t.vsPrev}
+                    </div>
+                  )}
+                  <div className="dash-pipe-bar" style={{ background: glows[idx] }} />
                 </div>
-                {card.key === 'in_delivery' && inDeliveryAmount > 0 && (
-                  <div style={{ fontSize: 11, color: '#3B82F6', marginTop: 2 }}>
-                    {inDeliveryAmount.toLocaleString()} MAD
-                    {olivAmount > 0 && <span style={{ color: 'var(--t2)', marginLeft: 5 }}>🚚 {olivAmount.toLocaleString()}</span>}
-                    {forceAmount > 0 && <span style={{ color: 'var(--t2)', marginLeft: 5 }}>📦 {forceAmount.toLocaleString()}</span>}
-                  </div>
-                )}
-                {hasPrev && (
-                  <div style={{ fontSize: 11, fontWeight: 600,
-                    color: (current[card.key] ?? 0) >= (previous[card.key] ?? 0) ? '#22C55E' : '#EF4444'
-                  }}>
-                    {(current[card.key] ?? 0) >= (previous[card.key] ?? 0) ? '▲' : '▼'}{' '}
-                    {Math.abs((current[card.key] ?? 0) - (previous[card.key] ?? 0))} {t.vsPrev}
-                  </div>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
 
-          {/* ── Main Grid: Hero Dark Card + Charts ── */}
-          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16, marginBottom: 16 }}>
+          {/* ── BENTO ROW 1: Chart + Pipeline Funnel ── */}
+          <div className="dash-bento">
 
-            {/* LEFT: Dark hero card */}
-            <div className="hero-dark" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-              {/* Clean Profit */}
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 8 }}>
-                  {t.cleanProfit}
-                </div>
-                <div style={{ fontSize: 38, fontWeight: 900, color: '#C6FF00', letterSpacing: '-1.5px', lineHeight: 1 }}>
-                  {cleanProfit.toLocaleString()}
-                  <span style={{ fontSize: 16, fontWeight: 600, color: 'rgba(255,255,255,0.5)', marginLeft: 6 }}>MAD</span>
-                </div>
-                {hasPrev && (
-                  <div style={{ marginTop: 8, fontSize: 12, color: cleanProfit >= 0 ? '#C6FF00' : '#EF4444', fontWeight: 600 }}>
-                    {cleanProfit >= 0 ? '▲' : '▼'} vs previous period
-                  </div>
-                )}
+            {/* Bar chart */}
+            <div className="card dash-col2" style={{ marginBottom: 0, animationDelay: '0.2s', animation: 'fadeIn 0.35s ease both' }}>
+              <div className="card-header">
+                <div className="card-label">Orders — Last 7 Days</div>
+                <span className="card-link" onClick={() => onNavigate('reports')}>Reports →</span>
               </div>
-
-              {/* Divider */}
-              <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }} />
-
-              {/* Confirmation Rate + Return Rate */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                <div>
-                  <div style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 6 }}>Confirmation Rate</div>
-                  <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.5px',
-                    color: confRate === null ? 'rgba(255,255,255,0.3)' : confRate >= 70 ? '#C6FF00' : confRate >= 50 ? '#F59E0B' : '#EF4444'
-                  }}>
-                    {confRate !== null ? `${confRate}%` : '—'}
-                  </div>
-                </div>
-                <div>
-                  <div style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 6 }}>Return Rate</div>
-                  <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.5px',
-                    color: returnRate === null ? 'rgba(255,255,255,0.3)' : returnRate <= 15 ? '#C6FF00' : returnRate <= 30 ? '#F59E0B' : '#EF4444'
-                  }}>
-                    {returnRate !== null ? `${returnRate}%` : '—'}
-                  </div>
-                </div>
-              </div>
-
-              {/* Daily Goal */}
-              <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 16 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                  <div style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '.08em' }}>
-                    {t.dailyGoal}
-                  </div>
-                  <button onClick={() => { setGoalInput(dailyGoal > 0 ? String(dailyGoal) : ''); setEditingGoal(true); }}
-                    style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 13, padding: 0 }}>
-                    ✎
-                  </button>
-                </div>
-
-                {editingGoal ? (
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <input type="number" value={goalInput} onChange={e => setGoalInput(e.target.value)}
-                      onKeyDown={e => e.key === 'Enter' && handleSaveGoal()}
-                      placeholder={t.goalPlaceholder} autoFocus
-                      style={{ flex: 1, background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 8, padding: '6px 10px', color: '#fff', fontSize: 13, fontFamily: 'inherit', outline: 'none' }} />
-                    <button onClick={handleSaveGoal}
-                      style={{ background: '#C6FF00', border: 'none', borderRadius: 8, padding: '6px 12px', color: '#111', fontWeight: 700, cursor: 'pointer', fontSize: 12 }}>
-                      {t.goalSave}
-                    </button>
-                    <button onClick={() => setEditingGoal(false)}
-                      style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: 8, padding: '6px 10px', color: 'rgba(255,255,255,0.6)', cursor: 'pointer', fontSize: 12 }}>
-                      {t.goalCancel}
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 10 }}>
-                      <span style={{ fontSize: 22, fontWeight: 800, color: '#fff', letterSpacing: '-0.5px' }}>
-                        {todayRevenue.toLocaleString()}
-                      </span>
-                      <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
-                        / {dailyGoal > 0 ? `${dailyGoal.toLocaleString()} MAD` : '— set a goal'}
-                      </span>
-                    </div>
-                    {dailyGoal > 0 && (
-                      <>
-                        <div style={{ background: 'rgba(255,255,255,0.1)', borderRadius: 999, height: 8, overflow: 'hidden', marginBottom: 8 }}>
-                          <div style={{
-                            height: '100%', borderRadius: 999, width: `${clampedPct}%`,
-                            background: clampedPct >= 100 ? '#C6FF00' : clampedPct >= 70 ? '#C6FF00cc' : '#C6FF0066',
-                            transition: 'width 0.6s ease',
-                          }} />
-                        </div>
-                        <div style={{ fontSize: 11, color: clampedPct >= 100 ? '#C6FF00' : 'rgba(255,255,255,0.4)', fontWeight: 600 }}>
-                          {clampedPct >= 100
-                            ? t.goalReached
-                            : `${(dailyGoal - todayRevenue).toLocaleString(undefined, { maximumFractionDigits: 0 })} ${t.goalToGo} — ${pct.toFixed(0)}%`}
-                        </div>
-                      </>
-                    )}
-                  </>
-                )}
-              </div>
-            </div>
-
-            {/* RIGHT: Line Chart */}
-            <div className="card" style={{ marginBottom: 0 }}>
-              <div className="card-title" style={{ marginBottom: 16 }}>Orders — Last 7 Days</div>
               {dailyOrders.length > 0 ? (
-                <ResponsiveContainer width="100%" height={200}>
-                  <LineChart data={dailyOrders} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
-                    <XAxis dataKey="day" tick={{ fill: 'var(--t2)', fontSize: 11 }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fill: 'var(--t2)', fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
-                    <Tooltip
-                      contentStyle={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 10, fontSize: 12, boxShadow: 'var(--shadow-md)' }}
-                      labelStyle={{ color: 'var(--t1)', fontWeight: 600 }}
-                      itemStyle={{ color: '#111118' }}
-                    />
-                    <Line type="monotone" dataKey="orders" stroke="#111118" strokeWidth={2.5}
-                      dot={{ fill: '#111118', r: 4, strokeWidth: 0 }}
-                      activeDot={{ r: 6, fill: '#C6FF00', stroke: '#111118', strokeWidth: 2 }} />
-                  </LineChart>
-                </ResponsiveContainer>
+                <>
+                  <div className="dash-chart-wrap">
+                    {dailyOrders.map((d, i) => {
+                      const maxOrders = Math.max(...dailyOrders.map(x => x.orders), 1);
+                      const isToday = i === dailyOrders.length - 1;
+                      const h = Math.max((d.orders / maxOrders) * 100, 4);
+                      return (
+                        <div key={i} className={`dash-bar ${isToday ? 'dash-bar-today' : 'dash-bar-past'}`}
+                          style={{ height: `${h}%` }} title={`${d.day}: ${d.orders} orders`} />
+                      );
+                    })}
+                  </div>
+                  <div className="dash-chart-labels">
+                    {dailyOrders.map((d, i) => (
+                      <div key={i} className={`dash-chart-lbl${i === dailyOrders.length - 1 ? ' dash-chart-lbl-today' : ''}`}>{d.day}</div>
+                    ))}
+                  </div>
+                  <div className="dash-chart-footer">
+                    <div className="dash-chart-footer-label">Period total</div>
+                    <div className="dash-chart-footer-val">
+                      {dailyOrders.reduce((s,d) => s + d.orders, 0)}
+                      <span style={{ fontSize: 10, color: 'var(--t3)', fontWeight: 400, marginLeft: 4 }}>orders</span>
+                    </div>
+                  </div>
+                </>
               ) : (
-                <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--t3)', fontSize: 13 }}>
-                  No data for this period
-                </div>
+                <div style={{ height: 96, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--t3)', fontSize: 13 }}>No data for this period</div>
               )}
             </div>
-          </div>
 
-          {/* ── Pipeline Funnel + Team Today ── */}
-          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16, marginBottom: 16 }}>
-
-            {/* Pipeline Funnel */}
-            <div className="card" style={{ marginBottom: 0 }}>
-              <div className="card-title" style={{ marginBottom: 16 }}>Order Pipeline</div>
+            {/* Pipeline funnel */}
+            <div className="card dash-col2" style={{ marginBottom: 0, animationDelay: '0.25s', animation: 'fadeIn 0.35s ease both' }}>
+              <div className="card-header">
+                <div className="card-label">Order Pipeline</div>
+                <span className="card-link" onClick={() => onNavigate('orders')}>View all →</span>
+              </div>
               {total === 0 ? (
-                <div style={{ color: 'var(--t2)', fontSize: 13, padding: '20px 0', textAlign: 'center' }}>No orders for this period.</div>
+                <div style={{ color: 'var(--t3)', fontSize: 13, padding: '20px 0', textAlign: 'center' }}>No orders for this period.</div>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                   {funnelRows.map(row => {
                     const rowPct = total > 0 ? Math.round(row.val / total * 100) : 0;
                     return (
                       <div key={row.label}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 13 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5, fontSize: 12 }}>
                           <span style={{ color: 'var(--t2)', fontWeight: 500 }}>{row.label}</span>
                           <span style={{ fontWeight: 700, color: row.color }}>
-                            {row.val} <span style={{ color: 'var(--t3)', fontWeight: 400 }}>({rowPct}%)</span>
+                            {row.val} <span style={{ color: 'var(--t3)', fontWeight: 400, fontSize: 10 }}>({rowPct}%)</span>
                           </span>
                         </div>
-                        <div style={{ background: 'var(--bg)', borderRadius: 999, height: 8, overflow: 'hidden' }}>
-                          <div style={{ height: '100%', borderRadius: 999, width: `${rowPct}%`, background: row.color, transition: 'width 0.5s ease' }} />
+                        <div style={{ background: 'var(--card-2)', borderRadius: 3, height: 5, overflow: 'hidden' }}>
+                          <div style={{ height: '100%', borderRadius: 3, width: `${rowPct}%`, background: row.color, opacity: 0.8, transition: 'width 0.6s ease' }} />
                         </div>
                       </div>
                     );
@@ -613,65 +510,163 @@ export default function Dashboard({ onNavigate, user, lang = 'en' }) {
               )}
             </div>
 
-            {/* Team Today */}
-            <div className="card" style={{ marginBottom: 0 }}>
-              <div className="card-title" style={{ marginBottom: 16 }}>{t.teamToday}</div>
-              {teamToday.length === 0 ? (
-                <div style={{ color: 'var(--t2)', fontSize: 13, padding: '20px 0', textAlign: 'center' }}>{t.noActivity}</div>
+            {/* Performance gauges */}
+            <div className="card" style={{ marginBottom: 0, animationDelay: '0.3s', animation: 'fadeIn 0.35s ease both' }}>
+              <div className="card-header"><div className="card-label">Performance</div></div>
+              <div className="dash-gauge">
+                <div>
+                  <div className="dash-gauge-header">
+                    <div className="dash-gauge-label">Confirmation</div>
+                    <div className="dash-gauge-val" style={{ color: confRate === null ? 'var(--t3)' : confRate >= 70 ? 'var(--green)' : confRate >= 50 ? 'var(--yellow)' : 'var(--red)' }}>
+                      {confRate !== null ? `${confRate}%` : '—'}
+                    </div>
+                  </div>
+                  <div className="dash-gauge-bg">
+                    <div className="dash-gauge-fill" style={{ width: `${confRate ?? 0}%`, background: confRate >= 70 ? 'var(--green)' : confRate >= 50 ? 'var(--yellow)' : 'var(--red)' }} />
+                  </div>
+                  <div className="dash-gauge-hint">Target 70%+</div>
+                </div>
+                <div>
+                  <div className="dash-gauge-header">
+                    <div className="dash-gauge-label">Return Rate</div>
+                    <div className="dash-gauge-val" style={{ color: returnRate === null ? 'var(--t3)' : returnRate <= 15 ? 'var(--green)' : returnRate <= 30 ? 'var(--yellow)' : 'var(--red)' }}>
+                      {returnRate !== null ? `${returnRate}%` : '—'}
+                    </div>
+                  </div>
+                  <div className="dash-gauge-bg">
+                    <div className="dash-gauge-fill" style={{ width: `${returnRate ?? 0}%`, background: returnRate <= 15 ? 'var(--green)' : returnRate <= 30 ? 'var(--yellow)' : 'var(--red)' }} />
+                  </div>
+                  <div className="dash-gauge-hint">Keep below 20%</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Daily Goal */}
+            <div className="card" style={{ marginBottom: 0, animationDelay: '0.35s', animation: 'fadeIn 0.35s ease both' }}>
+              <div className="card-header">
+                <div className="card-label">{t.dailyGoal}</div>
+                <span className="card-link" onClick={() => { setGoalInput(dailyGoal > 0 ? String(dailyGoal) : ''); setEditingGoal(true); }}>✎ Edit</span>
+              </div>
+              {editingGoal ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <input type="number" value={goalInput} onChange={e => setGoalInput(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleSaveGoal()}
+                    placeholder={t.goalPlaceholder} autoFocus className="form-input" />
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button className="btn btn-primary btn-sm" onClick={handleSaveGoal}>{t.goalSave}</button>
+                    <button className="btn btn-secondary btn-sm" onClick={() => setEditingGoal(false)}>{t.goalCancel}</button>
+                  </div>
+                </div>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  {teamToday.map((m, i) => (
-                    <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderBottom: i < teamToday.length - 1 ? '1px solid var(--border)' : 'none' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--t1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: 'var(--surface)', flexShrink: 0 }}>
+                <>
+                  <div className="dash-goal-row">
+                    <div className="dash-goal-val">{todayRevenue.toLocaleString()}</div>
+                    <div className="dash-goal-target">/ {dailyGoal > 0 ? `${dailyGoal.toLocaleString()} MAD` : 'no goal set'}</div>
+                  </div>
+                  <div className="dash-goal-bar-bg">
+                    <div className="dash-goal-bar-fill" style={{ width: `${clampedPct}%` }} />
+                  </div>
+                  <div style={{ fontSize: 10, color: clampedPct >= 100 ? 'var(--green)' : 'var(--t3)', fontWeight: 600 }}>
+                    {dailyGoal > 0
+                      ? clampedPct >= 100
+                        ? t.goalReached
+                        : `${(dailyGoal - todayRevenue).toLocaleString(undefined, { maximumFractionDigits: 0 })} ${t.goalToGo} — ${pct.toFixed(0)}%`
+                      : t.goalHint
+                    }
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+                    <div>
+                      <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--green)' }}>{current.delivered ?? 0}</div>
+                      <div style={{ fontSize: 9, color: 'var(--t3)', marginTop: 2, textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700 }}>Delivered</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--accent-soft)' }}>{cleanProfit.toLocaleString()}</div>
+                      <div style={{ fontSize: 9, color: 'var(--t3)', marginTop: 2, textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700 }}>Net Profit</div>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Team Today */}
+            <div className="card dash-col2" style={{ marginBottom: 0, animationDelay: '0.4s', animation: 'fadeIn 0.35s ease both' }}>
+              <div className="card-header">
+                <div className="card-label">{t.teamToday}</div>
+              </div>
+              {teamToday.length === 0 ? (
+                <div style={{ color: 'var(--t3)', fontSize: 13, padding: '20px 0', textAlign: 'center' }}>{t.noActivity}</div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 0 }}>
+                  {teamToday.map((m, i) => {
+                    const avColors = ['135deg,#7C6AF7,#A78BFA','135deg,#34D399,#059669','135deg,#F87171,#DC2626','135deg,#FBBF24,#D97706','135deg,#60A5FA,#2563EB','135deg,#A78BFA,#7C6AF7'];
+                    const delivRate = m.orders > 0 && m.delivered != null ? Math.round(m.delivered / m.orders * 100) : null;
+                    const half = Math.ceil(teamToday.length / 2);
+                    const isRight = !isMobile && i >= half;
+                    return (
+                      <div key={i} className="dash-team-row" style={{
+                        paddingLeft: isRight ? 16 : 0,
+                        paddingRight: isRight ? 0 : 16,
+                        borderLeft: isRight ? '1px solid var(--border)' : 'none',
+                      }}>
+                        <div className="dash-team-av" style={{ background: `linear-gradient(${avColors[i % avColors.length]})` }}>
                           {(m.name || 'T')[0].toUpperCase()}
                         </div>
-                        <div>
-                          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--t1)' }}>{m.name}</div>
-                          <div style={{ fontSize: 11, color: 'var(--t2)' }}>{m.orders} {t.orders}</div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div className="dash-team-name">{m.name}</div>
+                          <div className="dash-team-stat">{m.orders} {t.orders}</div>
+                          {delivRate !== null && (
+                            <div className="dash-team-bar-bg">
+                              <div className="dash-team-bar-fill" style={{ width: `${delivRate}%` }} />
+                            </div>
+                          )}
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3 }}>
+                          {m.delivered != null && (
+                            <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 5, background: 'var(--green-a)', color: 'var(--green)' }}>
+                              {m.delivered} del.
+                            </span>
+                          )}
+                          {delivRate !== null && <div className="dash-team-rate">{delivRate}%</div>}
                         </div>
                       </div>
-                      {m.delivered != null && (
-                        <span style={{ fontSize: 12, fontWeight: 700, color: '#22C55E', background: 'rgba(34,197,94,0.10)', padding: '3px 10px', borderRadius: 999 }}>
-                          {m.delivered} delivered
-                        </span>
-                      )}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
-          </div>
 
-          {/* ── Low Stock ── */}
-          {lowStockItems.length > 0 && (
-            <div className="card">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                <div className="card-title">{t.lowStock}</div>
-                <button className="btn btn-secondary btn-sm" onClick={() => onNavigate('stock')}>{t.addStock}</button>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                {lowStockItems.slice(0, 8).map((item, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 0', borderBottom: i < Math.min(lowStockItems.length, 8) - 1 ? '1px solid var(--border)' : 'none' }}>
-                    <div>
-                      <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--t1)' }}>{item.product_name}</span>
-                      {item.size && <span style={{ fontSize: 11, color: 'var(--t2)', marginLeft: 6 }}>{item.size}</span>}
-                      {item.color && <span style={{ fontSize: 11, color: 'var(--t2)', marginLeft: 4 }}>{item.color}</span>}
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontSize: 11, color: 'var(--t3)' }}>{t.threshold}: {item.threshold}</span>
-                      <span style={{ fontWeight: 700, fontSize: 13, padding: '2px 10px', borderRadius: 999,
-                        background: item.stock === 0 ? 'rgba(239,68,68,0.10)' : 'rgba(245,158,11,0.10)',
-                        color: item.stock === 0 ? '#EF4444' : '#F59E0B',
+            {/* Low Stock */}
+            {lowStockItems.length > 0 && (
+              <div className="card dash-col2" style={{ marginBottom: 0, animationDelay: '0.45s', animation: 'fadeIn 0.35s ease both' }}>
+                <div className="card-header">
+                  <div className="card-label">{t.lowStock}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 7px', background: 'var(--red-a)', color: 'var(--red)', borderRadius: 5 }}>{lowStockItems.length} items</span>
+                    <span className="card-link" onClick={() => onNavigate('stock')}>{t.addStock} →</span>
+                  </div>
+                </div>
+                <div>
+                  {lowStockItems.slice(0, 6).map((item, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: i < Math.min(lowStockItems.length, 6) - 1 ? '1px solid var(--border)' : 'none' }}>
+                      <div>
+                        <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--t1)' }}>{item.product_name}</div>
+                        <div style={{ fontSize: 10, color: 'var(--t3)', marginTop: 1 }}>
+                          {[item.size, item.color].filter(Boolean).join(' · ')} · threshold {item.threshold}
+                        </div>
+                      </div>
+                      <span style={{ fontSize: 12, fontWeight: 800, padding: '2px 9px', borderRadius: 6,
+                        background: item.stock === 0 ? 'var(--red-a)' : 'var(--yellow-a)',
+                        color: item.stock === 0 ? 'var(--red)' : 'var(--yellow)',
                       }}>
                         {item.stock === 0 ? t.outOfStock : `${item.stock} ${t.left}`}
                       </span>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
+
+          </div>
         </>
       )}
     </div>
