@@ -91,7 +91,7 @@ export default function App() {
   });
 
   // ── Appearance state ────────────────────────────────────────
-  const [theme,  setTheme]  = useState(() => localStorage.getItem('app_theme')  || 'dark');
+  const [theme,  setTheme]  = useState(() => localStorage.getItem('app_theme')  || 'light');
   const [lang,   setLang]   = useState(() => localStorage.getItem('app_lang')   || 'en');
   const [accent, setAccent] = useState(() => localStorage.getItem('app_accent') || '#00d48f');
   const langInitialized = useRef(false);
