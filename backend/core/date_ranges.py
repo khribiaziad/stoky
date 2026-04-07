@@ -67,10 +67,9 @@ def parse_date_range(
         )
 
     if period == "this_week":
-        monday = (now - timedelta(days=now.weekday())).replace(
+        return (now - timedelta(days=7)).replace(
             hour=0, minute=0, second=0, microsecond=0
-        )
-        return monday, now
+        ), now
 
     if period == "last_7_days":
         return (now - timedelta(days=7)).replace(
@@ -78,7 +77,9 @@ def parse_date_range(
         ), now
 
     if period == "this_month":
-        return now.replace(day=1, hour=0, minute=0, second=0, microsecond=0), now
+        return (now - timedelta(days=30)).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        ), now
 
     if period == "custom" and start and end:
         s = datetime.fromisoformat(start).replace(
@@ -135,17 +136,17 @@ def prev_date_range(
         )
 
     if period == "this_week":
-        start_of_this_week = (now - timedelta(days=now.weekday())).replace(
+        prev_end = (now - timedelta(days=7)).replace(
             hour=0, minute=0, second=0, microsecond=0
-        )
-        prev_end = (start_of_this_week - timedelta(microseconds=1))
-        prev_start = (start_of_this_week - timedelta(days=7))
+        ) - timedelta(microseconds=1)
+        prev_start = prev_end.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=6)
         return prev_start, prev_end
 
     if period == "this_month":
-        first_this = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        prev_end = first_this - timedelta(microseconds=1)
-        prev_start = prev_end.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        prev_end = (now - timedelta(days=30)).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        ) - timedelta(microseconds=1)
+        prev_start = prev_end.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=29)
         return prev_start, prev_end
 
     if s and e:
