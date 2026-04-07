@@ -166,6 +166,11 @@ def change_order_status(
         HTTPException 400: If the transition is not in the allowed set.
     """
     current = order.status
+
+    # No-op: already in the target status (e.g. courier resends 'delivered')
+    if current == new_status:
+        return order
+
     allowed = _ALLOWED_TRANSITIONS.get(current, set())
 
     if new_status not in allowed:
