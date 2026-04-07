@@ -329,7 +329,7 @@ def confirm_lead(
 
     order.lead_id    = lead.id        # Fix #62: link order back to its lead
     order.notes      = lead.notes    # Fix #72: carry customer notes forward
-    order.confirmed_by = user.id
+    order.confirmed_by = user.team_member_id  # references team_members.id, not users.id
 
     expense_service.get_or_create_expense(db, order)  # Bug #194: lead-confirmed orders always have an expense row
 
