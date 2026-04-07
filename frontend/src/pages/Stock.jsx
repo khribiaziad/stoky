@@ -32,6 +32,7 @@ export default function Stock({ readOnly = false, highlight = null }) {
 
   // Quick arrival (inline, per variant on low stock tab)
   const [quickQty, setQuickQty] = useState({}); // { variantId: qty }
+  const [quickPaid, setQuickPaid] = useState({}); // { variantId: bool }
   const [quickLoading, setQuickLoading] = useState({});
 
   // Warehouse stock
@@ -221,17 +222,33 @@ export default function Stock({ readOnly = false, highlight = null }) {
   const handleQuickArrival = async (variantId) => {
     const qty = parseInt(quickQty[variantId]) || 0;
     if (qty <= 0) return;
+    const paid = !!quickPaid[variantId];
+    const today = new Date().toISOString().split('T')[0];
     setQuickLoading(prev => ({ ...prev, [variantId]: true }));
     try {
       await addBulkStockArrival({
         items: [{ variant_id: variantId, quantity: qty }],
         additional_fees: 0,
         description: 'Quick arrival from low stock',
-        date: new Date().toISOString().split('T')[0],
+        date: today,
         warehouse_id: arrivalWarehouseId || null,
       });
+
+      if (paid) {
+        // Find product + supplier for this variant
+        for (const p of products) {
+          const v = p.variants.find(v => v.id === variantId);
+          if (v && p.supplier_id) {
+            const amount = parseFloat((v.buying_price * qty).toFixed(2));
+            await addSupplierPayment(p.supplier_id, { amount, date: today, note: 'Quick arrival payment' }).catch(() => {});
+            break;
+          }
+        }
+      }
+
       setQuickQty(prev => ({ ...prev, [variantId]: '' }));
-      setSuccess(`Added ${qty} unit(s) to stock`);
+      setQuickPaid(prev => ({ ...prev, [variantId]: false }));
+      setSuccess(`Added ${qty} unit(s) to stock${paid ? ' — supplier payment recorded' : ' — recorded as debt'}`);
       load();
     } catch (e) {
       setError(e.response?.data?.detail || 'Error adding stock');
@@ -482,6 +499,14 @@ export default function Stock({ readOnly = false, highlight = null }) {
                               onChange={e => setQuickQty(prev => ({ ...prev, [v.id]: e.target.value }))}
                               style={{ width: 70, padding: '5px 8px', fontSize: 13 }}
                             />
+                            <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: quickPaid[v.id] ? 'var(--accent)' : 'var(--t2)', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                              <input
+                                type="checkbox"
+                                checked={!!quickPaid[v.id]}
+                                onChange={e => setQuickPaid(prev => ({ ...prev, [v.id]: e.target.checked }))}
+                              />
+                              Paid
+                            </label>
                             <button
                               className="btn btn-primary btn-sm"
                               disabled={!quickQty[v.id] || quickLoading[v.id]}
