@@ -95,8 +95,45 @@ function useReloadOnInactivity() {
   }, []);
 }
 
+// After 5 min of no activity, ping the backend after a random 1–9 min delay.
+// Any user activity resets the idle counter so the ping only fires when truly idle.
+const IDLE_BEFORE_PING = 5 * 60 * 1000;
+const ACTIVITY_EVENTS = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart', 'pointerdown'];
+function useKeepAlive() {
+  useEffect(() => {
+    let idleTimer = null;
+    let pingTimer = null;
+
+    const clearAll = () => {
+      clearTimeout(idleTimer);
+      clearTimeout(pingTimer);
+    };
+
+    const schedulePing = () => {
+      const delay = (Math.random() * 8 + 1) * 60 * 1000; // 1–9 min random
+      pingTimer = setTimeout(() => {
+        fetch('/api/health').catch(() => {});
+      }, delay);
+    };
+
+    const resetIdle = () => {
+      clearAll();
+      idleTimer = setTimeout(schedulePing, IDLE_BEFORE_PING);
+    };
+
+    ACTIVITY_EVENTS.forEach(e => window.addEventListener(e, resetIdle, { passive: true }));
+    resetIdle(); // start on mount
+
+    return () => {
+      clearAll();
+      ACTIVITY_EVENTS.forEach(e => window.removeEventListener(e, resetIdle));
+    };
+  }, []);
+}
+
 export default function App() {
   useReloadOnInactivity();
+  useKeepAlive();
   const [page, setPage] = useState('dashboard');
   const [navParams, setNavParams] = useState({});
   const [sidebarOpen, setSidebarOpen] = useState(false);
