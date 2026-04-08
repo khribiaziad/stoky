@@ -22,7 +22,7 @@ _ALLOWED_TRANSITIONS: dict = {
     "in_delivery": {"delivered", "returned", "lost", "no_answer"},
     "no_answer":   {"in_delivery", "reported", "cancelled"},
     "reported":    {"in_delivery", "cancelled"},
-    "delivered":   {"returned", "pending"},  # returned = exchange, pending = correction
+    "delivered":   {"returned"},  # exchange case only
 }
 
 # Statuses that require stock to be restored on transition
