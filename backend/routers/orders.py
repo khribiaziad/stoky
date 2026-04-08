@@ -564,7 +564,7 @@ def update_order_status(order_id: int, status: str, db: Session = Depends(get_db
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     if status == "delivered":
-        order.confirmed_by = user.id
+        order.confirmed_by = user.team_member_id
     order_service.change_order_status(db, order, status, changed_by=user.id)
     db.commit()
     return {"success": True}
