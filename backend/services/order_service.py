@@ -18,11 +18,13 @@ from services import expense_service, stock_service
 # ---------------------------------------------------------------------------
 
 _ALLOWED_TRANSITIONS: dict = {
-    "pending":     {"in_delivery", "cancelled"},
-    "in_delivery": {"delivered", "returned", "lost", "no_answer"},
-    "no_answer":   {"in_delivery", "reported", "cancelled"},
-    "reported":    {"in_delivery", "cancelled"},
-    "delivered":   {"returned"},  # exchange case only
+    "pending":         {"awaiting_pickup", "in_delivery", "cancelled"},
+    "awaiting_pickup": {"in_delivery", "pending", "cancelled"},
+    "in_delivery":     {"delivered", "returned", "lost", "no_answer", "cancelled"},
+    "no_answer":       {"in_delivery", "reported", "cancelled", "pending"},
+    "reported":        {"in_delivery", "cancelled", "pending"},
+    "delivered":       {"returned", "pending"},  # pending = admin correction
+    "lost":            {"pending"},
 }
 
 # Statuses that require stock to be restored on transition
