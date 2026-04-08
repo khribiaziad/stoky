@@ -230,6 +230,20 @@ export default function Orders() {
     return params;
   };
 
+  const loadOrders = (overrides = {}) => {
+    setLoading(true);
+    getOrders(buildParams(overrides))
+      .then(o => {
+        setOrders(o.data.orders);
+        setTotalPages(o.data.pages);
+        setOrderCount(o.data.order_count);
+        setReturnCount(o.data.return_count);
+        setStatusCounts(o.data.status_counts || {});
+      })
+      .catch(e => setError(e.response?.data?.detail || e.message || `HTTP ${e.response?.status} — Failed to load orders`))
+      .finally(() => setLoading(false));
+  };
+
   const load = (overrides = {}) => {
     setLoading(true);
     Promise.all([
@@ -258,7 +272,7 @@ export default function Orders() {
     load({ p: 1, f: 'all', t: 'orders', dr: 'all' });
     // Silently sync delivery statuses in the background on page load
     Promise.allSettled([syncAllForcelog(), syncAllOlivraison()])
-      .then(() => load({ p: 1, f: 'all', t: 'orders', dr: 'all' }))
+      .then(() => loadOrders({ p: 1, f: 'all', t: 'orders', dr: 'all' }))
       .catch(() => {});
     // Pre-fill order form defaults from store settings
     getSetting('default_packaging').then(pkg => {
@@ -332,7 +346,7 @@ export default function Orders() {
       } else {
         setShowManualOrder(false);
       }
-      load();
+      loadOrders();
     } catch (e) { setError(errorMessage(e)); }
   };
 
@@ -345,7 +359,7 @@ export default function Orders() {
       setSelectedReturn(null);
       setReturnSearch('');
       setManualReturnChoice({ product_broken: false });
-      load();
+      loadOrders();
     } catch (e) { setError(errorMessage(e)); }
   };
 
@@ -442,7 +456,7 @@ export default function Orders() {
       setSuccess(`${res.data.count} orders created successfully!`);
       setParsedOrders(null);
       setOrderErrors({});
-      load();
+      loadOrders();
     } catch (e) {
       const detail = e.response?.data?.detail;
       // Parse "[CMD-xxx] message" to highlight the specific order card
@@ -469,7 +483,7 @@ export default function Orders() {
       await processReturns(returns);
       setSuccess('Returns processed successfully!');
       setReturnOrders(null);
-      load();
+      loadOrders();
     } catch (e) {
       setError(errorMessage(e));
     }
@@ -482,7 +496,7 @@ export default function Orders() {
       await updateOrderStatus(id, newStatus);
     } catch (e) {
       setError(errorMessage(e));
-      load({ p: page, f: filter, t: activeTab });
+      loadOrders({ p: page, f: filter, t: activeTab });
     }
   };
 
@@ -490,7 +504,7 @@ export default function Orders() {
     try {
       const res = await confirmPickup();
       setSuccess(`${res.data.confirmed} orders confirmed as picked up — moved to In Delivery`);
-      load({ p: page, f: filter, t: activeTab });
+      loadOrders({ p: page, f: filter, t: activeTab });
     } catch (e) {
       setError(errorMessage(e));
     }
@@ -505,7 +519,7 @@ export default function Orders() {
       const flCount = fl.status === 'fulfilled' ? fl.value.data.updated : 0;
       const olCount = ol.status === 'fulfilled' ? ol.value.data.updated : 0;
       setSuccess(`Synced: ${flCount} Forcelog + ${olCount} Olivraison orders updated`);
-      load();
+      loadOrders();
     } catch (e) {
       setError(errorMessage(e));
     }
@@ -524,7 +538,7 @@ export default function Orders() {
     result.force = fRes.status  === 'fulfilled' ? fRes.value.data  : { error: errorMessage(fRes.reason) };
     setRamassageResult(result);
     setRamassageLoading(false);
-    load({ p: page, f: filter, t: activeTab });
+    loadOrders({ p: page, f: filter, t: activeTab });
   };
 
   const handleSendForcelog = async (id) => {
@@ -583,7 +597,7 @@ export default function Orders() {
     if (!confirm('Delete this order?')) return;
     try {
       await deleteOrder(id);
-      load();
+      loadOrders();
     } catch (e) {
       setError(errorMessage(e));
     }
@@ -592,7 +606,7 @@ export default function Orders() {
   const handleRevertReturn = async (id) => {
     if (!confirm('Revert this return back to Pending?')) return;
     await updateOrderStatus(id, 'pending');
-    load();
+    loadOrders();
   };
 
   // ── Bulk & CSV ────────────────────────────────────────────────────────────
@@ -618,7 +632,7 @@ export default function Orders() {
       await bulkUpdateOrderStatus([...selectedIds], status);
       setSelectedIds(new Set());
       setSuccess(`${count} orders updated to ${status}`);
-      load();
+      loadOrders();
     } catch (e) {
       setError(errorMessage(e));
     }
@@ -691,7 +705,7 @@ export default function Orders() {
       });
       setSuccess('Order updated successfully');
       setEditOrder(null);
-      load();
+      loadOrders();
     } catch (e) {
       setError(errorMessage(e));
     }
@@ -733,7 +747,7 @@ export default function Orders() {
       }]);
       setSuccess(`Exchange created for ${exchangeOrder.customer_name} — delivery fee only: ${exchangeTotal} MAD`);
       setExchangeOrder(null);
-      load();
+      loadOrders();
     } catch (e) {
       setError(errorMessage(e));
     }
@@ -837,7 +851,7 @@ export default function Orders() {
       <div style={{ display: 'flex', gap: 0, marginBottom: 16, borderBottom: '1px solid var(--border)' }}>
         {[{ id: 'orders', label: `Orders (${orderCount})` },
           { id: 'returns', label: `Returns (${returnCount})` }].map(tab => (
-          <button key={tab.id} onClick={() => { setActiveTab(tab.id); setSearch(''); setFilter('all'); setSelectedIds(new Set()); setPage(1); setExpandedCardId(null); load({ p: 1, f: 'all', t: tab.id }); }}
+          <button key={tab.id} onClick={() => { setActiveTab(tab.id); setSearch(''); setFilter('all'); setSelectedIds(new Set()); setPage(1); setExpandedCardId(null); loadOrders({ p: 1, f: 'all', t: tab.id }); }}
             style={{
               background: 'none', border: 'none', padding: '10px 20px', cursor: 'pointer',
               fontSize: 14, fontWeight: 600,
@@ -873,7 +887,7 @@ export default function Orders() {
                   <button key={value}
                     className={`btn ${filter === value ? 'btn-primary' : 'btn-secondary'}`}
                     style={{ fontSize: 13, padding: '6px 14px', display: 'flex', alignItems: 'center', gap: 6 }}
-                    onClick={() => { setFilter(value); setPage(1); setExpandedCardId(null); load({ p: 1, f: value, t: activeTab }); }}>
+                    onClick={() => { setFilter(value); setPage(1); setExpandedCardId(null); loadOrders({ p: 1, f: value, t: activeTab }); }}>
                     {label}
                     {count > 0 && (
                       <span style={{
@@ -890,7 +904,7 @@ export default function Orders() {
             <select className="ord-filter-select form-input"
               style={{ fontSize: 13, padding: '6px 10px', cursor: 'pointer', maxWidth: 180 }}
               value={filter}
-              onChange={e => { setFilter(e.target.value); setPage(1); setExpandedCardId(null); load({ p: 1, f: e.target.value, t: activeTab }); }}>
+              onChange={e => { setFilter(e.target.value); setPage(1); setExpandedCardId(null); loadOrders({ p: 1, f: e.target.value, t: activeTab }); }}>
               {STATUS_FILTERS.map(({ value, label, countKey }) => {
                 const count = countKey ? (statusCounts[countKey] || 0) : orderCount;
                 return <option key={value} value={value}>{label}{count > 0 ? ` (${count})` : ''}</option>;
@@ -914,8 +928,8 @@ export default function Orders() {
                     className={`btn btn-sm ${current === r.value ? 'btn-primary' : 'btn-secondary'}`}
                     style={{ fontSize: 11, padding: '4px 10px', ...(current === r.value && accentColor ? { background: accentColor, borderColor: accentColor } : {}) }}
                     onClick={() => {
-                      if (isReported) { setReportedRange(r.value); load({ rr: r.value }); }
-                      else { setDateRange(r.value); load({ dr: r.value }); }
+                      if (isReported) { setReportedRange(r.value); loadOrders({ rr: r.value }); }
+                      else { setDateRange(r.value); loadOrders({ dr: r.value }); }
                     }}>
                     {r.label}
                   </button>
@@ -1263,19 +1277,19 @@ export default function Orders() {
       {activeTab === 'orders' && totalPages > 1 && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: 16 }}>
           <button className="btn btn-secondary btn-sm" disabled={page <= 1}
-            onClick={() => { const p = page - 1; setPage(p); load({ p, f: filter, t: activeTab }); }}>← Prev</button>
+            onClick={() => { const p = page - 1; setPage(p); loadOrders({ p, f: filter, t: activeTab }); }}>← Prev</button>
           <span style={{ fontSize: 13, color: 'var(--t2)' }}>Page {page} of {totalPages}</span>
           <button className="btn btn-secondary btn-sm" disabled={page >= totalPages}
-            onClick={() => { const p = page + 1; setPage(p); load({ p, f: filter, t: activeTab }); }}>Next →</button>
+            onClick={() => { const p = page + 1; setPage(p); loadOrders({ p, f: filter, t: activeTab }); }}>Next →</button>
         </div>
       )}
       {activeTab === 'returns' && totalPages > 1 && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: 16 }}>
           <button className="btn btn-secondary btn-sm" disabled={page <= 1}
-            onClick={() => { const p = page - 1; setPage(p); load({ p, f: filter, t: activeTab }); }}>← Prev</button>
+            onClick={() => { const p = page - 1; setPage(p); loadOrders({ p, f: filter, t: activeTab }); }}>← Prev</button>
           <span style={{ fontSize: 13, color: 'var(--t2)' }}>Page {page} of {totalPages}</span>
           <button className="btn btn-secondary btn-sm" disabled={page >= totalPages}
-            onClick={() => { const p = page + 1; setPage(p); load({ p, f: filter, t: activeTab }); }}>Next →</button>
+            onClick={() => { const p = page + 1; setPage(p); loadOrders({ p, f: filter, t: activeTab }); }}>Next →</button>
         </div>
       )}
 
