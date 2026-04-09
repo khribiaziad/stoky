@@ -72,6 +72,7 @@ export default function Orders() {
   const [offers, setOffers] = useState([]);
   const [promoCodes, setPromoCodes] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [tableLoading, setTableLoading] = useState(false);
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
 
@@ -231,7 +232,7 @@ export default function Orders() {
   };
 
   const loadOrders = (overrides = {}) => {
-    setLoading(true);
+    setTableLoading(true);
     getOrders(buildParams(overrides))
       .then(o => {
         setOrders(o.data.orders);
@@ -241,7 +242,7 @@ export default function Orders() {
         setStatusCounts(o.data.status_counts || {});
       })
       .catch(e => setError(e.response?.data?.detail || e.message || `HTTP ${e.response?.status} — Failed to load orders`))
-      .finally(() => setLoading(false));
+      .finally(() => setTableLoading(false));
   };
 
   const load = (overrides = {}) => {
@@ -1027,7 +1028,7 @@ export default function Orders() {
       )}
 
       {/* Orders Table — desktop only */}
-      {activeTab === 'orders' && <div className="card ord-desktop-table">
+      {activeTab === 'orders' && <div className="card ord-desktop-table" style={{ opacity: tableLoading ? 0.5 : 1, transition: 'opacity 0.15s' }}>
         {filtered.length === 0 ? (
           <div className="empty-state">
             <h3>No orders found</h3>
@@ -2178,7 +2179,7 @@ export default function Orders() {
 
       {/* Mobile Card List — shown only on < 768px */}
       {activeTab === 'orders' && (
-        <div className="ord-mobile-cards">
+        <div className="ord-mobile-cards" style={{ opacity: tableLoading ? 0.5 : 1, transition: 'opacity 0.15s' }}>
           {/* Mobile bulk bar */}
           {selectedIds.size > 0 && (
             <div style={{ position: 'sticky', top: 0, zIndex: 50, display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: '#1a1a2e', border: '1px solid #00d48f44', borderRadius: 10, marginBottom: 10 }}>
