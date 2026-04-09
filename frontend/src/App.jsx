@@ -17,6 +17,7 @@ import Leads from './pages/Leads';
 import Suppliers from './pages/Suppliers';
 import Login from './pages/Login';
 import PlatformLayout from './pages/platform/PlatformLayout';
+import RexChat from './components/RexChat';
 import { getSetting, setSetting } from './api';
 
 // ── Nav label translations ───────────────────────────────────
@@ -342,6 +343,9 @@ export default function App() {
           </div>
         ))}
       </nav>
+
+      {/* ── Rex Chat ── */}
+      <RexChat lang={lang} isConfirmer={isConfirmer} />
 
     </div>
   );

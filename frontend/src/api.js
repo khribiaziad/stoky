@@ -296,3 +296,7 @@ export const getWarehouseStock   = (id)         => api.get(`/warehouses/${id}/st
 
 // Utility
 export const errorMessage = (e) => e?.response?.data?.detail || e?.message || 'An error occurred';
+
+// Rex
+export const askRex        = (data) => api.post('/rex/ask', data);
+export const getRexInsight = ()     => api.get('/rex/insight');

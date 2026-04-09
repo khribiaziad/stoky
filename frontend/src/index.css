@@ -935,3 +935,134 @@ select.form-input { cursor: pointer; }
 @media (max-width: 1024px) {
   input, textarea, select, .form-input { font-size: 16px; }
 }
+
+/* ═══════════════════════════════════════
+   REX CHAT
+   ═══════════════════════════════════════ */
+
+.rex-fab {
+  position: fixed; bottom: 88px; right: 20px; z-index: 900;
+  width: 52px; height: 52px; border-radius: 999px;
+  background: var(--accent);
+  border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 4px 20px rgba(124,106,247,0.5);
+  transition: transform 0.2s, box-shadow 0.2s;
+  color: #fff;
+}
+.rex-fab:hover { transform: scale(1.08); box-shadow: 0 6px 28px rgba(124,106,247,0.6); }
+.rex-fab-open  { background: var(--card-2); box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
+.rex-fab-label { font-size: 13px; font-weight: 800; letter-spacing: 0.5px; }
+
+@media (min-width: 1025px) {
+  .rex-fab { bottom: 24px; right: 24px; }
+}
+
+.rex-panel {
+  position: fixed; bottom: 152px; right: 20px; z-index: 900;
+  width: calc(100vw - 40px); max-width: 380px;
+  height: 520px; max-height: calc(100vh - 180px);
+  background: var(--card);
+  border: 1px solid var(--border-2);
+  border-radius: 20px;
+  display: flex; flex-direction: column;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+  animation: fadeIn 0.2s ease;
+  overflow: hidden;
+}
+@media (min-width: 1025px) {
+  .rex-panel { bottom: 88px; right: 24px; }
+}
+
+.rex-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 16px 14px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.rex-header-info { display: flex; align-items: center; gap: 10px; }
+.rex-avatar {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), #a78bfa);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 800; color: #fff; flex-shrink: 0;
+}
+.rex-name  { font-size: 14px; font-weight: 700; color: var(--t1); }
+.rex-status { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--t2); margin-top: 2px; }
+.rex-status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
+.rex-close {
+  width: 28px; height: 28px; border-radius: 8px;
+  background: transparent; border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--t2); transition: background 0.15s;
+}
+.rex-close:hover { background: var(--card-2); color: var(--t1); }
+
+.rex-messages {
+  flex: 1; overflow-y: auto; padding: 16px 14px;
+  display: flex; flex-direction: column; gap: 12px;
+  scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+}
+.rex-msg { display: flex; gap: 8px; align-items: flex-start; }
+.rex-msg-user { flex-direction: row-reverse; }
+.rex-msg-avatar {
+  width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
+  background: linear-gradient(135deg, var(--accent), #a78bfa);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 800; color: #fff; margin-top: 2px;
+}
+.rex-msg-bubble {
+  max-width: 78%; padding: 10px 13px;
+  border-radius: 16px; font-size: 13.5px; line-height: 1.6;
+  white-space: pre-wrap; word-break: break-word;
+}
+.rex-msg-rex .rex-msg-bubble {
+  background: var(--card-2); border: 1px solid var(--border);
+  color: var(--t1); border-top-left-radius: 4px;
+}
+.rex-msg-user .rex-msg-bubble {
+  background: var(--accent); color: #fff;
+  border-top-right-radius: 4px;
+}
+.rex-msg-error .rex-msg-bubble { background: var(--red-a); border-color: var(--red); color: var(--red); }
+
+.rex-typing { display: flex; align-items: center; gap: 4px; padding: 12px 16px !important; }
+.rex-typing span {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--t2); display: inline-block;
+  animation: rexBounce 1.2s infinite;
+}
+.rex-typing span:nth-child(2) { animation-delay: 0.2s; }
+.rex-typing span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes rexBounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-5px); opacity: 1; }
+}
+
+.rex-input-row {
+  display: flex; gap: 8px; align-items: flex-end;
+  padding: 12px 14px 14px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.rex-input {
+  flex: 1; background: var(--card-2); border: 1px solid var(--border-2);
+  border-radius: 12px; padding: 10px 13px;
+  color: var(--t1); font-size: 13.5px; font-family: inherit;
+  resize: none; outline: none; line-height: 1.5;
+  max-height: 100px; overflow-y: auto;
+  transition: border-color 0.15s;
+}
+.rex-input:focus { border-color: var(--accent); }
+.rex-input::placeholder { color: var(--t3); }
+.rex-send {
+  width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0;
+  background: var(--accent); border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; transition: opacity 0.15s;
+}
+.rex-send:disabled { opacity: 0.4; cursor: not-allowed; }
+.rex-send:not(:disabled):hover { opacity: 0.85; }
+
+.rex-rtl .rex-msg-rex  { flex-direction: row-reverse; }
+.rex-rtl .rex-msg-user { flex-direction: row; }
