@@ -5,7 +5,8 @@ from sqlalchemy.orm import Session, joinedload
 from database import get_db
 from auth import get_current_user
 from rex.context_builder import build_store_context
-from rex.prompt_engine import ask_rex_owner, ask_rex_customer, get_proactive_insight
+from rex.prompt_engine import ask_rex_customer, get_proactive_insight
+from rex.orchestrator import ask_rex_owner
 import models
 
 router = APIRouter(prefix="/api/rex", tags=["rex"])
@@ -43,9 +44,8 @@ def ask(
         return {"answer": None}
 
     store_id = _get_store_id(user)
-    context = build_store_context(db, store_id, user.store_name)
     history = body.get("history", [])
-    answer = ask_rex_owner(question, context, history)
+    answer = ask_rex_owner(question, db, store_id, user.store_name, history)
     return {"answer": answer}
 
 
