@@ -69,9 +69,27 @@ These areas are interconnected and a one-line change can cause cascading bugs:
 
 ---
 
+## Two Delivery Modes — CRITICAL BUSINESS LOGIC
+
+**Mode A — No delivery company (manual)**
+User manages delivery themselves via a simple dropdown with 3 statuses:
+- `pending → delivered`
+- `pending → cancelled`
+That's it. No courier steps.
+
+**Mode B — With delivery company (Forcelog / Olivraison)**
+Order is sent to a courier. Status updates automatically via courier API.
+Full flow applies: pending → awaiting_pickup → in_delivery → delivered/returned/no_answer/etc.
+
+The transition matrix must allow BOTH modes. `pending → delivered` must always be valid.
+
+---
+
 ## Status Flow (orders)
 ```
-pending → awaiting_pickup → in_delivery → delivered
+pending → delivered (Mode A: manual, no courier)
+pending → cancelled (Mode A: manual, no courier)
+pending → awaiting_pickup → in_delivery → delivered  (Mode B: courier)
                                         → returned (stock restored)
                                         → no_answer → reported → in_delivery
                                                                → pending
