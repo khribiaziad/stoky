@@ -551,6 +551,7 @@ body {
 }
 .dash-bar:hover { filter: brightness(1.3); }
 .dash-bar-past  { background: var(--card-3); }
+.dash-bar-selected { outline: 2px solid var(--accent); outline-offset: 2px; filter: brightness(1.4); }
 .dash-bar-today {
   background: var(--accent);
   box-shadow: 0 0 12px rgba(124,106,247,0.5), 0 0 24px rgba(124,106,247,0.2);

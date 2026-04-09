@@ -123,6 +123,7 @@ export default function Dashboard({ onNavigate, user, lang = 'en' }) {
   const [period,      setPeriod]      = useState('today');
   const [customStart, setCustomStart] = useState('');
   const [customEnd,   setCustomEnd]   = useState('');
+  const [selectedDay, setSelectedDay] = useState(null);
   const [stats,       setStats]       = useState(null);
   const [loading,     setLoading]     = useState(true);
   const [loadError,   setLoadError]   = useState('');
@@ -310,7 +311,7 @@ export default function Dashboard({ onNavigate, user, lang = 'en' }) {
           {t.periods.map(p => (
             <button key={p.value}
               className={`period-pill${period === p.value ? ' active' : ''}`}
-              onClick={() => setPeriod(p.value)}>
+              onClick={() => { setPeriod(p.value); setSelectedDay(null); }}>
               {p.label}
             </button>
           ))}
@@ -455,10 +456,27 @@ export default function Dashboard({ onNavigate, user, lang = 'en' }) {
                     {dailyOrders.map((d, i) => {
                       const maxOrders = Math.max(...dailyOrders.map(x => x.orders), 1);
                       const isToday = i === dailyOrders.length - 1;
+                      const isSelected = selectedDay === d.date;
                       const h = Math.max((d.orders / maxOrders) * 100, 4);
                       return (
-                        <div key={i} className={`dash-bar ${isToday ? 'dash-bar-today' : 'dash-bar-past'}`}
-                          style={{ height: `${h}%` }} title={`${d.day}: ${d.orders} orders`} />
+                        <div key={i}
+                          className={`dash-bar ${isToday ? 'dash-bar-today' : 'dash-bar-past'}${isSelected ? ' dash-bar-selected' : ''}`}
+                          style={{ height: `${h}%`, cursor: 'pointer' }}
+                          title={`${d.day}: ${d.orders} orders`}
+                          onClick={() => {
+                            if (isSelected) {
+                              setSelectedDay(null);
+                              setPeriod('today');
+                              loadStats('today', '', '');
+                            } else {
+                              setSelectedDay(d.date);
+                              setCustomStart(d.date);
+                              setCustomEnd(d.date);
+                              setPeriod('custom');
+                              loadStats('custom', d.date, d.date);
+                            }
+                          }}
+                        />
                       );
                     })}
                   </div>

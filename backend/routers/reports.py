@@ -236,7 +236,7 @@ def get_dashboard_stats(
             models.Order.order_date >= d_start,
             models.Order.order_date <= d_end,
         ).scalar() or 0
-        daily_orders.append({"day": day.strftime("%a"), "orders": count})
+        daily_orders.append({"day": day.strftime("%a"), "orders": count, "date": day.strftime("%Y-%m-%d")})
 
     return {
         "current":      current,
