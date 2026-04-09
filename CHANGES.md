@@ -12,6 +12,13 @@ _Nothing pending._
 ## Done — Not yet merged to main
 
 ### 2026-04-09
+**Fix lead confirm 500: duplicate expense creation**
+- File: `backend/routers/leads.py`
+- Removed redundant `get_or_create_expense()` call on line 334. `create_order` already creates the expense inside `order_service`. The duplicate call hit a unique constraint on `order_expenses.order_id` before the session refreshed the relationship.
+- Risk: Low (deletion only, no logic change)
+- Test: Confirm a lead — no 500 error, expense row created once.
+
+
 **Orders: table-only refresh on filter/tab switch**
 - File: `frontend/src/pages/Orders.jsx`
 - Added `loadOrders()` — fetches only orders. `load()` now only runs on initial mount (fetches products, packs, offers, promos too).
