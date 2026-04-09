@@ -97,3 +97,46 @@ pending → awaiting_pickup → in_delivery → delivered  (Mode B: courier)
                                         → cancelled (stock restored)
 ```
 Stock is only affected at: **order creation** (deduct) and **cancelled/returned** (restore).
+
+---
+
+## Rex — AI Intelligence Layer
+
+Rex is the AI brain of Stocky. He has two modes and lives entirely in `backend/rex/`.
+
+**Owner mode** — answers business questions in the dashboard chat (`RexChat` component).
+**Customer mode** — powers the WhatsApp bot (`stoky-bot`), handles product lookup + order creation.
+
+### Multi-Agent Architecture (orchestrator pattern)
+Rex is the CEO. When the owner asks a question, Rex consults specialized agents, each owning their domain. This happens silently in the backend — the owner only sees Rex's final answer.
+
+| Agent | File | Domain |
+|-------|------|--------|
+| Hassan | `rex/agents.py` | Profit, revenue, margins, cash balance |
+| Karima | `rex/agents.py` | Orders, stock levels, leads pipeline |
+| Hamza  | `rex/agents.py` | Ad spend per platform, ROAS |
+| Youssef| `rex/agents.py` | Courier performance, delivery rates |
+| Omar   | `rex/agents.py` | City performance, top products, return rates |
+
+**Flow:**
+1. Owner asks Rex a question via `POST /api/rex/ask`
+2. `rex/orchestrator.py` → Rex (Claude Sonnet) picks which agents to call via tool_use
+3. Each agent fetches its own domain data from DB + calls Claude Haiku to analyze
+4. Rex receives all agent reports, synthesizes one final answer
+5. Answer returned to owner
+
+### Key files
+- `backend/rex/agents.py` — all 5 agent context builders + analyzers + registry
+- `backend/rex/orchestrator.py` — Rex orchestrator (agentic loop with tool_use)
+- `backend/rex/prompt_engine.py` — customer mode (`ask_rex_customer`) + proactive insight
+- `backend/rex/context_builder.py` — full store snapshot (used for proactive insight only)
+- `backend/routers/rex.py` — `/api/rex/ask` (owner), `/api/rex/insight`, `/api/rex/customer` (bot)
+- `frontend/src/components/RexChat.jsx` — floating chat UI (hidden for confirmers)
+- `stoky-bot/rex.js` — WhatsApp bot calls `/api/rex/customer`
+
+### Rules
+- Rex **never writes to the DB** — read only, always
+- Owner mode uses `claude-sonnet-4-6`, agents use `claude-haiku-4-5-20251001`
+- Always answer in the language the user writes in (AR/FR/EN/Darija)
+- Never serve stale context — always build fresh on each request
+- The full `build_store_context()` is only used for `/insight` (proactive insight), not for `/ask`
