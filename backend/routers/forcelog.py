@@ -254,7 +254,8 @@ def get_forcelog_status(
         order.delivery_status = status_raw
         mapped = ForcelogIntegration().map_status(status_raw)
         if mapped:
-            order.status = mapped
+            from services.order_service import change_order_status
+            change_order_status(db, order, mapped)
         db.commit()
 
     return {"status": status_raw, "tracking_id": order.tracking_id, "delivery_status": status_raw}
@@ -338,7 +339,8 @@ def sync_all_forcelog(
                     order.delivery_status = status_raw
                     mapped = ForcelogIntegration().map_status(status_raw)
                     if mapped:
-                        order.status = mapped
+                        from services.order_service import change_order_status
+                        change_order_status(db, order, mapped)
                     updated.append({"id": order.id, "caleo_id": order.caleo_id, "delivery_status": status_raw, "status": order.status})
         except Exception:
             continue

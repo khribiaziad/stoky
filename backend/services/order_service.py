@@ -18,7 +18,7 @@ from services import expense_service, stock_service
 # ---------------------------------------------------------------------------
 
 _ALLOWED_TRANSITIONS: dict = {
-    "pending":         {"awaiting_pickup", "in_delivery", "cancelled"},
+    "pending":         {"awaiting_pickup", "in_delivery", "delivered", "cancelled"},
     "awaiting_pickup": {"in_delivery", "pending", "cancelled"},
     "in_delivery":     {"delivered", "returned", "lost", "no_answer", "cancelled"},
     "no_answer":       {"in_delivery", "reported", "cancelled", "pending"},

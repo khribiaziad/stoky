@@ -245,7 +245,8 @@ def sync_all_olivraison(
                     order.delivery_status = status_raw
                     mapped = OlivIntegration().map_status(status_raw)
                     if mapped:
-                        order.status = mapped
+                        from services.order_service import change_order_status
+                        change_order_status(db, order, mapped)
                     updated.append({"id": order.id, "caleo_id": order.caleo_id, "delivery_status": status_raw, "status": order.status})
         except Exception:
             continue
