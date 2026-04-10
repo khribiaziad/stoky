@@ -214,3 +214,17 @@ Each agent owns their domain across ALL stores — not just one:
 
 At ecosystem level, Rex asks the same agents — they just query across all stores instead of one.
 This means splitting the work across agents is not just good architecture, it's the foundation of the ecosystem intelligence.
+
+### Platform owner superpowers (you, via super_admin Rex)
+- "What Facebook campaigns are converting best in Casablanca right now?" → Hamza answers across all stores
+- "What's the winning product in Marrakech this month?" → Omar answers across all stores
+- "Which supplier has the best margins for product X?" → Hassan answers across all stores
+- "Which courier has the best delivery rate in the North?" → Youssef answers across all stores
+
+You see what no individual store can see. Each store contributes data. You hold the full picture.
+
+### Potential monetization paths (noted, not built yet)
+- Facilitate deals between stores and suppliers/couriers on the network (take a cut)
+- Sell winning product / regional trend reports to stores
+- Premium Rex tier: "your delivery rate vs platform average" benchmarking
+- Regional ad intelligence: which campaigns work per city/product category
