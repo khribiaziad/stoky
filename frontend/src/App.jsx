@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   LayoutDashboard, Package, Tag, Gift, Warehouse,
-  Users, BarChart2, Megaphone, Receipt, LogOut, Menu, X, Settings as SettingsIcon, UserCheck, Truck,
+  Users, BarChart2, Megaphone, Receipt, LogOut, Menu, X, Settings as SettingsIcon, UserCheck, Truck, Bot,
 } from 'lucide-react';
 import Dashboard from './pages/Dashboard';
 import Products from './pages/Products';
@@ -15,6 +15,7 @@ import Expenses from './pages/Expenses';
 import Settings from './pages/Settings';
 import Leads from './pages/Leads';
 import Suppliers from './pages/Suppliers';
+import RexPage from './pages/Rex';
 import Login from './pages/Login';
 import PlatformLayout from './pages/platform/PlatformLayout';
 import RexChat from './components/RexChat';
@@ -27,18 +28,21 @@ const T = {
     packs: 'Packs',         stock: 'Stock',       team: 'Team',
     expenses: 'Expenses',   ads: 'Ads',           reports: 'Reports',
     settings: 'Settings',   leads: 'Leads',       suppliers: 'Suppliers',
+    rex: 'Rex',
   },
   fr: {
     dashboard: 'Tableau de bord', orders: 'Commandes', products: 'Produits',
     packs: 'Packs',               stock: 'Stock',      team: 'Équipe',
     expenses: 'Dépenses',         ads: 'Publicités',   reports: 'Rapports',
     settings: 'Paramètres',       leads: 'Prospects',  suppliers: 'Fournisseurs',
+    rex: 'Rex',
   },
   ar: {
     dashboard: 'لوحة التحكم', orders: 'الطلبات',    products: 'المنتجات',
     packs: 'الحزم',           stock: 'المخزون',      team: 'الفريق',
     expenses: 'المصاريف',     ads: 'الإعلانات',      reports: 'التقارير',
     settings: 'الإعدادات',    leads: 'العملاء',      suppliers: 'الموردون',
+    rex: 'ريكس',
   },
 };
 
@@ -54,6 +58,7 @@ const ADMIN_NAV = [
   { id: 'expenses',  Icon: Receipt },
   { id: 'ads',       Icon: Megaphone },
   { id: 'reports',   Icon: BarChart2 },
+  { id: 'rex',       Icon: Bot },
   { id: 'settings',  Icon: SettingsIcon },
 ];
 
@@ -61,7 +66,7 @@ const ADMIN_NAV_SECTIONS = [
   { label: 'General',   ids: ['dashboard','orders','leads','products','suppliers'] },
   { label: 'Inventory', ids: ['packs','stock'] },
   { label: 'Finance',   ids: ['expenses','ads','reports'] },
-  { label: 'Workspace', ids: ['team','settings'] },
+  { label: 'Workspace', ids: ['rex','team','settings'] },
 ];
 
 const CONFIRMER_NAV = [
@@ -248,6 +253,7 @@ export default function App() {
     expenses:  <Expenses readOnly={!canEdit('expenses')} />,
     ads:       <Ads readOnly={!canEdit('ads')} />,
     reports:   <Reports readOnly={!canEdit('reports')} />,
+    rex:       <RexPage lang={lang} />,
     settings:  <Settings {...settingsProps} />,
   };
 

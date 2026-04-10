@@ -93,6 +93,9 @@ with engine.connect() as conn:
         "CREATE UNIQUE INDEX IF NOT EXISTS uq_promocode_per_store ON promo_codes (user_id, code)",
         "ALTER TABLE products ADD COLUMN needs_salt_bag BOOLEAN DEFAULT false",
         "ALTER TABLE team_members ADD COLUMN permissions JSON",
+        "CREATE TABLE IF NOT EXISTS rex_conversations (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id), title VARCHAR, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
+        "CREATE TABLE IF NOT EXISTS rex_messages (id INTEGER PRIMARY KEY, conversation_id INTEGER NOT NULL REFERENCES rex_conversations(id), role VARCHAR NOT NULL, content TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
+        "CREATE TABLE IF NOT EXISTS rex_memory (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL UNIQUE REFERENCES users(id), facts JSON DEFAULT '{}', updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
     ]:
         try:
             conn.execute(text(stmt))

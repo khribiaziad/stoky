@@ -562,3 +562,38 @@ class CampaignConnection(Base):
     item_id          = Column(Integer, nullable=False)
     delivery_cost    = Column(Float, nullable=True, default=None)
     created_at       = Column(DateTime, server_default=func.now())
+
+
+# ── Rex ───────────────────────────────────────────────────────────────────────
+
+class RexConversation(Base):
+    __tablename__ = "rex_conversations"
+
+    id         = Column(Integer, primary_key=True)
+    user_id    = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    title      = Column(String, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now())
+
+    messages = relationship("RexMessage", back_populates="conversation", order_by="RexMessage.id")
+
+
+class RexMessage(Base):
+    __tablename__ = "rex_messages"
+
+    id              = Column(Integer, primary_key=True)
+    conversation_id = Column(Integer, ForeignKey("rex_conversations.id"), nullable=False, index=True)
+    role            = Column(String, nullable=False)   # "user" | "rex"
+    content         = Column(Text, nullable=False)
+    created_at      = Column(DateTime, server_default=func.now())
+
+    conversation = relationship("RexConversation", back_populates="messages")
+
+
+class RexMemory(Base):
+    __tablename__ = "rex_memory"
+
+    id         = Column(Integer, primary_key=True)
+    user_id    = Column(Integer, ForeignKey("users.id"), nullable=False, unique=True)
+    facts      = Column(JSON, default=dict)
+    updated_at = Column(DateTime, server_default=func.now())

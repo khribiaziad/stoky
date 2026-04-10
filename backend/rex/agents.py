@@ -40,15 +40,31 @@ def _hassan_context(db: Session, store_id: int) -> dict:
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     week_start  = (now - timedelta(days=7)).replace(hour=0, minute=0, second=0, microsecond=0)
 
-    today = get_summary(db, today_start, now, store_id)
-    week  = get_summary(db, week_start,  now, store_id)
-    month = get_summary(db, month_start, now, store_id)
+    # Previous month
+    prev_month_end   = month_start
+    prev_month_start = (month_start - timedelta(days=1)).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    today      = get_summary(db, today_start,      now,            store_id)
+    week       = get_summary(db, week_start,        now,            store_id)
+    month      = get_summary(db, month_start,       now,            store_id)
+    prev_month = get_summary(db, prev_month_start,  prev_month_end, store_id)
+
+    def _delta(current, prev):
+        if prev == 0:
+            return None
+        return round((current - prev) / prev * 100, 1)
 
     return {
-        "today":       {"financials": today["financials"], "orders": today["orders"]},
-        "this_week":   {"financials": week["financials"],  "orders": week["orders"]},
-        "this_month":  {"financials": month["financials"], "orders": month["orders"]},
-        "capital":     month["capital"],
+        "today":      {"financials": today["financials"], "orders": today["orders"]},
+        "this_week":  {"financials": week["financials"],  "orders": week["orders"]},
+        "this_month": {"financials": month["financials"], "orders": month["orders"]},
+        "prev_month": {"financials": prev_month["financials"], "orders": prev_month["orders"]},
+        "capital":    month["capital"],
+        "trends": {
+            "revenue_delta_pct":      _delta(month["financials"]["revenue"],      prev_month["financials"]["revenue"]),
+            "clean_profit_delta_pct": _delta(month["financials"]["clean_profit"], prev_month["financials"]["clean_profit"]),
+            "orders_delta_pct":       _delta(month["orders"]["total"],            prev_month["orders"]["total"]),
+        },
     }
 
 
@@ -303,7 +319,9 @@ def analyze_youssef(question: str, db: Session, store_id: int) -> str:
 
 def _omar_context(db: Session, store_id: int) -> dict:
     now = _now()
-    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    month_start      = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    prev_month_end   = month_start
+    prev_month_start = (month_start - timedelta(days=1)).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
     orders = (
         db.query(models.Order)
@@ -315,6 +333,24 @@ def _omar_context(db: Session, store_id: int) -> dict:
         )
         .all()
     )
+
+    prev_orders = (
+        db.query(models.Order)
+        .filter(
+            models.Order.user_id == store_id,
+            models.Order.is_deleted == False,
+            models.Order.order_date >= prev_month_start,
+            models.Order.order_date < prev_month_end,
+        )
+        .all()
+    )
+
+    prev_city_stats = defaultdict(lambda: {"delivered": 0, "total": 0})
+    for o in prev_orders:
+        city = (o.city or "Unknown").strip().title()
+        prev_city_stats[city]["total"] += 1
+        if o.status == "delivered":
+            prev_city_stats[city]["delivered"] += 1
 
     city_stats = defaultdict(lambda: {"delivered": 0, "cancelled": 0, "total": 0})
     product_sales = defaultdict(lambda: {"units": 0, "returns": 0})
@@ -337,7 +373,13 @@ def _omar_context(db: Session, store_id: int) -> dict:
     top_cities = []
     for city, s in sorted(city_stats.items(), key=lambda x: x[1]["total"], reverse=True)[:10]:
         rate = round(s["delivered"] / s["total"] * 100, 1) if s["total"] > 0 else 0
-        top_cities.append({"city": city, "total": s["total"], "delivery_rate": rate, "cancelled": s["cancelled"]})
+        prev = prev_city_stats.get(city, {})
+        prev_rate = round(prev["delivered"] / prev["total"] * 100, 1) if prev.get("total", 0) > 0 else None
+        top_cities.append({
+            "city": city, "total": s["total"], "delivery_rate": rate,
+            "cancelled": s["cancelled"],
+            "prev_month_delivery_rate": prev_rate,
+        })
 
     top_products = sorted(product_sales.items(), key=lambda x: x[1]["units"], reverse=True)[:8]
 
