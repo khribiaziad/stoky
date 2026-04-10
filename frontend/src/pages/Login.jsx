@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { GoogleOAuthProvider, useGoogleLogin } from '@react-oauth/google';
 import { login, register, googleLogin as googleLoginApi } from '../api';
+import { useT } from '../i18n';
 
 const GOOGLE_CLIENT_ID = '10012394157-7dbqola147563ak63qcogb92i59d0kh0.apps.googleusercontent.com';
 
@@ -34,6 +35,8 @@ function GoogleButton({ onSuccess, onError }) {
 }
 
 function LoginInner({ onAuth }) {
+  const lang = localStorage.getItem('app_lang') || 'en';
+  const t = useT(lang);
   const [mode, setMode] = useState('login');
   const [form, setForm] = useState({ username: '', store_name: '', password: '' });
   const [showPassword, setShowPassword] = useState(false);
@@ -82,7 +85,7 @@ function LoginInner({ onAuth }) {
       <div style={{ width: 380 }}>
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: 4, color: '#7c6ef5' }}>STOCKY</div>
-          <div style={{ color: '#8892b0', fontSize: 13, marginTop: 6 }}>Inventory Management</div>
+          <div style={{ color: '#8892b0', fontSize: 13, marginTop: 6 }}>{t('inventory_management')}</div>
         </div>
 
         <div className="card">
@@ -99,7 +102,7 @@ function LoginInner({ onAuth }) {
                   textTransform: 'capitalize',
                 }}
               >
-                {m === 'login' ? 'Sign In' : 'Create Store'}
+                {m === 'login' ? t('sign_in') : t('create_store')}
               </button>
             ))}
           </div>
@@ -107,7 +110,7 @@ function LoginInner({ onAuth }) {
           {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
 
           <div className="form-group">
-            <label className="form-label">Username</label>
+            <label className="form-label">{t('username')}</label>
             <input
               className="form-input"
               placeholder="your_username"
@@ -120,7 +123,7 @@ function LoginInner({ onAuth }) {
 
           {mode === 'register' && (
             <div className="form-group">
-              <label className="form-label">Store Name</label>
+              <label className="form-label">{t('store_name_label')}</label>
               <input
                 className="form-input"
                 placeholder="e.g. Headz Store"
@@ -132,7 +135,7 @@ function LoginInner({ onAuth }) {
           )}
 
           <div className="form-group">
-            <label className="form-label">Password</label>
+            <label className="form-label">{t('password')}</label>
             <div style={{ position: 'relative' }}>
               <input
                 className="form-input"
@@ -162,14 +165,14 @@ function LoginInner({ onAuth }) {
             onClick={handleSubmit}
             disabled={loading}
           >
-            {loading ? '...' : mode === 'login' ? 'Sign In' : 'Create Store'}
+            {loading ? '...' : mode === 'login' ? t('sign_in') : t('create_store')}
           </button>
 
           {mode === 'login' && (
             <>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '18px 0 14px' }}>
                 <div style={{ flex: 1, height: 1, background: '#2d3248' }} />
-                <span style={{ color: '#8892b0', fontSize: 12 }}>or</span>
+                <span style={{ color: '#8892b0', fontSize: 12 }}>{t('or')}</span>
                 <div style={{ flex: 1, height: 1, background: '#2d3248' }} />
               </div>
               <GoogleButton

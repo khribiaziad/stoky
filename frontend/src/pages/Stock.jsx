@@ -1,11 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { getProducts, getStockArrivals, addBulkStockArrival, getBrokenStock, addBrokenStock, updateBrokenStock, deleteBrokenStock, deleteArrival, adjustStock, addSupplierPayment, getWarehouses, getWarehouseStock } from '../api';
 import StockMobile from './StockMobile';
+import { useT } from '../i18n';
 
 const emptyItem = () => ({ product_id: '', variant_ids: [], quantity: 1 });
 
-export default function Stock({ readOnly = false, highlight = null }) {
-  if (window.innerWidth < 768) return <StockMobile readOnly={readOnly} />;
+export default function Stock({ readOnly = false, highlight = null, lang = 'en' }) {
+  const t = useT(lang);
+  if (window.innerWidth < 768) return <StockMobile readOnly={readOnly} lang={lang} />;
   const [tab, setTab] = useState('arrivals');
   const lowStockRef = useRef(null);
   const [products, setProducts] = useState([]);
@@ -284,11 +286,11 @@ export default function Stock({ readOnly = false, highlight = null }) {
       )}
 
       <div className="tabs">
-        <div className={`tab ${tab === 'arrivals' ? 'active' : ''}`} onClick={() => setTab('arrivals')}>Stock Arrivals</div>
+        <div className={`tab ${tab === 'arrivals' ? 'active' : ''}`} onClick={() => setTab('arrivals')}>{t('tab_arrivals')}</div>
         <div className={`tab ${tab === 'broken' ? 'active' : ''}`} onClick={() => setTab('broken')}>Broken Stock</div>
         <div className={`tab ${tab === 'overview' ? 'active' : ''}`} onClick={() => setTab('overview')}>Current Stock</div>
         <div className={`tab ${tab === 'lowstock' ? 'active' : ''}`} onClick={() => setTab('lowstock')} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          Low Stock
+          {t('tab_lowstock')}
           {lowStockVariants.length > 0 && (
             <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', background: 'var(--red-a)', color: 'var(--red)', borderRadius: 4 }}>
               {lowStockVariants.length}

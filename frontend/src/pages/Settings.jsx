@@ -4,6 +4,7 @@ import {
   Upload, Package, DollarSign, Truck, AlertTriangle, Edit2, Check,
   MapPin, Plus, Trash2, Search, X, Link, RotateCcw, Copy, Zap, MessageCircle, Warehouse,
 } from 'lucide-react';
+import { useT } from '../i18n';
 import { changePassword, updateStoreName, updateProfile, getSetting, setSetting, getCityList, createCity, updateCity, deleteCity, uploadCityPDF, getCityPdfJob, getApiKey, rotateApiKey, errorMessage, getBotStatus, getBotQR, connectBot, disconnectBot, getWarehouses, createWarehouse, updateWarehouse, deleteWarehouse, syncWarehousePrices } from '../api';
 
 const LANGUAGES = [
@@ -292,6 +293,7 @@ function WhatsAppBotCard() {
 }
 
 export default function Settings({ user, theme, setTheme, lang, setLang, accent, setAccent, logo, setLogo, onStoreName }) {
+  const t = useT(lang);
   const isAdmin = user?.role !== 'confirmer';
   const [tab, setTab] = useState('account');
 
@@ -870,27 +872,27 @@ export default function Settings({ user, theme, setTheme, lang, setLang, accent,
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">Settings</h1>
+        <h1 className="page-title">{t('settings')}</h1>
       </div>
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 24, background: 'var(--card)', borderRadius: 'var(--r-sm)', padding: 4, width: 'fit-content' }}>
         {[
-          { id: 'account', label: 'Account Settings' },
-          ...(isAdmin ? [{ id: 'store', label: 'Store Settings' }] : []),
+          { id: 'account', label: t('settings') },
+          ...(isAdmin ? [{ id: 'store', label: 'Store' }] : []),
           ...(isAdmin ? [{ id: 'integrations', label: 'Integrations' }] : []),
-        ].map(t => (
+        ].map(tab_item => (
           <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
+            key={tab_item.id}
+            onClick={() => setTab(tab_item.id)}
             style={{
               padding: '8px 20px', borderRadius: 8, border: 'none', cursor: 'pointer',
               fontSize: 13, fontWeight: 600,
-              background: tab === t.id ? 'var(--accent)' : 'transparent',
-              color: tab === t.id ? '#000' : 'var(--t2)',
+              background: tab === tab_item.id ? 'var(--accent)' : 'transparent',
+              color: tab === tab_item.id ? '#000' : 'var(--t2)',
               transition: 'all .15s',
             }}
-          >{t.label}</button>
+          >{tab_item.label}</button>
         ))}
       </div>
 

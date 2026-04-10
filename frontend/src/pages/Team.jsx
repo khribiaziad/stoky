@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { BarChart2, TrendingUp, TrendingDown, Clock, Package, X } from 'lucide-react';
 import { getTeam, createTeamMember, deleteTeamMember, createConfirmerAccount, getMemberStats, toggleMemberAccount, updateMemberPermissions } from '../api';
 import TeamMobile from './TeamMobile';
+import { useT } from '../i18n';
 
 const PAGES = [
   { key: 'orders',    label: 'Orders' },
@@ -37,8 +38,9 @@ const PERIODS = [
   { value: '',            label: 'All Time' },
 ];
 
-export default function Team() {
-  if (window.innerWidth < 768) return <TeamMobile />;
+export default function Team({ readOnly = false, lang = 'en' }) {
+  const t = useT(lang);
+  if (window.innerWidth < 768) return <TeamMobile lang={lang} />;
   const [team, setTeam] = useState([]);
   const [error, setError] = useState('');
 
@@ -135,18 +137,18 @@ export default function Team() {
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">Team</h1>
-        <button className="btn btn-primary" onClick={() => setShowAddMember(true)}>+ Add Member</button>
+        <h1 className="page-title">{t('team')}</h1>
+        <button className="btn btn-primary" onClick={() => setShowAddMember(true)}>{t('add_member')}</button>
       </div>
 
       {error && <div className="alert alert-error">{error}</div>}
 
       <div className="card">
-        {team.length === 0 ? <div className="empty-state"><h3>No team members yet</h3></div> : (
+        {team.length === 0 ? <div className="empty-state"><h3>{t('no_team_yet')}</h3></div> : (
           <div className="table-wrapper">
             <table>
               <thead>
-                <tr><th>Name</th><th>Role</th><th>Payment Type</th><th>Monthly</th><th>Per Order</th><th>Status</th><th>Account</th><th></th></tr>
+                <tr><th>{t('name')}</th><th>{t('role')}</th><th>{t('payment_type')}</th><th>{t('pay_monthly')}</th><th>{t('pay_per_order')}</th><th>{t('status')}</th><th>{t('account')}</th><th></th></tr>
               </thead>
               <tbody>
                 {team.map(m => (
@@ -167,7 +169,7 @@ export default function Team() {
                             className={`btn btn-sm ${m.account_is_active ? 'btn-danger' : 'btn-success'}`}
                             onClick={() => toggleMemberAccount(m.id).then(load)}
                           >
-                            {m.account_is_active ? 'Suspend' : 'Reactivate'}
+                            {m.account_is_active ? t('suspend') : t('reactivate')}
                           </button>
                         </div>
                       ) : (
@@ -180,9 +182,9 @@ export default function Team() {
                     <td>
                       <div style={{ display: 'flex', gap: 6 }}>
                         <button className="btn btn-secondary btn-sm" onClick={() => openMemberStats(m)} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                          <BarChart2 size={12} strokeWidth={1.75} /> Stats
+                          <BarChart2 size={12} strokeWidth={1.75} /> {t('stats')}
                         </button>
-                        <button className="btn btn-secondary btn-sm" onClick={() => openPermissions(m)}>Permissions</button>
+                        <button className="btn btn-secondary btn-sm" onClick={() => openPermissions(m)}>{t('permissions')}</button>
                         <button className="btn btn-danger btn-sm" onClick={() => { if (confirm('Remove team member?')) deleteTeamMember(m.id).then(load); }}>✕</button>
                       </div>
                     </td>
@@ -198,40 +200,40 @@ export default function Team() {
       {showAddMember && (
         <div className="modal-overlay" onClick={() => setShowAddMember(false)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header"><h2>Add Team Member</h2><button className="btn-icon" onClick={() => setShowAddMember(false)}>✕</button></div>
+            <div className="modal-header"><h2>{t('add_team_member')}</h2><button className="btn-icon" onClick={() => setShowAddMember(false)}>✕</button></div>
             <div className="modal-body">
               <div className="form-grid-2">
-                <div className="form-group"><label className="form-label">Name *</label><input className="form-input" value={memberForm.name} onChange={e => setMemberForm({ ...memberForm, name: e.target.value })} /></div>
-                <div className="form-group"><label className="form-label">Role / Job Title</label><input className="form-input" placeholder="e.g. Packer" value={memberForm.role} onChange={e => setMemberForm({ ...memberForm, role: e.target.value })} /></div>
+                <div className="form-group"><label className="form-label">{t('name')} *</label><input className="form-input" value={memberForm.name} onChange={e => setMemberForm({ ...memberForm, name: e.target.value })} /></div>
+                <div className="form-group"><label className="form-label">{t('role_job')}</label><input className="form-input" placeholder="e.g. Packer" value={memberForm.role} onChange={e => setMemberForm({ ...memberForm, role: e.target.value })} /></div>
               </div>
               <div className="form-group">
-                <label className="form-label">Profile</label>
+                <label className="form-label">{t('profile')}</label>
                 <select className="form-input" value={memberForm.is_confirmer ? 'confirmer' : 'admin'} onChange={e => setMemberForm({ ...memberForm, is_confirmer: e.target.value === 'confirmer' })}>
-                  <option value="confirmer">Confirmer — uploads orders, view-only on stock/products</option>
-                  <option value="admin">Admin — full access to everything</option>
+                  <option value="confirmer">{t('role_confirmer_desc')}</option>
+                  <option value="admin">{t('role_admin_desc')}</option>
                 </select>
               </div>
               <div className="form-group">
-                <label className="form-label">Payment Type</label>
+                <label className="form-label">{t('payment_type')}</label>
                 <select className="form-input" value={memberForm.payment_type} onChange={e => setMemberForm({ ...memberForm, payment_type: e.target.value })}>
-                  <option value="monthly">Monthly Fixed</option>
-                  <option value="per_order">Per Order</option>
-                  <option value="both">Both</option>
+                  <option value="monthly">{t('pay_monthly')}</option>
+                  <option value="per_order">{t('pay_per_order')}</option>
+                  <option value="both">{t('pay_both')}</option>
                 </select>
               </div>
               <div className="form-grid-2">
                 {(memberForm.payment_type === 'monthly' || memberForm.payment_type === 'both') && (
-                  <div className="form-group"><label className="form-label">Monthly Salary (MAD)</label><input className="form-input" type="number" value={memberForm.fixed_monthly} onChange={e => setMemberForm({ ...memberForm, fixed_monthly: parseFloat(e.target.value) || 0 })} /></div>
+                  <div className="form-group"><label className="form-label">{t('monthly_salary')}</label><input className="form-input" type="number" value={memberForm.fixed_monthly} onChange={e => setMemberForm({ ...memberForm, fixed_monthly: parseFloat(e.target.value) || 0 })} /></div>
                 )}
                 {(memberForm.payment_type === 'per_order' || memberForm.payment_type === 'both') && (
-                  <div className="form-group"><label className="form-label">Rate Per Order (MAD)</label><input className="form-input" type="number" value={memberForm.per_order_rate} onChange={e => setMemberForm({ ...memberForm, per_order_rate: parseFloat(e.target.value) || 0 })} /></div>
+                  <div className="form-group"><label className="form-label">{t('rate_per_order')}</label><input className="form-input" type="number" value={memberForm.per_order_rate} onChange={e => setMemberForm({ ...memberForm, per_order_rate: parseFloat(e.target.value) || 0 })} /></div>
                 )}
               </div>
-              <div className="form-group"><label className="form-label">Start Date</label><input className="form-input" type="date" value={memberForm.start_date} onChange={e => setMemberForm({ ...memberForm, start_date: e.target.value })} /></div>
+              <div className="form-group"><label className="form-label">{t('start_date')}</label><input className="form-input" type="date" value={memberForm.start_date} onChange={e => setMemberForm({ ...memberForm, start_date: e.target.value })} /></div>
             </div>
             <div className="modal-footer">
-              <button className="btn btn-secondary" onClick={() => setShowAddMember(false)}>Cancel</button>
-              <button className="btn btn-primary" onClick={handleAddMember}>Add Member</button>
+              <button className="btn btn-secondary" onClick={() => setShowAddMember(false)}>{t('cancel')}</button>
+              <button className="btn btn-primary" onClick={handleAddMember}>{t('add_member')}</button>
             </div>
           </div>
         </div>
@@ -334,9 +336,9 @@ export default function Team() {
               </div>
             </div>
             <div className="modal-footer">
-              <button className="btn btn-secondary" onClick={() => setShowPermissions(null)}>Cancel</button>
+              <button className="btn btn-secondary" onClick={() => setShowPermissions(null)}>{t('cancel')}</button>
               <button className="btn btn-primary" onClick={handleSavePermissions} disabled={permSaving}>
-                {permSaving ? 'Saving…' : 'Save Permissions'}
+                {permSaving ? t('saving') : t('save_permissions')}
               </button>
             </div>
           </div>
@@ -364,7 +366,7 @@ export default function Team() {
             </div>
             <div className="modal-body">
               {statsLoading || !statsData ? (
-                <div className="loading">Loading stats...</div>
+                <div className="loading">{t('loading_stats')}</div>
               ) : (
                 <>
                   <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 20 }}>

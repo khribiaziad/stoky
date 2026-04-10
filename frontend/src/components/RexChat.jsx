@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { askRex } from '../api';
+import { useT } from '../i18n';
 
 const PLACEHOLDER = {
   en: 'Ask Rex anything about your business...',
@@ -14,6 +15,7 @@ const WELCOME = {
 };
 
 export default function RexChat({ lang = 'en', isConfirmer = false }) {
+  const t = useT(lang);
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
@@ -107,7 +109,7 @@ export default function RexChat({ lang = 'en', isConfirmer = false }) {
                 <div className="rex-name">Rex</div>
                 <div className="rex-status">
                   <span className="rex-status-dot" />
-                  Business AI
+                  {t('rex_business_ai')}
                 </div>
               </div>
             </div>

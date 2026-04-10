@@ -20,6 +20,7 @@ import Login from './pages/Login';
 import PlatformLayout from './pages/platform/PlatformLayout';
 import RexChat from './components/RexChat';
 import { getSetting, setSetting } from './api';
+import { useT } from './i18n';
 
 // ── Nav label translations ───────────────────────────────────
 const T = {
@@ -62,11 +63,11 @@ const ADMIN_NAV = [
   { id: 'settings',  Icon: SettingsIcon },
 ];
 
-const ADMIN_NAV_SECTIONS = [
-  { label: 'General',   ids: ['dashboard','orders','leads','products','suppliers'] },
-  { label: 'Inventory', ids: ['packs','stock'] },
-  { label: 'Finance',   ids: ['expenses','ads','reports'] },
-  { label: 'Workspace', ids: ['rex','team','settings'] },
+const ADMIN_NAV_SECTION_KEYS = [
+  { key: 'nav_general',   ids: ['dashboard','orders','leads','products','suppliers'] },
+  { key: 'nav_inventory', ids: ['packs','stock'] },
+  { key: 'nav_finance',   ids: ['expenses','ads','reports'] },
+  { key: 'nav_workspace', ids: ['rex','team','settings'] },
 ];
 
 const CONFIRMER_NAV = [
@@ -78,10 +79,10 @@ const CONFIRMER_NAV = [
   { id: 'settings',  Icon: SettingsIcon },
 ];
 
-const CONFIRMER_NAV_SECTIONS = [
-  { label: 'General',   ids: ['dashboard','orders'] },
-  { label: 'Inventory', ids: ['products','packs','stock'] },
-  { label: 'Workspace', ids: ['settings'] },
+const CONFIRMER_NAV_SECTION_KEYS = [
+  { key: 'nav_general',   ids: ['dashboard','orders'] },
+  { key: 'nav_inventory', ids: ['products','packs','stock'] },
+  { key: 'nav_workspace', ids: ['settings'] },
 ];
 
 // Reload if tab was hidden/inactive for more than 10 minutes (keeps Render server warm on return)
@@ -141,6 +142,7 @@ export default function App() {
   useReloadOnInactivity();
   useKeepAlive();
   const [page, setPage] = useState('dashboard');
+
   const [navParams, setNavParams] = useState({});
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [user, setUser] = useState(() => {
@@ -222,9 +224,11 @@ export default function App() {
   const canView = (id) => !perms || perms[id]?.view !== false;
   const canEdit = (id) => !perms || perms[id]?.edit !== false;
 
+  const tNav = useT(lang);
   const baseNav = isConfirmer ? CONFIRMER_NAV : ADMIN_NAV;
   const nav = perms ? baseNav.filter(n => n.id === 'dashboard' || n.id === 'settings' || canView(n.id)) : baseNav;
-  const navSections = isConfirmer ? CONFIRMER_NAV_SECTIONS : ADMIN_NAV_SECTIONS;
+  const navSectionKeys = isConfirmer ? CONFIRMER_NAV_SECTION_KEYS : ADMIN_NAV_SECTION_KEYS;
+  const navSections = navSectionKeys.map(s => ({ label: tNav(s.key), ids: s.ids }));
   const currentPage = !nav.find(n => n.id === page) ? 'dashboard' : page;
   const labels = T[lang] || T.en;
   // Bottom nav: first 4 items + Settings always pinned at the end
@@ -242,17 +246,17 @@ export default function App() {
   const settingsProps = { user, theme, setTheme, lang, setLang: handleSetLang, accent, setAccent, logo, setLogo, onStoreName: handleStoreName, onLogout: handleLogout };
 
   const pages = {
-    dashboard: <Dashboard onNavigate={navigate} user={user} />,
-    orders:    <Orders user={user} readOnly={!canEdit('orders')} />,
-    leads:     <Leads readOnly={!canEdit('leads')} />,
-    suppliers: <Suppliers readOnly={!canEdit('suppliers')} />,
-    products:  <Products readOnly={!canEdit('products')} />,
-    packs:     <Packs readOnly={!canEdit('packs')} />,
-    stock:     <Stock readOnly={!canEdit('stock')} highlight={navParams.highlight} />,
-    team:      <Team readOnly={!canEdit('team')} />,
-    expenses:  <Expenses readOnly={!canEdit('expenses')} />,
-    ads:       <Ads readOnly={!canEdit('ads')} />,
-    reports:   <Reports readOnly={!canEdit('reports')} />,
+    dashboard: <Dashboard onNavigate={navigate} user={user} lang={lang} />,
+    orders:    <Orders user={user} readOnly={!canEdit('orders')} lang={lang} />,
+    leads:     <Leads readOnly={!canEdit('leads')} lang={lang} />,
+    suppliers: <Suppliers readOnly={!canEdit('suppliers')} lang={lang} />,
+    products:  <Products readOnly={!canEdit('products')} lang={lang} />,
+    packs:     <Packs readOnly={!canEdit('packs')} lang={lang} />,
+    stock:     <Stock readOnly={!canEdit('stock')} highlight={navParams.highlight} lang={lang} />,
+    team:      <Team readOnly={!canEdit('team')} lang={lang} />,
+    expenses:  <Expenses readOnly={!canEdit('expenses')} lang={lang} />,
+    ads:       <Ads readOnly={!canEdit('ads')} lang={lang} />,
+    reports:   <Reports readOnly={!canEdit('reports')} lang={lang} />,
     rex:       <RexPage lang={lang} />,
     settings:  <Settings {...settingsProps} />,
   };

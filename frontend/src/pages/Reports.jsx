@@ -1,17 +1,18 @@
 import { useState, useEffect } from 'react';
 import { getReportSummary, getTopProducts, getTopCities } from '../api';
+import { useT } from '../i18n';
 
-const PERIODS = [
-  { value: 'this_month', label: 'This Month' },
-  { value: 'last_7_days', label: 'Last 7 Days' },
-  { value: 'this_week', label: 'This Week' },
-  { value: 'yesterday', label: 'Yesterday' },
-  { value: 'today', label: 'Today' },
-  { value: '', label: 'All Time' },
-  { value: 'custom', label: 'Custom Range' },
-];
-
-export default function Reports() {
+export default function Reports({ readOnly = false, lang = 'en' }) {
+  const t = useT(lang);
+  const PERIODS = [
+    { value: 'this_month', label: t('period_this_month') },
+    { value: 'last_7_days', label: t('period_last7') },
+    { value: 'this_week', label: t('period_this_week') },
+    { value: 'yesterday', label: t('period_yesterday') },
+    { value: 'today', label: t('period_today') },
+    { value: '', label: t('period_all_time') },
+    { value: 'custom', label: t('period_custom_range') },
+  ];
   const [period, setPeriod] = useState('this_month');
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
@@ -113,7 +114,7 @@ export default function Reports() {
         }
       `}</style>
       <div className="page-header">
-        <h1 className="page-title">Reports</h1>
+        <h1 className="page-title">{t('reports')}</h1>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
           <select className="form-input" style={{ width: 'auto' }} value={period} onChange={e => setPeriod(e.target.value)}>
             {PERIODS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
@@ -121,9 +122,9 @@ export default function Reports() {
           {period === 'custom' && (
             <>
               <input className="form-input" type="date" style={{ width: 'auto' }} value={customStart} onChange={e => setCustomStart(e.target.value)} />
-              <span style={{ color: '#8892b0' }}>to</span>
+              <span style={{ color: '#8892b0' }}>{t('period_to')}</span>
               <input className="form-input" type="date" style={{ width: 'auto' }} value={customEnd} onChange={e => setCustomEnd(e.target.value)} />
-              <button className="btn btn-primary" onClick={load}>Apply</button>
+              <button className="btn btn-primary" onClick={load}>{t('apply')}</button>
             </>
           )}
           {!['', 'custom'].includes(period) && (
@@ -131,31 +132,31 @@ export default function Reports() {
               className={`btn btn-sm ${compare ? 'btn-primary' : 'btn-secondary'}`}
               onClick={() => setCompare(v => !v)}
               title="Compare to previous period">
-              ⇄ Compare
+              {t('compare')}
             </button>
           )}
           <button className="btn btn-secondary btn-sm" onClick={() => window.print()} title="Print / Save as PDF">
-            🖨 Print
+            🖨 {t('print')}
           </button>
         </div>
       </div>
 
-      {loading ? <div className="loading">Loading reports...</div> : (
+      {loading ? <div className="loading">{t('loading_reports')}</div> : (
         <>
           {/* Capital Summary */}
           {compare && prevSummary && (
             <div style={{ background: '#1a1a2e', border: '1px solid #2d3248', borderRadius: 8, padding: '8px 14px', marginBottom: 12, fontSize: 12, color: '#8892b0' }}>
-              ⇄ Comparing to previous period
+              {t('comparing_prev')}
             </div>
           )}
           <div className="stat-grid">
             {[
-              { label: 'Revenue', val: f.revenue, prev: prevSummary?.financials?.revenue, cls: 'blue' },
-              { label: 'Gross Profit', val: f.gross_profit, prev: prevSummary?.financials?.gross_profit, cls: f.gross_profit >= 0 ? 'green' : 'red' },
-              { label: 'Clean Profit', val: f.clean_profit, prev: prevSummary?.financials?.clean_profit, cls: f.clean_profit >= 0 ? 'green' : 'red' },
-              { label: 'Total Capital', val: c.total_capital, prev: null, cls: 'purple' },
-              { label: 'Cash Balance', val: c.cash_balance, prev: null, cls: 'blue' },
-              { label: 'Stock Value', val: c.stock_value, prev: null, cls: '' },
+              { label: t('revenue'), val: f.revenue, prev: prevSummary?.financials?.revenue, cls: 'blue' },
+              { label: t('gross_profit'), val: f.gross_profit, prev: prevSummary?.financials?.gross_profit, cls: f.gross_profit >= 0 ? 'green' : 'red' },
+              { label: t('clean_profit'), val: f.clean_profit, prev: prevSummary?.financials?.clean_profit, cls: f.clean_profit >= 0 ? 'green' : 'red' },
+              { label: t('total_capital'), val: c.total_capital, prev: null, cls: 'purple' },
+              { label: t('cash_balance'), val: c.cash_balance, prev: null, cls: 'blue' },
+              { label: t('stock_value'), val: c.stock_value, prev: null, cls: '' },
             ].map(item => {
               const diff = (compare && item.prev != null && item.val != null) ? item.val - item.prev : null;
               return (
@@ -164,7 +165,7 @@ export default function Reports() {
                   <div className={`stat-value ${item.cls}`}>{item.val?.toLocaleString()} MAD</div>
                   {diff !== null && (
                     <div style={{ fontSize: 11, color: diff >= 0 ? '#4ade80' : '#f87171', marginTop: 2 }}>
-                      {diff >= 0 ? '▲' : '▼'} {Math.abs(diff).toLocaleString()} vs prev
+                      {diff >= 0 ? '▲' : '▼'} {Math.abs(diff).toLocaleString()} {t('vs_prev')}
                     </div>
                   )}
                 </div>
@@ -175,12 +176,12 @@ export default function Reports() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
             {/* Expenses Breakdown */}
             <div className="card">
-              <div className="card-title">Expenses Breakdown</div>
+              <div className="card-title">{t('expenses_breakdown')}</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 {[
-                  { label: 'Team Costs', value: f.team_costs },
-                  { label: 'Fixed Expenses', value: f.fixed_costs },
-                  { label: 'Facebook Ads', value: f.ads_costs },
+                  { label: t('team_costs'), value: f.team_costs },
+                  { label: t('fixed_expenses'), value: f.fixed_costs },
+                  { label: t('facebook_ads'), value: f.ads_costs },
                 ].map(item => (
                   <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ color: '#8892b0' }}>{item.label}</span>
@@ -189,7 +190,7 @@ export default function Reports() {
                 ))}
                 <hr className="divider" />
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontWeight: 600 }}>Total Expenses</span>
+                  <span style={{ fontWeight: 600 }}>{t('total_expenses')}</span>
                   <span style={{ fontWeight: 700, color: '#f87171' }}>
                     {((f.team_costs || 0) + (f.fixed_costs || 0) + (f.ads_costs || 0)).toLocaleString()} MAD
                   </span>
@@ -199,16 +200,16 @@ export default function Reports() {
 
             {/* Orders Stats */}
             <div className="card">
-              <div className="card-title">Orders Performance</div>
+              <div className="card-title">{t('orders_performance')}</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 {[
-                  { label: 'Total Orders', value: o.total, unit: '' },
-                  { label: 'Delivered', value: o.delivered, unit: '' },
-                  { label: 'Returned', value: o.cancelled, unit: '' },
-                  { label: 'Pending', value: o.pending, unit: '' },
-                  { label: 'Delivery Rate', value: o.delivery_rate, unit: '%' },
-                  { label: 'Return Rate', value: o.return_rate, unit: '%' },
-                  { label: 'Avg Order Value', value: o.avg_order_value, unit: ' MAD' },
+                  { label: t('total_orders'), value: o.total, unit: '' },
+                  { label: t('status_delivered'), value: o.delivered, unit: '' },
+                  { label: t('status_returned'), value: o.cancelled, unit: '' },
+                  { label: t('status_pending'), value: o.pending, unit: '' },
+                  { label: t('delivery_rate'), value: o.delivery_rate, unit: '%' },
+                  { label: t('return_rate'), value: o.return_rate, unit: '%' },
+                  { label: t('avg_order_value'), value: o.avg_order_value, unit: ' MAD' },
                 ].map(item => (
                   <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ color: '#8892b0' }}>{item.label}</span>
@@ -219,7 +220,7 @@ export default function Reports() {
                   <>
                     <hr className="divider" />
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ color: '#8892b0' }}>Ads Cost / Order</span>
+                      <span style={{ color: '#8892b0' }}>{t('ads_cost_per_order')}</span>
                       <span style={{ fontWeight: 600, color: '#fbbf24' }}>
                         {o.delivered > 0 ? `${(f.ads_costs / o.delivered).toFixed(1)} MAD` : '—'}
                       </span>
@@ -233,13 +234,13 @@ export default function Reports() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             {/* Top Products */}
             <div className="card">
-              <div className="card-title">Top Products</div>
+              <div className="card-title">{t('top_products')}</div>
               {topProducts.length === 0 ? (
-                <div style={{ color: '#8892b0', textAlign: 'center', padding: 20 }}>No data yet</div>
+                <div style={{ color: '#8892b0', textAlign: 'center', padding: 20 }}>{t('no_data_yet')}</div>
               ) : (
                 <div className="table-wrapper">
                   <table>
-                    <thead><tr><th>#</th><th>Product</th><th>Units Sold</th><th>Orders</th><th>Revenue</th></tr></thead>
+                    <thead><tr><th>#</th><th>{t('product')}</th><th>{t('units_sold')}</th><th>{t('orders')}</th><th>{t('revenue')}</th></tr></thead>
                     <tbody>
                       {topProducts.map((p, i) => {
                         const prev = prevTopProducts.find(x => x.product_name === p.product_name);
@@ -265,13 +266,13 @@ export default function Reports() {
 
             {/* Top Cities */}
             <div className="card">
-              <div className="card-title">Top Cities</div>
+              <div className="card-title">{t('top_cities')}</div>
               {topCities.length === 0 ? (
-                <div style={{ color: '#8892b0', textAlign: 'center', padding: 20 }}>No data yet</div>
+                <div style={{ color: '#8892b0', textAlign: 'center', padding: 20 }}>{t('no_data_yet')}</div>
               ) : (
                 <div className="table-wrapper">
                   <table>
-                    <thead><tr><th>#</th><th>City</th><th>Orders</th><th>Revenue</th></tr></thead>
+                    <thead><tr><th>#</th><th>{t('city')}</th><th>{t('orders')}</th><th>{t('revenue')}</th></tr></thead>
                     <tbody>
                       {topCities.map((c, i) => {
                         const prev = prevTopCities.find(x => x.city === c.city);

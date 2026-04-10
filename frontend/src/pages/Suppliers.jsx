@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react';
 import { getSuppliers, createSupplier, updateSupplier, deleteSupplier, getSupplierDetail, addSupplierPayment, deleteSupplierPayment } from '../api';
 import SuppliersMobile from './SuppliersMobile';
+import { useT } from '../i18n';
 
 const PLATFORMS = ['Alibaba', 'AliExpress', 'Local', 'Wholesale', 'Direct', 'Other'];
 
 const fmt = (n) => Number(n || 0).toLocaleString('fr-MA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-export default function Suppliers() {
-  if (window.innerWidth < 768) return <SuppliersMobile />;
+export default function Suppliers({ readOnly = false, lang = 'en' }) {
+  const t = useT(lang);
+  if (window.innerWidth < 768) return <SuppliersMobile lang={lang} />;
   const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(null);
@@ -102,19 +104,19 @@ export default function Suppliers() {
     await reloadDetail(supplierId);
   };
 
-  if (loading) return <div className="loading">Loading suppliers...</div>;
+  if (loading) return <div className="loading">{t('loading_suppliers')}</div>;
 
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">Suppliers</h1>
-        <button className="btn btn-primary" onClick={openAdd}>+ Add Supplier</button>
+        <h1 className="page-title">{t('suppliers')}</h1>
+        <button className="btn btn-primary" onClick={openAdd}>{t('new_supplier')}</button>
       </div>
 
       {suppliers.length === 0 ? (
         <div className="empty-state">
-          <h3>No suppliers yet</h3>
-          <p>Add your first supplier to track purchases and payments</p>
+          <h3>{t('no_suppliers')}</h3>
+          <p>{t('no_suppliers_hint')}</p>
         </div>
       ) : (
         suppliers.map(s => {
@@ -136,17 +138,17 @@ export default function Suppliers() {
                       {s.platform && <span style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 4, padding: '1px 7px', fontSize: 11 }}>{s.platform}</span>}
                       {s.phone && <span>📞 {s.phone}</span>}
                       <span>{s.product_count} product{s.product_count !== 1 ? 's' : ''}</span>
-                      <span>Purchased: <strong>{fmt(s.total_purchased)} MAD</strong></span>
-                      <span>Paid: <strong style={{ color: '#4ade80' }}>{fmt(s.total_paid)} MAD</strong></span>
+                      <span>{t('purchased')} <strong>{fmt(s.total_purchased)} MAD</strong></span>
+                      <span>{t('paid')} <strong style={{ color: '#4ade80' }}>{fmt(s.total_paid)} MAD</strong></span>
                       <span style={{ color: balance > 0 ? '#f87171' : '#4ade80', fontWeight: 600 }}>
-                        {balance > 0 ? `Owed: ${fmt(balance)} MAD` : 'Settled ✓'}
+                        {balance > 0 ? `${t('owed')} ${fmt(balance)} MAD` : t('settled')}
                       </span>
                     </div>
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 8 }} onClick={e => e.stopPropagation()}>
-                  <button className="btn btn-secondary btn-sm" onClick={() => openEdit(s)}>Edit</button>
-                  <button className="btn btn-danger btn-sm" onClick={() => handleDelete(s.id)}>Delete</button>
+                  <button className="btn btn-secondary btn-sm" onClick={() => openEdit(s)}>{t('edit')}</button>
+                  <button className="btn btn-danger btn-sm" onClick={() => handleDelete(s.id)}>{t('delete')}</button>
                 </div>
               </div>
 
@@ -160,9 +162,9 @@ export default function Suppliers() {
                       {/* Balance summary */}
                       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                         {[
-                          { label: 'Total Purchased', value: `${fmt(d.total_purchased)} MAD`, color: '#fbbf24' },
-                          { label: 'Total Paid', value: `${fmt(d.total_paid)} MAD`, color: '#4ade80' },
-                          { label: 'Balance Owed', value: `${fmt(d.balance)} MAD`, color: d.balance > 0 ? '#f87171' : '#4ade80' },
+                          { label: t('total_purchased'), value: `${fmt(d.total_purchased)} MAD`, color: '#fbbf24' },
+                          { label: t('total_paid'), value: `${fmt(d.total_paid)} MAD`, color: '#4ade80' },
+                          { label: t('balance_owed'), value: `${fmt(d.balance)} MAD`, color: d.balance > 0 ? '#f87171' : '#4ade80' },
                         ].map(stat => (
                           <div key={stat.label} className="card" style={{ flex: '1 1 140px', padding: '12px 16px', background: 'var(--bg)' }}>
                             <div style={{ fontSize: 11, color: '#8892b0', marginBottom: 4 }}>{stat.label}</div>
@@ -191,9 +193,9 @@ export default function Suppliers() {
 
                         {/* Purchase History */}
                         <div>
-                          <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 13, color: '#8892b0', textTransform: 'uppercase', letterSpacing: 1 }}>Purchase History</div>
+                          <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 13, color: '#8892b0', textTransform: 'uppercase', letterSpacing: 1 }}>{t('purchase_history')}</div>
                           {d.arrivals.length === 0 ? (
-                            <div style={{ color: '#8892b0', fontSize: 13 }}>No purchases yet.</div>
+                            <div style={{ color: '#8892b0', fontSize: 13 }}>{t('no_purchases')}</div>
                           ) : (
                             <div className="table-wrapper">
                               <table>
@@ -226,7 +228,7 @@ export default function Suppliers() {
                         {/* Payments */}
                         <div>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                            <div style={{ fontWeight: 600, fontSize: 13, color: '#8892b0', textTransform: 'uppercase', letterSpacing: 1 }}>Payments Made</div>
+                            <div style={{ fontWeight: 600, fontSize: 13, color: '#8892b0', textTransform: 'uppercase', letterSpacing: 1 }}>{t('payments_made')}</div>
                             <button className="btn btn-primary btn-sm" onClick={() => { setError(''); setShowPayment(s.id); }}>+ Add</button>
                           </div>
 
@@ -248,14 +250,14 @@ export default function Suppliers() {
                                 </div>
                               </div>
                               <div style={{ display: 'flex', gap: 8 }}>
-                                <button className="btn btn-secondary btn-sm" onClick={() => setShowPayment(null)}>Cancel</button>
-                                <button className="btn btn-primary btn-sm" onClick={() => handleAddPayment(s.id)}>Save</button>
+                                <button className="btn btn-secondary btn-sm" onClick={() => setShowPayment(null)}>{t('cancel')}</button>
+                                <button className="btn btn-primary btn-sm" onClick={() => handleAddPayment(s.id)}>{t('save')}</button>
                               </div>
                             </div>
                           )}
 
                           {d.payments.length === 0 ? (
-                            <div style={{ color: '#8892b0', fontSize: 13 }}>No payments recorded yet.</div>
+                            <div style={{ color: '#8892b0', fontSize: 13 }}>{t('no_payments')}</div>
                           ) : (
                             <div className="table-wrapper">
                               <table>
@@ -293,7 +295,7 @@ export default function Suppliers() {
         <div className="modal-overlay" onClick={() => { setShowAdd(false); setEditingSupplier(null); }}>
           <div className="modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>{editingSupplier ? 'Edit Supplier' : 'Add Supplier'}</h2>
+              <h2>{editingSupplier ? t('edit_supplier') : t('add_supplier')}</h2>
               <button className="btn-icon" onClick={() => { setShowAdd(false); setEditingSupplier(null); }}>✕</button>
             </div>
             <div className="modal-body">
@@ -321,8 +323,8 @@ export default function Suppliers() {
               </div>
             </div>
             <div className="modal-footer">
-              <button className="btn btn-secondary" onClick={() => { setShowAdd(false); setEditingSupplier(null); }}>Cancel</button>
-              <button className="btn btn-primary" onClick={handleSave}>{editingSupplier ? 'Save Changes' : 'Add Supplier'}</button>
+              <button className="btn btn-secondary" onClick={() => { setShowAdd(false); setEditingSupplier(null); }}>{t('cancel')}</button>
+              <button className="btn btn-primary" onClick={handleSave}>{editingSupplier ? t('save_changes') : t('add_supplier')}</button>
             </div>
           </div>
         </div>

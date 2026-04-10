@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Copy, Check, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
 import PacksMobile from './PacksMobile';
+import { useT } from '../i18n';
 import {
   getPacks, getProducts, createPack, updatePack, togglePack, deletePack, addPackPreset, deletePackPreset,
   getOffers, createOffer, updateOffer, toggleOffer, deleteOffer,
@@ -44,8 +45,9 @@ function promoStatus(promo) {
   return 'active';
 }
 
-export default function Packs({ readOnly = false }) {
-  if (window.innerWidth < 768) return <PacksMobile readOnly={readOnly} />;
+export default function Packs({ readOnly = false, lang = 'en' }) {
+  const t = useT(lang);
+  if (window.innerWidth < 768) return <PacksMobile readOnly={readOnly} lang={lang} />;
   const [tab, setTab] = useState('packs');
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -262,7 +264,7 @@ export default function Packs({ readOnly = false }) {
     });
   };
 
-  if (loading) return <div className="loading">Loading...</div>;
+  if (loading) return <div className="loading">{t('loading')}</div>;
 
   const tabStyle = (active) => ({
     padding: '9px 22px', border: 'none', borderBottom: active ? '2px solid #1fd98a' : '2px solid transparent',
@@ -279,19 +281,19 @@ export default function Packs({ readOnly = false }) {
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">Packs & Promos</h1>
+        <h1 className="page-title">{t('packs')}</h1>
         {!readOnly && (
           <button className="btn btn-primary" onClick={onNew}>
-            {tab === 'packs' ? '+ New Pack' : tab === 'offers' ? '+ New Offer' : '+ New Promo Code'}
+            {tab === 'packs' ? t('new_pack') : tab === 'offers' ? t('new_offer') : t('new_promo')}
           </button>
         )}
       </div>
 
       {/* Tabs */}
       <div style={{ display: 'flex', borderBottom: '1px solid #222733', marginBottom: 24 }}>
-        <button style={tabStyle(tab === 'packs')} onClick={() => setTab('packs')}>📦 Packs</button>
-        <button style={tabStyle(tab === 'offers')} onClick={() => setTab('offers')}>🎁 Offers</button>
-        <button style={tabStyle(tab === 'promo')} onClick={() => setTab('promo')}>🏷️ Promo Codes</button>
+        <button style={tabStyle(tab === 'packs')} onClick={() => setTab('packs')}>{t('tab_packs')}</button>
+        <button style={tabStyle(tab === 'offers')} onClick={() => setTab('offers')}>{t('tab_offers')}</button>
+        <button style={tabStyle(tab === 'promo')} onClick={() => setTab('promo')}>{t('tab_promo')}</button>
       </div>
 
       {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}

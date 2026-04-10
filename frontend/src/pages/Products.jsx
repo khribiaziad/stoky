@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { getProducts, createProduct, updateProduct, deleteProduct, addVariant, updateVariant, deleteVariant, uploadProductImage, getSuppliers } from '../api';
 import ProductsMobileDemo from './ProductsMobileDemo';
+import { useT } from '../i18n';
 
-export default function Products({ readOnly = false }) {
-  if (window.innerWidth < 768) return <ProductsMobileDemo readOnly={readOnly} />;
+export default function Products({ readOnly = false, lang = 'en' }) {
+  const t = useT(lang);
+  if (window.innerWidth < 768) return <ProductsMobileDemo readOnly={readOnly} lang={lang} />;
   const [products, setProducts] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -180,13 +182,13 @@ export default function Products({ readOnly = false }) {
 
   const handleDeleteProduct = async (e, id) => {
     e.stopPropagation();
-    if (!confirm('Delete this product and all its variants?')) return;
+    if (!confirm(t('delete_product_confirm'))) return;
     await deleteProduct(id);
     load();
   };
 
   const handleDeleteVariant = async (id) => {
-    if (!confirm('Delete this variant?')) return;
+    if (!confirm(t('delete_variant_confirm'))) return;
     await deleteVariant(id);
     load();
   };
@@ -200,25 +202,24 @@ export default function Products({ readOnly = false }) {
     (p.short_name && p.short_name.toLowerCase().includes(search.toLowerCase()))
   );
 
-  if (loading) return <div className="loading">Loading products...</div>;
+  if (loading) return <div className="loading">{t('loading')}</div>;
 
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">Products</h1>
+        <h1 className="page-title">{t('products')}</h1>
         <div style={{ display: 'flex', gap: 10 }}>
           <div className="search-bar">
             <span>🔍</span>
-            <input placeholder="Search products..." value={search} onChange={e => setSearch(e.target.value)} />
+            <input placeholder={t('search')} value={search} onChange={e => setSearch(e.target.value)} />
           </div>
-          {!readOnly && <button className="btn btn-primary" onClick={() => setShowAddProduct(true)}>+ Add Product</button>}
+          {!readOnly && <button className="btn btn-primary" onClick={() => setShowAddProduct(true)}>+ {t('products')}</button>}
         </div>
       </div>
 
       {filtered.length === 0 ? (
         <div className="empty-state">
-          <h3>No products yet</h3>
-          <p>Add your first product to get started</p>
+          <h3>{t('products')}</h3>
         </div>
       ) : (
         filtered.map(product => (

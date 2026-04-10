@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { UserCheck, Trash2, Phone, MapPin, Package, Clock, RefreshCw, CheckCircle, MessageCircle } from 'lucide-react';
 import { getLeads, deleteLead, confirmLead, cancelLead, notAnsweringLead, reportLead, errorMessage } from '../api';
 import ErrorExplain from '../components/ErrorExplain';
+import { useT } from '../i18n';
 
 const STATUS_CONFIG = {
   pending:      { label: 'New Lead',      color: '#f59e0b', bg: '#f59e0b1f' },
@@ -35,7 +36,8 @@ const leadCardStyle = (lead, isDueToday) => {
   return S[lead.status] || {};
 };
 
-function LeadCard({ lead, isExpanded, onToggle, onUpdate, onDelete }) {
+function LeadCard({ lead, isExpanded, onToggle, onUpdate, onDelete, lang = 'en' }) {
+  const t = useT(lang);
   const [confirming,  setConfirming]  = useState(false);
   const [deleting,    setDeleting]    = useState(false);
   const [error,       setError]       = useState('');
@@ -249,7 +251,7 @@ function LeadCard({ lead, isExpanded, onToggle, onUpdate, onDelete }) {
               <button className="btn btn-primary btn-sm" onClick={handleConfirm} disabled={confirming}
                 style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                 <CheckCircle size={12} strokeWidth={1.75} />
-                {confirming ? 'Confirming…' : 'Confirm Order'}
+                {confirming ? t('confirming') : t('confirm_order')}
               </button>
             )}
 
@@ -257,7 +259,7 @@ function LeadCard({ lead, isExpanded, onToggle, onUpdate, onDelete }) {
               <button className="btn btn-secondary btn-sm"
                 style={{ color: '#a855f7', borderColor: 'rgba(168,85,247,0.5)' }}
                 onClick={() => { setReportDate(lead.reported_date ? lead.reported_date.slice(0, 10) : ''); setShowReport(true); }}>
-                📅 Report
+                {t('report_lead')}
               </button>
             )}
 
@@ -265,7 +267,7 @@ function LeadCard({ lead, isExpanded, onToggle, onUpdate, onDelete }) {
               <button className="btn btn-secondary btn-sm"
                 style={{ color: '#6b7280' }}
                 onClick={handleNotAnswering}>
-                📵 Not Answering
+                {t('not_answering')}
               </button>
             )}
 
@@ -273,7 +275,7 @@ function LeadCard({ lead, isExpanded, onToggle, onUpdate, onDelete }) {
               <button className="btn btn-secondary btn-sm"
                 style={{ color: '#ef4444', borderColor: 'rgba(240,79,79,0.5)' }}
                 onClick={handleCancel}>
-                ✕ Cancel
+                {t('cancel_lead')}
               </button>
             )}
 
@@ -293,7 +295,8 @@ function LeadCard({ lead, isExpanded, onToggle, onUpdate, onDelete }) {
   );
 }
 
-export default function Leads() {
+export default function Leads({ readOnly = false, lang = 'en' }) {
+  const t = useT(lang);
   const [leads,      setLeads]      = useState([]);
   const [loading,    setLoading]    = useState(true);
   const [error,      setError]      = useState('');
@@ -353,7 +356,7 @@ export default function Leads() {
       <div className="page-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <UserCheck size={20} strokeWidth={1.75} style={{ color: 'var(--accent)' }} />
-          <h1 className="page-title">Leads</h1>
+          <h1 className="page-title">{t('leads')}</h1>
         </div>
         <button
           className="btn btn-secondary btn-sm"
@@ -362,17 +365,17 @@ export default function Leads() {
           style={{ display: 'flex', alignItems: 'center', gap: 6 }}
         >
           <RefreshCw size={13} strokeWidth={1.75} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
-          Refresh
+          {t('refresh')}
         </button>
       </div>
 
       {leads.length > 0 && (
         <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
           {[
-            { key: 'pending',      label: 'New Leads',     color: '#f59e0b' },
-            { key: 'unresponsive', label: 'Not Answering', color: '#6b7280' },
-            { key: 'cancelled',    label: 'Cancelled',     color: '#ef4444' },
-            { key: 'all',          label: 'All',           color: 'var(--accent)' },
+            { key: 'pending',      label: t('leads_new'),           color: '#f59e0b' },
+            { key: 'unresponsive', label: t('leads_not_answering'), color: '#6b7280' },
+            { key: 'cancelled',    label: t('leads_cancelled'),     color: '#ef4444' },
+            { key: 'all',          label: t('orders_tab_all'),      color: 'var(--accent)' },
           ].map(({ key, label, color }) => (
             <button
               key={key}
@@ -405,17 +408,17 @@ export default function Leads() {
 
       {loading ? (
         <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--t3)', fontSize: 14 }}>
-          Loading leads…
+          {t('loading_leads')}
         </div>
       ) : leads.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--t3)', fontSize: 14 }}>
           <UserCheck size={40} strokeWidth={1} style={{ marginBottom: 12, opacity: 0.3 }} />
-          <div style={{ fontWeight: 600, fontSize: 16, color: 'var(--t2)', marginBottom: 6 }}>No leads yet</div>
-          <div>Once customers submit orders on your website, they'll appear here.</div>
+          <div style={{ fontWeight: 600, fontSize: 16, color: 'var(--t2)', marginBottom: 6 }}>{t('no_leads')}</div>
+          <div>{t('no_leads_hint')}</div>
         </div>
       ) : visibleLeads.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--t3)', fontSize: 14 }}>
-          No {filter === 'all' ? '' : filter} leads.
+          —
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -423,6 +426,7 @@ export default function Leads() {
             <LeadCard
               key={lead.id}
               lead={lead}
+              lang={lang}
               isExpanded={expandedId === lead.id}
               onToggle={() => setExpandedId(prev => prev === lead.id ? null : lead.id)}
               onUpdate={handleUpdate}

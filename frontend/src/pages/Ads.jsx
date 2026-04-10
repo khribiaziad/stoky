@@ -15,6 +15,7 @@ import {
   getProducts, getPacks, getOffers,
   getCampaignConnections, saveCampaignConnection, deleteCampaignConnection, getCampaignBulkStats,
 } from '../api';
+import { useT } from '../i18n';
 
 const META_OBJECTIVES = [
   { value: 'OUTCOME_SALES',       label: 'Sales' },
@@ -139,7 +140,8 @@ function getDotInfo(conn, delivered, periodSpendMAD, profit) {
 }
 
 // ── Component ───────────────────────────────────────────────
-export default function Ads() {
+export default function Ads({ readOnly = false, lang = 'en' }) {
+  const t = useT(lang);
   const [usdRate, setUsdRate] = useState(10);
   const [rateInput, setRateInput] = useState('10');
   const [rateMode, setRateMode] = useState('manual');
@@ -588,7 +590,7 @@ export default function Ads() {
     <div>
       {/* Header */}
       <div className="page-header">
-        <h1 className="page-title">Ads</h1>
+        <h1 className="page-title">{t('ads')}</h1>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           <button className="btn btn-primary" onClick={() => setShowAddPlatform(true)}>
             <Plus size={14} strokeWidth={2} style={{ marginRight: 4 }} />

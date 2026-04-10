@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Receipt, ArrowDownCircle, Trash2, Edit2, Power, Megaphone, Users, LayoutGrid, Link2, TrendingUp } from 'lucide-react';
 import ExpensesMobile from './ExpensesMobile';
+import { useT } from '../i18n';
 import CampaignConnectSidebar from './CampaignConnectSidebar';
 import {
   getFixedExpenses, createFixedExpense, updateFixedExpense,
@@ -75,8 +76,9 @@ const emptyExpense = () => ({
 });
 
 // ── Component ─────────────────────────────────────────────────
-export default function Expenses() {
-  if (window.innerWidth < 768) return <ExpensesMobile />;
+export default function Expenses({ readOnly = false, lang = 'en' }) {
+  const t = useT(lang);
+  if (window.innerWidth < 768) return <ExpensesMobile lang={lang} />;
   const [tab, setTab] = useState('overview');
 
   // Data
@@ -299,10 +301,10 @@ export default function Expenses() {
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">Expenses</h1>
+        <h1 className="page-title">{t('expenses')}</h1>
         <div style={{ display: 'flex', gap: 8 }}>
-          {tab === 'fixed'       && <button className="btn btn-primary" onClick={openNew}>+ Add Expense</button>}
-          {tab === 'withdrawals' && <button className="btn btn-primary" onClick={() => { setShowAddWithdrawal(true); setError(''); }}>+ Add Withdrawal</button>}
+          {tab === 'fixed'       && <button className="btn btn-primary" onClick={openNew}>+ {t('expenses')}</button>}
+          {tab === 'withdrawals' && <button className="btn btn-primary" onClick={() => { setShowAddWithdrawal(true); setError(''); }}>+ Withdrawal</button>}
         </div>
       </div>
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { getOrders, getProducts, getPacks, getOffers, getPromoCodes, uploadPickupPDF, bulkCreateOrders, uploadReturnPDF, processReturns, updateOrderStatus, updateOrder, deleteOrder, bulkUpdateOrderStatus, sendToOlivraison, sendToForcelog, getForcelogStatus, syncAllForcelog, syncAllOlivraison, requestOlivRamassage, requestForcelogRamassage, confirmPickup, errorMessage, getSetting } from '../api';
 import ErrorExplain from '../components/ErrorExplain';
 import { validatePhone, validateAmount, numericOnly, fieldErrorStyle } from '../utils/validate';
+import { useT } from '../i18n';
 
 function downloadCSV(rows, filename) {
   const csv = rows.map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
@@ -60,7 +61,8 @@ const rowStyle = (o) => {
   return S[o.status] || {};
 };
 
-export default function Orders() {
+export default function Orders({ user, readOnly = false, lang = 'en' }) {
+  const t = useT(lang);
   const [orders, setOrders] = useState([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -765,7 +767,7 @@ export default function Orders() {
   const filtered = orders.filter(searchMatch);
   const filteredReturns = orders.filter(searchMatch);
 
-  if (loading) return <div className="loading">Loading orders...</div>;
+  if (loading) return <div className="loading">{t('loading_orders')}</div>;
 
   return (
     <div>
@@ -791,9 +793,9 @@ export default function Orders() {
           <input type="file" ref={pickupRef} accept=".pdf" style={{ display: 'none' }} onChange={handlePickupUpload} />
           <input type="file" ref={returnRef} accept=".pdf" style={{ display: 'none' }} onChange={handleReturnUpload} />
           {activeTab === 'orders' ? <>
-            <button className="btn btn-primary" onClick={() => { setError(''); setShowManualOrder(true); }}>+ New Order</button>
+            <button className="btn btn-primary" onClick={() => { setError(''); setShowManualOrder(true); }}>{t('new_order')}</button>
             <button className="btn btn-secondary" onClick={() => pickupRef.current.click()} disabled={uploading}>
-              {uploading ? '⏳ Parsing...' : '📤 Upload Pickup PDF'}
+              {uploading ? '⏳ Parsing...' : t('upload_pickup_pdf')}
             </button>
             {/* More ▾ dropdown */}
             <div ref={moreMenuRef} style={{ position: 'relative' }}>
@@ -813,36 +815,36 @@ export default function Orders() {
                     className="btn btn-secondary"
                     style={{ width: '100%', textAlign: 'left', borderRadius: 0, border: 'none', borderBottom: '1px solid var(--border)', padding: '10px 16px' }}
                     onClick={() => { setShowMoreMenu(false); setRamassageResult(null); setShowRamassage(true); }}>
-                    📦 Request Pickup
+                    {t('request_pickup')}
                   </button>
                   {filter === 'awaiting_pickup' && (
                     <button
                       className="btn btn-secondary"
                       style={{ width: '100%', textAlign: 'left', borderRadius: 0, border: 'none', borderBottom: '1px solid var(--border)', padding: '10px 16px', color: '#60a5fa', borderColor: 'transparent' }}
                       onClick={() => { setShowMoreMenu(false); handleConfirmPickup(); }}>
-                      ✓ Confirm Pickup
+                      {t('confirm_pickup')}
                     </button>
                   )}
                   <button
                     className="btn btn-secondary"
                     style={{ width: '100%', textAlign: 'left', borderRadius: 0, border: 'none', borderBottom: '1px solid var(--border)', padding: '10px 16px' }}
                     onClick={() => { setShowMoreMenu(false); exportCSV(); }}>
-                    ⬇ Export CSV
+                    {t('export_csv')}
                   </button>
                   <button
                     className="btn btn-secondary"
                     style={{ width: '100%', textAlign: 'left', borderRadius: 0, border: 'none', padding: '10px 16px' }}
                     disabled={syncing}
                     onClick={() => { setShowMoreMenu(false); handleSyncAll(); }}>
-                    {syncing ? '⏳ Syncing...' : '⟳ Sync Deliveries'}
+                    {syncing ? '⏳...' : t('sync_deliveries')}
                   </button>
                 </div>
               )}
             </div>
           </> : <>
-            <button className="btn btn-secondary" style={{ borderColor: '#f87171', color: '#f87171' }} onClick={() => { setError(''); setShowManualReturn(true); }}>↩ Create Return</button>
+            <button className="btn btn-secondary" style={{ borderColor: '#f87171', color: '#f87171' }} onClick={() => { setError(''); setShowManualReturn(true); }}>{t('create_return')}</button>
             <button className="btn btn-secondary" onClick={() => returnRef.current.click()} disabled={uploading}>
-              {uploading ? '⏳ Parsing...' : '📥 Upload Return PDF'}
+              {uploading ? '⏳ Parsing...' : t('upload_return_pdf')}
             </button>
           </>}
         </div>
@@ -850,8 +852,8 @@ export default function Orders() {
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 0, marginBottom: 16, borderBottom: '1px solid var(--border)' }}>
-        {[{ id: 'orders', label: `Orders (${orderCount})` },
-          { id: 'returns', label: `Returns (${returnCount})` }].map(tab => (
+        {[{ id: 'orders', label: `${t('orders_tab_all')} (${orderCount})` },
+          { id: 'returns', label: `${t('orders_tab_returns')} (${returnCount})` }].map(tab => (
           <button key={tab.id} onClick={() => { setActiveTab(tab.id); setSearch(''); setFilter('all'); setSelectedIds(new Set()); setPage(1); setExpandedCardId(null); loadOrders({ p: 1, f: 'all', t: tab.id }); }}
             style={{
               background: 'none', border: 'none', padding: '10px 20px', cursor: 'pointer',
@@ -872,12 +874,12 @@ export default function Orders() {
       <div style={{ display: 'flex', gap: 10, marginBottom: 16, alignItems: 'center', flexWrap: 'wrap' }}>
         {activeTab === 'orders' && (() => {
           const STATUS_FILTERS = [
-            { value: 'all',             label: 'All',             countKey: null },
-            { value: 'pending',         label: 'Pending',         countKey: 'pending' },
-            { value: 'awaiting_pickup', label: 'Awaiting Pickup', countKey: 'awaiting_pickup' },
-            { value: 'in_delivery',     label: 'In Delivery',     countKey: 'in_delivery' },
-            { value: 'reported',        label: 'Reported',        countKey: 'reported' },
-            { value: 'delivered',       label: 'Delivered',       countKey: 'delivered' },
+            { value: 'all',             label: t('orders_tab_all'),        countKey: null },
+            { value: 'pending',         label: t('status_pending'),         countKey: 'pending' },
+            { value: 'awaiting_pickup', label: t('status_awaiting_pickup'), countKey: 'awaiting_pickup' },
+            { value: 'in_delivery',     label: t('status_in_delivery'),     countKey: 'in_delivery' },
+            { value: 'reported',        label: t('status_reported'),        countKey: 'reported' },
+            { value: 'delivered',       label: t('status_delivered'),       countKey: 'delivered' },
           ];
           return (<>
             {/* Desktop pills */}
@@ -941,7 +943,7 @@ export default function Orders() {
 
           <div className="search-bar">
             <span>🔍</span>
-            <input placeholder="Search by name, CMD, city, or phone..." value={search} onChange={e => setSearch(e.target.value)} />
+            <input placeholder={t('search_orders')} value={search} onChange={e => setSearch(e.target.value)} />
           </div>
         </div>
       </div>
@@ -949,7 +951,7 @@ export default function Orders() {
       {/* Bulk action bar — orders tab only */}
       {activeTab === 'orders' && selectedIds.size > 0 && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', background: '#1a1a2e', border: '1px solid #00d48f44', borderRadius: 10, marginBottom: 12, flexWrap: 'wrap' }}>
-          <span style={{ fontWeight: 600, color: '#00d48f' }}>{selectedIds.size} selected</span>
+          <span style={{ fontWeight: 600, color: '#00d48f' }}>{selectedIds.size} {t('selected')}</span>
           <select className="btn btn-sm btn-secondary" style={{ cursor: 'pointer', fontSize: 12, color: '#60a5fa', borderColor: '#60a5fa' }} value=""
             onChange={e => {
               const courier = e.target.value;
@@ -958,15 +960,15 @@ export default function Orders() {
               Promise.allSettled(selected.map(o => courier === 'olivraison' ? handleSendOlivraison(o.id) : handleSendForcelog(o.id)))
                 .then(() => setSelectedIds(new Set()));
             }}>
-            <option value="" disabled>🚚 Send to courier…</option>
+            <option value="" disabled>{t('send_to_courier')}</option>
             <option value="olivraison">Olivraison</option>
             <option value="forcelog">Forcelog</option>
           </select>
-          <span style={{ color: 'var(--t2)', fontSize: 13 }}>Update to:</span>
-          <button className="btn btn-sm btn-secondary" style={{ borderColor: '#4ade80', color: '#4ade80' }} onClick={() => handleBulkStatus('delivered')}>✓ Delivered</button>
-          <button className="btn btn-sm btn-secondary" style={{ borderColor: '#f59e0b', color: '#f59e0b' }} onClick={() => handleBulkStatus('pending')}>⏳ Pending</button>
-          <button className="btn btn-sm btn-secondary" style={{ borderColor: '#f87171', color: '#f87171' }} onClick={() => handleBulkStatus('cancelled')}>✕ Cancelled</button>
-          <button className="btn btn-sm btn-secondary" style={{ marginLeft: 'auto' }} onClick={() => setSelectedIds(new Set())}>Clear selection</button>
+          <span style={{ color: 'var(--t2)', fontSize: 13 }}>{t('update_to')}</span>
+          <button className="btn btn-sm btn-secondary" style={{ borderColor: '#4ade80', color: '#4ade80' }} onClick={() => handleBulkStatus('delivered')}>✓ {t('status_delivered')}</button>
+          <button className="btn btn-sm btn-secondary" style={{ borderColor: '#f59e0b', color: '#f59e0b' }} onClick={() => handleBulkStatus('pending')}>⏳ {t('status_pending')}</button>
+          <button className="btn btn-sm btn-secondary" style={{ borderColor: '#f87171', color: '#f87171' }} onClick={() => handleBulkStatus('cancelled')}>✕ {t('status_cancelled')}</button>
+          <button className="btn btn-sm btn-secondary" style={{ marginLeft: 'auto' }} onClick={() => setSelectedIds(new Set())}>{t('clear_selection')}</button>
         </div>
       )}
 
@@ -975,15 +977,15 @@ export default function Orders() {
         <div className="card">
           {filteredReturns.length === 0 ? (
             <div className="empty-state">
-              <h3>No returns yet</h3>
-              <p>Click "↩ Create Return" to register a returned order</p>
+              <h3>{t('no_returns')}</h3>
+              <p>{t('no_returns_hint')}</p>
             </div>
           ) : (
             <div className="table-wrapper">
               <table>
                 <thead>
                   <tr>
-                    <th>CMD-ID</th><th>Customer</th><th>City</th><th>Amount</th><th>Items</th><th>Status</th><th>Date</th><th>Actions</th>
+                    <th>{t('cmd_id')}</th><th>{t('customer')}</th><th>{t('city')}</th><th>{t('amount')}</th><th>{t('items')}</th><th>{t('status')}</th><th>{t('date')}</th><th></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1031,8 +1033,7 @@ export default function Orders() {
       {activeTab === 'orders' && <div className="card ord-desktop-table" style={{ opacity: tableLoading ? 0.5 : 1, transition: 'opacity 0.15s' }}>
         {filtered.length === 0 ? (
           <div className="empty-state">
-            <h3>No orders found</h3>
-            <p>Upload a Pickup Parcels PDF to create orders</p>
+            <h3>{t('no_orders_period')}</h3>
           </div>
         ) : (
           <div className="table-wrapper">
@@ -1044,7 +1045,7 @@ export default function Orders() {
                       checked={selectedIds.size === filtered.length && filtered.length > 0}
                       onChange={toggleSelectAll} title="Select all" />
                   </th>
-                  <th>Customer</th><th>City</th><th>Amount</th><th>Items</th><th>Status</th><th>Actions</th>
+                  <th>{t('customer')}</th><th>{t('city')}</th><th>{t('amount')}</th><th>{t('items')}</th><th>{t('status')}</th><th></th>
                 </tr>
               </thead>
               <tbody>
@@ -1623,8 +1624,8 @@ export default function Orders() {
               ); })}
             </div>
             <div className="modal-footer">
-              <button className="btn btn-secondary" onClick={() => setParsedOrders(null)}>Cancel</button>
-              <button className="btn btn-primary" onClick={handleSaveOrders}>Save All Orders</button>
+              <button className="btn btn-secondary" onClick={() => setParsedOrders(null)}>{t('cancel')}</button>
+              <button className="btn btn-primary" onClick={handleSaveOrders}>{t('save')} {t('orders')}</button>
             </div>
           </div>
         </div>
@@ -1635,7 +1636,7 @@ export default function Orders() {
         <div className="modal-overlay">
           <form className="modal modal-lg" onSubmit={e => { e.preventDefault(); handleManualOrder(); }}>
             <div className="modal-header">
-              <h2>+ New Order</h2>
+              <h2>{t('new_order')}</h2>
               <button className="btn-icon" onClick={() => { setShowManualOrder(false); setError(''); setManualOrderType('single'); setSelectedPackId(''); setSelectedPresetId(''); setSelectedOfferId(''); setPromoCode(''); setPromoResult(null); }}>✕</button>
             </div>
             <div className="modal-body">
@@ -2189,7 +2190,7 @@ export default function Orders() {
                 if (v === 'olivraison') filtered.filter(o => selectedIds.has(o.id)).forEach(o => handleSendOlivraison(o.id));
                 if (v === 'forcelog') filtered.filter(o => selectedIds.has(o.id)).forEach(o => handleSendForcelog(o.id));
               }}>
-                <option value="" disabled>🚚 Send to courier…</option>
+                <option value="" disabled>{t('send_to_courier')}</option>
                 <option value="olivraison">Olivraison</option>
                 <option value="forcelog">Forcelog</option>
               </select>
@@ -2198,7 +2199,7 @@ export default function Orders() {
           )}
 
           {filtered.length === 0 ? (
-            <div className="empty-state"><h3>No orders found</h3></div>
+            <div className="empty-state"><h3>{t('no_orders_period')}</h3></div>
           ) : filtered.map(o => {
             const today = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })();
             const isDueToday = o.status === 'reported' && o.reported_date && o.reported_date.slice(0, 10) === today;
@@ -2253,7 +2254,7 @@ export default function Orders() {
                       {!o.tracking_id && (
                         <select className="btn btn-secondary btn-sm" style={{ fontSize: 12, cursor: 'pointer' }} value=""
                           onChange={e => { if (e.target.value === 'olivraison') handleSendOlivraison(o.id); if (e.target.value === 'forcelog') handleSendForcelog(o.id); }}>
-                          <option value="" disabled>🚚 Send to courier…</option>
+                          <option value="" disabled>{t('send_to_courier')}</option>
                           <option value="olivraison">Olivraison</option>
                           <option value="forcelog">Forcelog</option>
                         </select>
@@ -2326,9 +2327,9 @@ export default function Orders() {
               )}
             </div>
             <div className="modal-footer">
-              <button className="btn btn-secondary" onClick={() => setShowRamassage(false)}>Close</button>
+              <button className="btn btn-secondary" onClick={() => setShowRamassage(false)}>{t('close')}</button>
               <button className="btn btn-primary" onClick={handleRamassage} disabled={ramassageLoading}>
-                {ramassageLoading ? '⏳ Requesting...' : '📦 Request Pickup'}
+                {ramassageLoading ? '⏳...' : t('request_pickup')}
               </button>
             </div>
           </div>

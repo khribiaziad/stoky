@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Plus, Trash2, MessageSquare } from 'lucide-react';
+import { useT } from '../i18n';
 
 const API = (path, opts = {}) => {
   const token = localStorage.getItem('token');
@@ -21,6 +22,7 @@ function timeAgo(dateStr) {
 }
 
 export default function RexPage({ lang = 'en' }) {
+  const t = useT(lang);
   const [conversations, setConversations] = useState([]);
   const [activeId, setActiveId] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -32,11 +34,7 @@ export default function RexPage({ lang = 'en' }) {
   const inputRef = useRef(null);
   const isAr = lang === 'ar';
 
-  const placeholder = {
-    en: 'Ask Rex anything about your business...',
-    fr: 'Posez une question à Rex...',
-    ar: 'اسأل ريكس عن أي شيء...',
-  }[lang] || 'Ask Rex anything...';
+  const placeholder = t('rex_placeholder');
 
   // Load conversations on mount
   useEffect(() => {
@@ -159,9 +157,9 @@ export default function RexPage({ lang = 'en' }) {
         const updated = [...prev];
         const last = updated[updated.length - 1];
         if (last?.streaming) {
-          updated[updated.length - 1] = { role: 'rex', content: 'Something went wrong. Please try again.', error: true };
+          updated[updated.length - 1] = { role: 'rex', content: t('rex_error'), error: true };
         } else {
-          updated.push({ role: 'rex', content: 'Something went wrong. Please try again.', error: true });
+          updated.push({ role: 'rex', content: t('rex_error'), error: true });
         }
         return updated;
       });
@@ -195,7 +193,7 @@ export default function RexPage({ lang = 'en' }) {
 
         <div className="rex-page-conv-list">
           {conversations.length === 0 && (
-            <div className="rex-page-empty-convs">No conversations yet</div>
+            <div className="rex-page-empty-convs">{t('rex_no_convs')}</div>
           )}
           {conversations.map(c => (
             <div
@@ -205,7 +203,7 @@ export default function RexPage({ lang = 'en' }) {
             >
               <MessageSquare size={13} strokeWidth={1.75} className="rex-page-conv-icon" />
               <div className="rex-page-conv-info">
-                <div className="rex-page-conv-title">{c.title || 'New conversation'}</div>
+                <div className="rex-page-conv-title">{c.title || t('rex_new_conv')}</div>
                 <div className="rex-page-conv-time">{timeAgo(c.updated_at)}</div>
               </div>
               <button
@@ -225,11 +223,11 @@ export default function RexPage({ lang = 'en' }) {
         {!activeId ? (
           <div className="rex-page-welcome">
             <div className="rex-page-welcome-avatar">R</div>
-            <h2 className="rex-page-welcome-title">Hey, I'm Rex</h2>
-            <p className="rex-page-welcome-sub">Your business intelligence layer. I have full visibility into your store — orders, stock, financials, team, ads, and more.</p>
+            <h2 className="rex-page-welcome-title">{t('rex_welcome_title')}</h2>
+            <p className="rex-page-welcome-sub">{t('rex_welcome_sub')}</p>
             <button className="btn btn-primary" onClick={newConversation}>
               <Plus size={15} strokeWidth={2} />
-              Start a conversation
+              {t('rex_start')}
             </button>
           </div>
         ) : (
@@ -240,7 +238,7 @@ export default function RexPage({ lang = 'en' }) {
                 <div className="rex-page-loading">Loading...</div>
               )}
               {messages.length === 0 && !convLoading && (
-                <div className="rex-page-empty-msgs">Ask Rex anything about your business.</div>
+                <div className="rex-page-empty-msgs">{t('rex_empty')}</div>
               )}
               {messages.map((m, i) => (
                 <div key={i} className={`rex-page-msg rex-page-msg-${m.role}${m.error ? ' rex-page-msg-error' : ''}`}>
