@@ -223,6 +223,14 @@ This means splitting the work across agents is not just good architecture, it's 
 
 You see what no individual store can see. Each store contributes data. You hold the full picture.
 
+### Long-term architecture — Rex lives outside Stocky
+Rex cannot live inside one store's Stocky instance at scale. The right architecture:
+- **`stoky`** → per-store dashboard, the data collection layer
+- **`stoky-bot`** → evolves into the Rex platform (already a separate repo/deployment)
+- **`stoky-website`** → marketing
+
+`stoky-bot` is already the seed of this — it's a separate service that calls Stocky's API. It grows from a WhatsApp bot into the full Rex intelligence platform. Rex currently lives inside `stoky/backend/rex/` as a starting point, but the direction is to move him into `stoky-bot` as the platform matures.
+
 ### Potential monetization paths (noted, not built yet)
 - Facilitate deals between stores and suppliers/couriers on the network (take a cut)
 - Sell winning product / regional trend reports to stores
