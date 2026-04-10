@@ -134,9 +134,35 @@ Rex is the CEO. When the owner asks a question, Rex consults specialized agents,
 - `frontend/src/components/RexChat.jsx` — floating chat UI (hidden for confirmers)
 - `stoky-bot/rex.js` — WhatsApp bot calls `/api/rex/customer`
 
+### Conversation storage
+- `RexConversation` + `RexMessage` models store full history per store
+- Conversations have auto-title from first message
+- Endpoints: `GET/POST /api/rex/conversations`, `GET/DELETE /api/rex/conversations/{id}`, `POST /api/rex/conversations/{id}/ask`
+
+### Streaming
+- `/api/rex/conversations/{id}/ask` returns SSE (`text/event-stream`)
+- Events: `{"type":"status","text":"Consulting Hassan..."}`, `{"type":"token","text":"word"}`, `{"type":"done","answer":"full text"}`
+- Phase 1: agentic loop (non-streaming) — yields status events per agent
+- Phase 2: final synthesis streams token by token via `client.messages.stream()`
+
+### Memory
+- `RexMemory` model: one JSON blob per store with key-value facts
+- Rex reads memory before every answer (injected into system prompt)
+- After each conversation, `extract_and_update_memory()` extracts new facts via Haiku
+- `backend/rex/memory.py` — load, save, format, extract
+
+### Historical trends
+- Hassan: compares this month vs prev month (revenue, profit, orders delta %)
+- Omar: tracks city delivery rates vs prev month
+
+### n8n daily briefing
+- `GET /api/rex/briefing?api_key=<leads_api_key>` — called by n8n every morning
+- Returns a full morning briefing text ready for WhatsApp delivery
+
 ### Rules
-- Rex **never writes to the DB** — read only, always
+- Rex **never writes to the DB** — read only, always (memory extraction is the only write, via `memory.py`)
 - Owner mode uses `claude-sonnet-4-6`, agents use `claude-haiku-4-5-20251001`
 - Always answer in the language the user writes in (AR/FR/EN/Darija)
 - Never serve stale context — always build fresh on each request
 - The full `build_store_context()` is only used for `/insight` (proactive insight), not for `/ask`
+- The legacy `POST /api/rex/ask` endpoint is kept for the floating `RexChat` widget
