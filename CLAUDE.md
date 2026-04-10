@@ -169,6 +169,35 @@ Rex is the CEO. When the owner asks a question, Rex consults specialized agents,
 
 ---
 
+## Internationalization (i18n) — EN / FR / AR
+
+All UI text in the frontend is fully translated to English, French, and Arabic.
+
+### System
+- **Central file**: `frontend/src/i18n.js` — 300+ keys, three locales (EN/FR/AR), exports `useT(lang)` hook
+- **Hook pattern**: `import { useT } from '../i18n'` → `const t = useT(lang)` → `t('key')` in JSX
+- **Fallback chain**: `locale[key] ?? T.en[key] ?? key` — never crashes on missing key
+- **Lang state**: lives in `App.jsx`, persisted to `localStorage('app_lang')` and synced to backend via `setSetting('app_language', ...)`
+- **Prop propagation**: `App.jsx` passes `lang={lang}` to every page component
+
+### All pages accept `lang = 'en'` prop
+Orders, Leads, Products, Stock, Suppliers, Packs, Expenses, Team, Reports, Ads, Settings, Rex (page + chat widget), Login
+
+### Special cases
+- **Dashboard.jsx** — has its own internal `T` object with full EN/FR/AR (no useT needed)
+- **ErrorExplain.jsx** — has its own internal `L` object reading `localStorage('app_lang')`
+- **Login.jsx** — reads `localStorage.getItem('app_lang')` directly (no user/lang state yet)
+- **Nav section labels** — computed dynamically via `tNav(s.key)` in App.jsx using keys `nav_general`, `nav_inventory`, `nav_finance`, `nav_workspace`
+
+### RTL support
+Arabic triggers `dir="rtl"` on `<html>` via `useEffect` in App.jsx watching `lang`.
+
+### Adding new translatable strings
+1. Add key to all three locales in `frontend/src/i18n.js`
+2. Use `t('key')` in the component (component must already accept `lang` prop)
+
+---
+
 ## The Stocky Ecosystem Vision — CRITICAL CONTEXT
 
 **Stocky is not just a SaaS dashboard. It is a network.**
