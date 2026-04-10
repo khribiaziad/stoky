@@ -166,3 +166,40 @@ Rex is the CEO. When the owner asks a question, Rex consults specialized agents,
 - Never serve stale context — always build fresh on each request
 - The full `build_store_context()` is only used for `/insight` (proactive insight), not for `/ask`
 - The legacy `POST /api/rex/ask` endpoint is kept for the floating `RexChat` widget
+
+---
+
+## The Stocky Ecosystem Vision — CRITICAL CONTEXT
+
+**Stocky is not just a SaaS dashboard. It is a network.**
+
+Every store using Stocky is a node in an ecosystem. Rex is the intelligence layer that sees across all nodes — without any individual store knowing about the others.
+
+### Rex has two levels of intelligence
+
+**Level 1 — Store level (current)**
+Rex helps the individual store owner understand and run their business better.
+
+**Level 2 — Ecosystem level (the real vision)**
+Rex sees across ALL stores on the platform and identifies cross-network opportunities:
+
+- Store A buys product X at 5 USD → Rex knows
+- Supplier B (also on Stocky) sells product X at 4 USD → Rex knows
+- Rex surfaces the match → platform owner facilitates the deal → store saves money, supplier gets a new client
+
+Same logic applies to:
+- Delivery companies on Stocky with better rates for specific cities
+- Products with high return rates across stores → better supplier exists on the network
+- A store struggling with a city → another courier on the platform serves it better
+
+### Why this matters for how we build
+
+- **Store profiles / Rex memory** are not just for UX — they are the raw data for ecosystem intelligence
+- Every data point Rex collects per store feeds the network-level analysis
+- The platform owner (you) uses Rex at the ecosystem level to spot and facilitate deals
+- Stores never see each other's data — they only experience a smarter Rex
+
+### What this means for architecture decisions
+- Store profile files (one per store) need to be structured so they can be read both by Rex for that store AND aggregated across stores by you
+- Rex will eventually need a `super_admin` mode — same brain, ecosystem-wide context
+- Every feature built for Rex should be evaluated at both levels: "how does this help the store owner?" AND "how does this data feed the ecosystem?"
