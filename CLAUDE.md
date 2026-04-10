@@ -203,3 +203,14 @@ Same logic applies to:
 - Store profile files (one per store) need to be structured so they can be read both by Rex for that store AND aggregated across stores by you
 - Rex will eventually need a `super_admin` mode — same brain, ecosystem-wide context
 - Every feature built for Rex should be evaluated at both levels: "how does this help the store owner?" AND "how does this data feed the ecosystem?"
+
+### Sub-agents at the ecosystem level
+Each agent owns their domain across ALL stores — not just one:
+- **Hassan** → pricing patterns, margin benchmarks across stores
+- **Karima** → best-selling products network-wide, stock trends
+- **Youssef** → courier performance per city across all stores (who really delivers best in Casablanca?)
+- **Hamza** → which ad platforms/campaigns work best per product category
+- **Omar** → cross-store analytics, city demand patterns, product trends
+
+At ecosystem level, Rex asks the same agents — they just query across all stores instead of one.
+This means splitting the work across agents is not just good architecture, it's the foundation of the ecosystem intelligence.
