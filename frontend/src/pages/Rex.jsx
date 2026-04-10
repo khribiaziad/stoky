@@ -130,6 +130,9 @@ export default function RexPage({ lang = 'en' }) {
                 updated[updated.length - 1] = { role: 'rex', content: rexContent, streaming: true };
                 return updated;
               });
+            } else if (data.type === 'error') {
+              console.error('Rex backend error:', data.text);
+              throw new Error(data.text);
             } else if (data.type === 'done') {
               setStatus('');
               rexContent = data.answer || rexContent;
@@ -150,7 +153,8 @@ export default function RexPage({ lang = 'en' }) {
           } catch {}
         }
       }
-    } catch {
+    } catch (err) {
+      console.error('Rex error:', err);
       setMessages(prev => {
         const updated = [...prev];
         const last = updated[updated.length - 1];

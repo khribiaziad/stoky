@@ -1,12 +1,13 @@
 """Rex API endpoints — the only way the frontend and bot talk to Rex."""
 
+import json
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, joinedload
 
-from database import get_db
+from database import get_db, SessionLocal
 from auth import get_current_user
 from rex.context_builder import build_store_context
 from rex.prompt_engine import ask_rex_customer, get_proactive_insight
@@ -125,41 +126,49 @@ def ask_in_conversation(
         conv.title = question[:60] + ("..." if len(question) > 60 else "")
         db.commit()
 
-    # Build history for Rex (last 10 turns, skip welcome)
+    # Capture everything needed before the generator runs (session-safe)
     history = [
         {"role": "user" if m.role == "user" else "assistant", "content": m.content}
         for m in conv.messages[-20:]
     ]
+    store_name = user.store_name
 
     def event_stream():
+        # Use a fresh DB session inside the generator — avoids session lifecycle issues with StreamingResponse
+        gen_db = SessionLocal()
         full_answer = ""
-
-        for event in stream_rex_owner(question, db, store_id, user.store_name, history):
-            yield event
-            # Capture final answer from done event
-            if event.startswith("data: "):
-                try:
-                    data = __import__("json").loads(event[6:])
-                    if data.get("type") == "done":
-                        full_answer = data.get("answer", "")
-                except Exception:
-                    pass
-
-        # Save messages to DB
-        db.add(models.RexMessage(conversation_id=conv_id, role="user", content=question))
-        if full_answer:
-            db.add(models.RexMessage(conversation_id=conv_id, role="rex", content=full_answer))
-
-        # Update conversation timestamp
-        conv.updated_at = datetime.utcnow()
-        db.commit()
-
-        # Extract memory facts in background (best-effort)
         try:
-            convo_text = f"Owner: {question}\nRex: {full_answer}"
-            extract_and_update_memory(db, store_id, convo_text)
-        except Exception:
-            pass
+            for event in stream_rex_owner(question, gen_db, store_id, store_name, history):
+                yield event
+                if event.startswith("data: "):
+                    try:
+                        data = json.loads(event[6:])
+                        if data.get("type") == "done":
+                            full_answer = data.get("answer", "")
+                        elif data.get("type") == "error":
+                            return
+                    except Exception:
+                        pass
+
+            # Save messages to DB
+            gen_db.add(models.RexMessage(conversation_id=conv_id, role="user", content=question))
+            if full_answer:
+                gen_db.add(models.RexMessage(conversation_id=conv_id, role="rex", content=full_answer))
+            conv_record = gen_db.query(models.RexConversation).filter_by(id=conv_id).first()
+            if conv_record:
+                conv_record.updated_at = datetime.utcnow()
+            gen_db.commit()
+
+            # Extract memory facts (best-effort)
+            try:
+                extract_and_update_memory(gen_db, store_id, f"Owner: {question}\nRex: {full_answer}")
+            except Exception:
+                pass
+
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'text': str(e)})}\n\n"
+        finally:
+            gen_db.close()
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 
