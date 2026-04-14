@@ -389,6 +389,80 @@ def delete_platform_expense(expense_id: int, db: Session = Depends(get_db), _: m
     return {"success": True}
 
 
+# ── AI cost overview (platform-wide) ─────────────────────────────────────────
+
+@router.get("/ai-costs")
+def get_platform_ai_costs(
+    year:  Optional[int] = None,
+    month: Optional[int] = None,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(require_super_admin),
+):
+    """Platform-wide Rex AI usage breakdown per store for the given month (defaults to current)."""
+    from rex.usage import USD_TO_MAD
+
+    now = datetime.utcnow()
+    y = year  or now.year
+    m = month or now.month
+
+    rows = (
+        db.query(
+            models.RexUsageLog.user_id,
+            models.RexUsageLog.source,
+            func.sum(models.RexUsageLog.cost_usd).label("total_usd"),
+        )
+        .filter(
+            extract("year",  models.RexUsageLog.created_at) == y,
+            extract("month", models.RexUsageLog.created_at) == m,
+        )
+        .group_by(models.RexUsageLog.user_id, models.RexUsageLog.source)
+        .all()
+    )
+
+    # Group by store
+    store_data = {}
+    for row in rows:
+        sid = row.user_id
+        if sid not in store_data:
+            store_data[sid] = {"owner_usd": 0, "bot_usd": 0, "memory_usd": 0}
+        if row.source == "bot":
+            store_data[sid]["bot_usd"] += float(row.total_usd or 0)
+        elif row.source == "memory":
+            store_data[sid]["memory_usd"] += float(row.total_usd or 0)
+        else:
+            store_data[sid]["owner_usd"] += float(row.total_usd or 0)
+
+    # Fetch store names
+    store_ids = list(store_data.keys())
+    stores = {u.id: u.store_name for u in db.query(models.User).filter(models.User.id.in_(store_ids)).all()}
+
+    result = []
+    total_usd = 0
+    for sid, costs in store_data.items():
+        rex_usd  = costs["owner_usd"] + costs["memory_usd"]
+        bot_usd  = costs["bot_usd"]
+        sum_usd  = rex_usd + bot_usd
+        total_usd += sum_usd
+        result.append({
+            "store_id":   sid,
+            "store_name": stores.get(sid, f"Store #{sid}"),
+            "rex_mad":    round(rex_usd * USD_TO_MAD, 2),
+            "bot_mad":    round(bot_usd * USD_TO_MAD, 2),
+            "total_mad":  round(sum_usd * USD_TO_MAD, 2),
+        })
+
+    result.sort(key=lambda x: x["total_mad"], reverse=True)
+
+    from datetime import datetime as dt
+    return {
+        "month":      dt(y, m, 1).strftime("%B %Y"),
+        "year":       y,
+        "month_num":  m,
+        "total_mad":  round(total_usd * USD_TO_MAD, 2),
+        "stores":     result,
+    }
+
+
 # ── Platform settings (pricing) ───────────────────────────────────────────────
 
 @router.get("/settings")

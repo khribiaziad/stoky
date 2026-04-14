@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, Edit2, X, ChevronDown } from 'lucide-react';
-import { getPlatformExpenses, createPlatformExpense, updatePlatformExpense, deletePlatformExpense } from '../../api';
+import { Plus, Trash2, Edit2, X, ChevronDown, Bot } from 'lucide-react';
+import { getPlatformExpenses, createPlatformExpense, updatePlatformExpense, deletePlatformExpense, getPlatformAiCosts } from '../../api';
 
 const CATEGORIES = ['hosting', 'domain', 'software', 'marketing', 'other'];
 const TYPES      = ['monthly', 'annual', 'one_time'];
@@ -144,6 +144,95 @@ function ExpenseForm({ initial, onSave, onCancel }) {
   );
 }
 
+// ── AI Costs Card ─────────────────────────────────────────────────────────────
+
+function AiCostsCard() {
+  const [data, setData]       = useState(null);
+  const [loading, setLoading] = useState(true);
+  const now = new Date();
+  const [year,  setYear]  = useState(now.getFullYear());
+  const [month, setMonth] = useState(now.getMonth() + 1);
+
+  useEffect(() => {
+    setLoading(true);
+    getPlatformAiCosts(year, month)
+      .then(r => setData(r.data))
+      .catch(() => setData(null))
+      .finally(() => setLoading(false));
+  }, [year, month]);
+
+  const fmtMAD = n => Number(n || 0).toLocaleString('fr-MA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  return (
+    <div className="card" style={{ marginBottom: 24 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Bot size={16} strokeWidth={1.75} style={{ color: '#a78bfa' }} />
+          <span style={{ fontWeight: 600, fontSize: 15 }}>AI Expenses — {data?.month || '…'}</span>
+        </div>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <select className="form-input" style={{ height: 30, fontSize: 12, width: 90 }}
+            value={month} onChange={e => setMonth(Number(e.target.value))}>
+            {months.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
+          </select>
+          <select className="form-input" style={{ height: 30, fontSize: 12, width: 78 }}
+            value={year} onChange={e => setYear(Number(e.target.value))}>
+            {[now.getFullYear() - 1, now.getFullYear()].map(y => <option key={y} value={y}>{y}</option>)}
+          </select>
+        </div>
+      </div>
+
+      {loading ? (
+        <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Loading…</div>
+      ) : !data || data.stores.length === 0 ? (
+        <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>No AI usage recorded for this month.</div>
+      ) : (
+        <>
+          {/* Total */}
+          <div style={{ display: 'flex', gap: 14, marginBottom: 16, flexWrap: 'wrap' }}>
+            <div style={{ background: 'var(--card-2)', borderRadius: 10, padding: '10px 18px', flex: 1, minWidth: 130 }}>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Total this month</div>
+              <div style={{ fontSize: 20, fontWeight: 700 }}>{fmtMAD(data.total_mad)} <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>MAD</span></div>
+            </div>
+            <div style={{ background: 'var(--card-2)', borderRadius: 10, padding: '10px 18px', flex: 1, minWidth: 130 }}>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Active stores</div>
+              <div style={{ fontSize: 20, fontWeight: 700 }}>{data.stores.length}</div>
+            </div>
+            <div style={{ background: 'var(--card-2)', borderRadius: 10, padding: '10px 18px', flex: 1, minWidth: 130 }}>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Avg per store</div>
+              <div style={{ fontSize: 20, fontWeight: 700 }}>{fmtMAD(data.total_mad / data.stores.length)} <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>MAD</span></div>
+            </div>
+          </div>
+
+          {/* Per-store table */}
+          <div style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 110px 110px 120px', gap: 0,
+              background: 'var(--card-2)', padding: '8px 14px', fontSize: 11,
+              color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              <span>Store</span>
+              <span style={{ textAlign: 'right' }}>Rex</span>
+              <span style={{ textAlign: 'right' }}>Bot</span>
+              <span style={{ textAlign: 'right' }}>Total</span>
+            </div>
+            {data.stores.map(s => (
+              <div key={s.store_id} style={{ display: 'grid', gridTemplateColumns: '1fr 110px 110px 120px',
+                padding: '10px 14px', borderTop: '1px solid var(--border)', fontSize: 13, alignItems: 'center' }}>
+                <span style={{ fontWeight: 500 }}>{s.store_name}</span>
+                <span style={{ textAlign: 'right', color: '#a78bfa' }}>{s.rex_mad > 0 ? fmtMAD(s.rex_mad) : '—'}</span>
+                <span style={{ textAlign: 'right', color: '#06b6d4' }}>{s.bot_mad > 0 ? fmtMAD(s.bot_mad) : '—'}</span>
+                <span style={{ textAlign: 'right', fontWeight: 700 }}>{fmtMAD(s.total_mad)} MAD</span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 export default function PlatformExpenses() {
@@ -197,6 +286,8 @@ export default function PlatformExpenses() {
           <Plus size={14} strokeWidth={1.75} /> Add Expense
         </button>
       </div>
+
+      <AiCostsCard />
 
       <SummaryCards expenses={expenses} />
 

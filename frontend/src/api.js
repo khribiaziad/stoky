@@ -252,6 +252,7 @@ export const getPlatformExpenses     = (month) => api.get('/platform/expenses', 
 export const createPlatformExpense   = (data) => api.post('/platform/expenses', data);
 export const updatePlatformExpense   = (id, data) => api.patch(`/platform/expenses/${id}`, data);
 export const deletePlatformExpense   = (id) => api.delete(`/platform/expenses/${id}`);
+export const getPlatformAiCosts      = (year, month) => api.get('/platform/ai-costs', { params: { year, month } });
 export const deleteStore             = (id) => api.delete(`/platform/stores/${id}`);
 export const importStoreExcel        = (storeId, file) => { const form = new FormData(); form.append('file', file); return api.post(`/platform/stores/${storeId}/import-excel`, form, { headers: { 'Content-Type': 'multipart/form-data' } }); };
 
