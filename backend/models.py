@@ -605,6 +605,7 @@ class RexUsageLog(Base):
     id            = Column(Integer, primary_key=True)
     user_id       = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     model         = Column(String, nullable=False)
+    source        = Column(String, default="owner")  # owner | bot | memory
     input_tokens  = Column(Integer, default=0)
     output_tokens = Column(Integer, default=0)
     cost_usd      = Column(Float, default=0.0)

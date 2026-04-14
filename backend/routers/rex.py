@@ -13,7 +13,7 @@ from rex.context_builder import build_store_context
 from rex.prompt_engine import ask_rex_customer, get_proactive_insight
 from rex.orchestrator import ask_rex_owner, stream_rex_owner
 from rex.memory import extract_and_update_memory
-from rex.usage import log_usage, bill_month
+from rex.usage import log_usage, bill_month, USD_TO_MAD
 import models
 
 router = APIRouter(prefix="/api/rex", tags=["rex"])
@@ -308,7 +308,7 @@ def customer_message(
     else:
         response = ask_rex_customer(message, customer_context, history, products)
 
-    log_usage(db, store_id, "claude-haiku-4-5-20251001", response.usage.input_tokens, response.usage.output_tokens)
+    log_usage(db, store_id, "claude-haiku-4-5-20251001", response.usage.input_tokens, response.usage.output_tokens, source="bot")
 
     if response.stop_reason == "tool_use":
         tool_block = next((b for b in response.content if b.type == "tool_use"), None)
@@ -324,6 +324,61 @@ def customer_message(
         "text": text_block.text if text_block else "Sorry, something went wrong.",
         "tool_use": None,
         "assistant_content": [b.model_dump() for b in response.content],
+    }
+
+
+# ── AI Cost stats ────────────────────────────────────────────────────────────
+
+@router.get("/ai-costs")
+def get_ai_costs(
+    db: Session = Depends(get_db),
+    user: models.User = Depends(get_current_user),
+):
+    """Return this month's Rex AI usage costs split by source."""
+    from sqlalchemy import extract, func as sqlfunc
+
+    store_id = _get_store_id(user)
+    now = datetime.utcnow()
+
+    rows = (
+        db.query(
+            models.RexUsageLog.source,
+            sqlfunc.sum(models.RexUsageLog.cost_usd).label("total_usd"),
+        )
+        .filter(
+            models.RexUsageLog.user_id == store_id,
+            extract("year",  models.RexUsageLog.created_at) == now.year,
+            extract("month", models.RexUsageLog.created_at) == now.month,
+        )
+        .group_by(models.RexUsageLog.source)
+        .all()
+    )
+
+    costs = {row.source: float(row.total_usd or 0) for row in rows}
+    owner_usd  = costs.get("owner", 0) + costs.get("memory", 0)
+    bot_usd    = costs.get("bot", 0)
+
+    # Orders this month (for bot cost per order)
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    orders_count = (
+        db.query(models.Order)
+        .filter(
+            models.Order.user_id == store_id,
+            models.Order.is_deleted == False,
+            models.Order.order_date >= month_start,
+        )
+        .count()
+    )
+
+    bot_per_order = round(bot_usd * USD_TO_MAD / orders_count, 4) if orders_count > 0 else 0
+
+    return {
+        "month": now.strftime("%B %Y"),
+        "rex_cost_mad":      round(owner_usd * USD_TO_MAD, 2),
+        "bot_cost_mad":      round(bot_usd   * USD_TO_MAD, 2),
+        "bot_cost_per_order": bot_per_order,
+        "orders_this_month": orders_count,
+        "total_cost_mad":    round((owner_usd + bot_usd) * USD_TO_MAD, 2),
     }
 
 

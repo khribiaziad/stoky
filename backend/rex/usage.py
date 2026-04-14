@@ -24,12 +24,15 @@ def _cost_usd(model: str, input_tokens: int, output_tokens: int) -> float:
     return (input_tokens * price["input"] + output_tokens * price["output"]) / 1_000_000
 
 
-def log_usage(db: Session, user_id: int, model: str, input_tokens: int, output_tokens: int) -> None:
-    """Log one LLM call. Best-effort — never crashes the caller."""
+def log_usage(db: Session, user_id: int, model: str, input_tokens: int, output_tokens: int, source: str = "owner") -> None:
+    """Log one LLM call. Best-effort — never crashes the caller.
+    source: 'owner' (Rex dashboard) | 'bot' (WhatsApp) | 'memory' (memory extraction)
+    """
     try:
         entry = models.RexUsageLog(
             user_id=user_id,
             model=model,
+            source=source,
             input_tokens=input_tokens,
             output_tokens=output_tokens,
             cost_usd=_cost_usd(model, input_tokens, output_tokens),

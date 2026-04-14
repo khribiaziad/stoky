@@ -10,7 +10,7 @@ import {
   getAdPlatforms, getSetting, getTeam,
   getProducts, getPacks, getOffers,
   getCampaignConnections, saveCampaignConnection, deleteCampaignConnection,
-  getCampaignBulkStats, getAdsSpendSummary,
+  getCampaignBulkStats, getAdsSpendSummary, getAiCosts,
 } from '../api';
 
 // ── Catalogues ───────────────────────────────────────────────
@@ -91,6 +91,9 @@ export default function Expenses({ readOnly = false, lang = 'en' }) {
   // Real API ad spend summary
   const [adsSummary, setAdsSummary] = useState(null);
 
+  // AI costs
+  const [aiCosts, setAiCosts] = useState(null);
+
   // Campaign connections
   const [connections,  setConnections]  = useState([]);
   const [connStats,    setConnStats]    = useState({});
@@ -132,6 +135,7 @@ export default function Expenses({ readOnly = false, lang = 'en' }) {
     getProducts().then(r => setProducts(r.data)).catch(() => {});
     getPacks().then(r => setPacks(r.data)).catch(() => {});
     getOffers().then(r => setOffers(r.data)).catch(() => {});
+    getAiCosts().then(r => setAiCosts(r.data)).catch(() => {});
   };
 
   useEffect(() => { load(); }, []);
@@ -440,6 +444,52 @@ export default function Expenses({ readOnly = false, lang = 'en' }) {
               </div>
             )}
           </div>
+
+          {/* AI Expenses */}
+          {aiCosts && aiCosts.total_cost_mad > 0 && (
+            <div className="card">
+              <div className="card-title" style={{ marginBottom: 4 }}>AI Expenses — {aiCosts.month}</div>
+              <div style={{ fontSize: 12, color: '#8892b0', marginBottom: 16 }}>Token consumption costs for Rex and the WhatsApp bot</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+
+                {aiCosts.rex_cost_mad > 0 && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#a78bfa', flexShrink: 0 }} />
+                    <span style={{ flex: 1, fontSize: 14 }}>Rex Assistant</span>
+                    <span style={{ fontSize: 11, color: '#8892b0' }}>Software</span>
+                    <span className="badge badge-purple" style={{ fontSize: 11 }}>This month</span>
+                    <span style={{ fontWeight: 600, minWidth: 110, textAlign: 'right' }}>{fmt(aiCosts.rex_cost_mad)} MAD</span>
+                  </div>
+                )}
+
+                {aiCosts.bot_cost_mad > 0 && (
+                  <>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#06b6d4', flexShrink: 0 }} />
+                      <span style={{ flex: 1, fontSize: 14 }}>WhatsApp Bot</span>
+                      <span style={{ fontSize: 11, color: '#8892b0' }}>Software</span>
+                      <span className="badge badge-blue" style={{ fontSize: 11 }}>This month</span>
+                      <span style={{ fontWeight: 600, minWidth: 110, textAlign: 'right' }}>{fmt(aiCosts.bot_cost_mad)} MAD</span>
+                    </div>
+                    {aiCosts.bot_cost_per_order > 0 && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingLeft: 18 }}>
+                        <span style={{ flex: 1, fontSize: 12, color: '#8892b0' }}>
+                          {aiCosts.orders_this_month} orders this month
+                        </span>
+                        <span style={{ fontSize: 12, color: '#8892b0', minWidth: 110, textAlign: 'right' }}>
+                          {fmt(aiCosts.bot_cost_per_order)} MAD / order
+                        </span>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                <div style={{ borderTop: '1px solid #2d3248', paddingTop: 10, marginTop: 4, display: 'flex', justifyContent: 'flex-end' }}>
+                  <span style={{ fontWeight: 700, fontSize: 16 }}>{fmt(aiCosts.total_cost_mad)} MAD this month</span>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* One-time investments */}
           {expenses.filter(e => e.type === 'one_time').length > 0 && (

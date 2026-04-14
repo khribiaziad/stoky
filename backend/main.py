@@ -97,7 +97,8 @@ with engine.connect() as conn:
         "CREATE TABLE IF NOT EXISTS rex_conversations (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id), title VARCHAR, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
         "CREATE TABLE IF NOT EXISTS rex_messages (id INTEGER PRIMARY KEY, conversation_id INTEGER NOT NULL REFERENCES rex_conversations(id), role VARCHAR NOT NULL, content TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
         "CREATE TABLE IF NOT EXISTS rex_memory (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL UNIQUE REFERENCES users(id), facts JSON DEFAULT '{}', updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
-        "CREATE TABLE IF NOT EXISTS rex_usage_logs (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id), model VARCHAR NOT NULL, input_tokens INTEGER DEFAULT 0, output_tokens INTEGER DEFAULT 0, cost_usd REAL DEFAULT 0.0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
+        "CREATE TABLE IF NOT EXISTS rex_usage_logs (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id), model VARCHAR NOT NULL, source VARCHAR DEFAULT 'owner', input_tokens INTEGER DEFAULT 0, output_tokens INTEGER DEFAULT 0, cost_usd REAL DEFAULT 0.0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
+        "ALTER TABLE rex_usage_logs ADD COLUMN source VARCHAR DEFAULT 'owner'",
         "CREATE INDEX IF NOT EXISTS ix_rex_usage_logs_user_id ON rex_usage_logs (user_id)",
         "CREATE TABLE IF NOT EXISTS rex_billed_months (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id), year INTEGER NOT NULL, month INTEGER NOT NULL, cost_usd REAL DEFAULT 0.0, cost_mad REAL DEFAULT 0.0, expense_id INTEGER REFERENCES fixed_expenses(id), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE(user_id, year, month))",
     ]:

@@ -300,3 +300,4 @@ export const errorMessage = (e) => e?.response?.data?.detail || e?.message || 'A
 // Rex
 export const askRex        = (data) => api.post('/rex/ask', data);
 export const getRexInsight = ()     => api.get('/rex/insight');
+export const getAiCosts    = ()     => api.get('/rex/ai-costs');
