@@ -169,6 +169,27 @@ Rex is the CEO. When the owner asks a question, Rex consults specialized agents,
 
 ---
 
+## Rex AI Cost Tracking
+
+### How it works
+- Every LLM call logs to `rex_usage_logs`: `user_id`, `model`, `source`, `input_tokens`, `output_tokens`, `cost_usd`
+- `source` values: `"owner"` (Rex dashboard), `"bot"` (WhatsApp bot), `"memory"` (memory extraction)
+- Pricing constants in `backend/rex/usage.py`: Sonnet 4.6 = $3/$15 per MTok, Haiku 4.5 = $0.80/$4 per MTok
+- USD→MAD rate: `USD_TO_MAD = 10.0` (fixed, in `usage.py`)
+
+### Monthly auto-billing
+- `POST /api/rex/bill-monthly` (protected by `leads_api_key`) — call via n8n on the 1st of each month
+- Aggregates last month's cost per store → creates a `FixedExpense one_time` entry ("Rex AI – Month YYYY")
+- `rex_billed_months` table prevents double-billing
+- Expense flows into Reports and profit calculations automatically
+
+### Expenses page — AI Expenses card
+- `GET /api/rex/ai-costs` returns this month's Rex cost, bot cost, bot cost per order (MAD)
+- Card appears in Expenses → Overview tab, hidden when zero usage
+- Bot cost per order = total bot cost MAD / orders this month
+
+---
+
 ## Internationalization (i18n) — EN / FR / AR
 
 All UI text in the frontend is fully translated to English, French, and Arabic.
