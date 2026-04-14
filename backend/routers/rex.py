@@ -13,6 +13,7 @@ from rex.context_builder import build_store_context
 from rex.prompt_engine import ask_rex_customer, get_proactive_insight
 from rex.orchestrator import ask_rex_owner, stream_rex_owner
 from rex.memory import extract_and_update_memory
+from rex.usage import log_usage, bill_month
 import models
 
 router = APIRouter(prefix="/api/rex", tags=["rex"])
@@ -307,6 +308,8 @@ def customer_message(
     else:
         response = ask_rex_customer(message, customer_context, history, products)
 
+    log_usage(db, store_id, "claude-haiku-4-5-20251001", response.usage.input_tokens, response.usage.output_tokens)
+
     if response.stop_reason == "tool_use":
         tool_block = next((b for b in response.content if b.type == "tool_use"), None)
         if tool_block:
@@ -322,3 +325,36 @@ def customer_message(
         "tool_use": None,
         "assistant_content": [b.model_dump() for b in response.content],
     }
+
+
+# ── Monthly billing ───────────────────────────────────────────────────────────
+
+@router.post("/bill-monthly")
+def bill_monthly(
+    body: dict,
+    db: Session = Depends(get_db),
+):
+    """
+    Aggregate last month's Rex usage per store and create FixedExpense entries.
+    Called by n8n on the 1st of each month.
+    Protected by the platform leads_api_key.
+    Accepts optional {"year": 2026, "month": 3} to bill a specific month.
+    Defaults to the previous calendar month.
+    """
+    api_key = body.get("api_key", "")
+    setting = db.query(models.AppSettings).filter_by(key="leads_api_key", value=api_key).first()
+    if not setting:
+        # Also accept platform-level super admin call (any store's key is valid)
+        raise HTTPException(status_code=401, detail="Invalid API key")
+
+    now = datetime.utcnow()
+    if body.get("year") and body.get("month"):
+        year, month = int(body["year"]), int(body["month"])
+    else:
+        # Default: previous month
+        first_of_this_month = now.replace(day=1)
+        prev = first_of_this_month.replace(day=1) - __import__("datetime").timedelta(days=1)
+        year, month = prev.year, prev.month
+
+    result = bill_month(db, year, month)
+    return {"year": year, "month": month, **result}

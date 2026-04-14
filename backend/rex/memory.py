@@ -12,6 +12,7 @@ import anthropic
 from sqlalchemy.orm import Session
 
 import models
+from rex.usage import log_usage
 
 
 def load_memory(db: Session, user_id: int) -> dict:
@@ -79,6 +80,7 @@ def extract_and_update_memory(db: Session, user_id: int, conversation_text: str)
         }],
     )
 
+    log_usage(db, user_id, "claude-haiku-4-5-20251001", response.usage.input_tokens, response.usage.output_tokens)
     text = response.content[0].text.strip()
     # Extract JSON from response
     try:

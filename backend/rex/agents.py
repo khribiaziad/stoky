@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session, joinedload
 from core.date_ranges import MOROCCO_TZ
 from services.calculations import get_summary
 from services.stock_service import check_low_stock
+from rex.usage import log_usage
 import models
 
 
@@ -91,6 +92,7 @@ def analyze_hassan(question: str, db: Session, store_id: int) -> str:
         system=_HASSAN_PROMPT,
         messages=[{"role": "user", "content": f"Financial data:\n{json.dumps(ctx, indent=2, default=str)}\n\nQuestion: {question}"}],
     )
+    log_usage(db, store_id, "claude-haiku-4-5-20251001", resp.usage.input_tokens, resp.usage.output_tokens)
     return resp.content[0].text
 
 
@@ -172,6 +174,7 @@ def analyze_karima(question: str, db: Session, store_id: int) -> str:
         system=_KARIMA_PROMPT,
         messages=[{"role": "user", "content": f"Operations data:\n{json.dumps(ctx, indent=2, default=str)}\n\nQuestion: {question}"}],
     )
+    log_usage(db, store_id, "claude-haiku-4-5-20251001", resp.usage.input_tokens, resp.usage.output_tokens)
     return resp.content[0].text
 
 
@@ -241,6 +244,7 @@ def analyze_hamza(question: str, db: Session, store_id: int) -> str:
         system=_HAMZA_PROMPT,
         messages=[{"role": "user", "content": f"Ads data:\n{json.dumps(ctx, indent=2, default=str)}\n\nQuestion: {question}"}],
     )
+    log_usage(db, store_id, "claude-haiku-4-5-20251001", resp.usage.input_tokens, resp.usage.output_tokens)
     return resp.content[0].text
 
 
@@ -312,6 +316,7 @@ def analyze_youssef(question: str, db: Session, store_id: int) -> str:
         system=_YOUSSEF_PROMPT,
         messages=[{"role": "user", "content": f"Delivery data:\n{json.dumps(ctx, indent=2, default=str)}\n\nQuestion: {question}"}],
     )
+    log_usage(db, store_id, "claude-haiku-4-5-20251001", resp.usage.input_tokens, resp.usage.output_tokens)
     return resp.content[0].text
 
 
@@ -424,6 +429,7 @@ def analyze_omar(question: str, db: Session, store_id: int) -> str:
         system=_OMAR_PROMPT,
         messages=[{"role": "user", "content": f"Analytics data:\n{json.dumps(ctx, indent=2, default=str)}\n\nQuestion: {question}"}],
     )
+    log_usage(db, store_id, "claude-haiku-4-5-20251001", resp.usage.input_tokens, resp.usage.output_tokens)
     return resp.content[0].text
 
 

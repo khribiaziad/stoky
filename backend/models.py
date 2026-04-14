@@ -597,3 +597,29 @@ class RexMemory(Base):
     user_id    = Column(Integer, ForeignKey("users.id"), nullable=False, unique=True)
     facts      = Column(JSON, default=dict)
     updated_at = Column(DateTime, server_default=func.now())
+
+
+class RexUsageLog(Base):
+    __tablename__ = "rex_usage_logs"
+
+    id            = Column(Integer, primary_key=True)
+    user_id       = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    model         = Column(String, nullable=False)
+    input_tokens  = Column(Integer, default=0)
+    output_tokens = Column(Integer, default=0)
+    cost_usd      = Column(Float, default=0.0)
+    created_at    = Column(DateTime, server_default=func.now())
+
+
+class RexBilledMonth(Base):
+    __tablename__ = "rex_billed_months"
+    __table_args__ = (UniqueConstraint('user_id', 'year', 'month'),)
+
+    id         = Column(Integer, primary_key=True)
+    user_id    = Column(Integer, ForeignKey("users.id"), nullable=False)
+    year       = Column(Integer, nullable=False)
+    month      = Column(Integer, nullable=False)
+    cost_usd   = Column(Float, default=0.0)
+    cost_mad   = Column(Float, default=0.0)
+    expense_id = Column(Integer, ForeignKey("fixed_expenses.id"), nullable=True)
+    created_at = Column(DateTime, server_default=func.now())

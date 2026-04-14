@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 
 from .agents import get_agent_tools, run_agent
 from .memory import load_memory, format_memory_for_prompt
+from .usage import log_usage
 
 
 _REX_SYSTEM = """You are Rex, the AI business intelligence layer for Stocky — a COD dropshipping platform for Moroccan businesses.
@@ -83,6 +84,8 @@ def ask_rex_owner(
             messages=messages,
         )
 
+        log_usage(db, store_id, "claude-sonnet-4-6", response.usage.input_tokens, response.usage.output_tokens)
+
         if response.stop_reason == "end_turn":
             return "\n".join(b.text for b in response.content if hasattr(b, "text"))
 
@@ -132,6 +135,8 @@ def stream_rex_owner(
             messages=messages,
         )
 
+        log_usage(db, store_id, "claude-sonnet-4-6", response.usage.input_tokens, response.usage.output_tokens)
+
         if response.stop_reason != "tool_use":
             break
 
@@ -170,5 +175,7 @@ def stream_rex_owner(
         for text in stream.text_stream:
             full_answer += text
             yield f"data: {json.dumps({'type': 'token', 'text': text})}\n\n"
+        final = stream.get_final_message()
+        log_usage(db, store_id, "claude-sonnet-4-6", final.usage.input_tokens, final.usage.output_tokens)
 
     yield f"data: {json.dumps({'type': 'done', 'answer': full_answer})}\n\n"
